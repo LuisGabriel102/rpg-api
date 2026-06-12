@@ -2,8 +2,13 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+# Monolito: server.py monta o backend (/api/v1) + a Oficina NiceGUI (/oficina).
+# UM worker so (uvicorn default): o NiceGUI guarda estado de UI em memoria por
+# conexao; multiplos workers quebram a sessao.
+startCommand = "uvicorn server:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "always"
 restartPolicyMaxRetries = 10
+# NiceGUI usa WebSocket + estado em memoria -> 1 replica, sem scale-to-zero.
+numReplicas = 1

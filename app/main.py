@@ -5,7 +5,7 @@ Melhorias v3: d20, endpoints compostos, cache, Sentry, structlog, rate limiting,
 security headers, compressao, event sourcing, save points, maquina de estados."""
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 from starlette_compress import CompressMiddleware
@@ -20,8 +20,9 @@ from app.config import settings
 from app.database import pool
 from app.middleware import SecurityHeadersMiddleware, RequestLoggingMiddleware, configure_structlog
 from app.errors import register_error_handlers
-from app.openapi import custom_openapi, get_split_schema
+from app.openapi import custom_openapi
 from app.cache import cache_stats, cache_invalidate
+from app.auth import verify_token
 
 from app.routers import (
     session, character, combat, magic, npc,
@@ -77,10 +78,15 @@ app.add_middleware(CompressMiddleware, minimum_size=1000, gzip_level=5)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(CorrelationIdMiddleware, header_name="X-Request-ID")
+# === CORS (configurável via env; legado Custom GPT removido) ===
+_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+_allow_all = (not _origins) or ("*" in _origins)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://chat.openai.com", "https://chatgpt.com"],
-    allow_credentials=True,
+    allow_origins=["*"] if _allow_all else _origins,
+    # Wildcard e credentials sao incompativeis no browser: so liga credentials
+    # quando as origens sao explicitas (ex: dominio da app NiceGUI).
+    allow_credentials=not _allow_all,
     allow_methods=["*"],
     allow_headers=["*", "X-Request-ID"],
 )
@@ -125,31 +131,14 @@ async def root():
 
 
 @app.get("/cache/stats", tags=["Sistema"], include_in_schema=False)
-async def get_cache_stats():
+async def get_cache_stats(_token: str = Depends(verify_token)):
     return cache_stats()
 
 
 @app.post("/cache/invalidate", tags=["Sistema"], include_in_schema=False)
-async def invalidate_cache(prefix: str = ""):
+async def invalidate_cache(prefix: str = "", _token: str = Depends(verify_token)):
     removed = cache_invalidate(prefix)
     return {"status": "cache_invalidated", "entries_removed": removed}
-
-
-# === Schemas OpenAPI separados para GPT Custom Actions ===
-
-@app.get("/openapi-combat.json", tags=["Sistema"], include_in_schema=False)
-async def openapi_combat():
-    return get_split_schema(app, "combat")
-
-
-@app.get("/openapi-character.json", tags=["Sistema"], include_in_schema=False)
-async def openapi_character():
-    return get_split_schema(app, "character")
-
-
-@app.get("/openapi-world.json", tags=["Sistema"], include_in_schema=False)
-async def openapi_world():
-    return get_split_schema(app, "world")
 
 
 # === OpenAPI customizado ===

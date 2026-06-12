@@ -58,13 +58,13 @@ async def get_events(
     if aggregate_type:
         conditions.append("aggregate_type = %s")
         params.append(aggregate_type)
-    if aggregate_id:
+    if aggregate_id is not None:
         conditions.append("aggregate_id = %s")
         params.append(aggregate_id)
     if event_type:
         conditions.append("event_type = %s")
         params.append(event_type)
-    if sessao_id:
+    if sessao_id is not None:
         conditions.append("sessao_id = %s")
         params.append(sessao_id)
 

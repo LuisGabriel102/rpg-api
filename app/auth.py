@@ -9,7 +9,7 @@ security = HTTPBearer()
 async def verify_token(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> str:
-    if not secrets.compare_digest(credentials.credentials, settings.gpt_api_key):
+    if not secrets.compare_digest(credentials.credentials, settings.service_api_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token invalido",

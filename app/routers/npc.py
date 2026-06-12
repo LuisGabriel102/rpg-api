@@ -119,9 +119,11 @@ async def search_npcs(nome: Optional[str] = Query(None), localizacao: Optional[s
                       conn: AsyncConnection = Depends(get_db), _token: str = Depends(verify_token)):
     conditions, params = [], []
     if nome:
-        conditions.append("nome ILIKE %s"); params.append(f"%{nome}%")
+        _nome = nome.replace("%", "\\%").replace("_", "\\_")
+        conditions.append("nome ILIKE %s"); params.append(f"%{_nome}%")
     if localizacao:
-        conditions.append("localizacao_atual ILIKE %s"); params.append(f"%{localizacao}%")
+        _loc = localizacao.replace("%", "\\%").replace("_", "\\_")
+        conditions.append("localizacao_atual ILIKE %s"); params.append(f"%{_loc}%")
     if camada is not None:
         conditions.append("camada = %s"); params.append(camada)
     where = "WHERE " + " AND ".join(conditions) if conditions else ""

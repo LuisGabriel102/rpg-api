@@ -40,7 +40,32 @@ def _clean_schema(schema: dict) -> dict:
         schema["components"]["schemas"].pop("HTTPValidationError", None)
         schema["components"]["schemas"].pop("ValidationError", None)
 
+    # Remove anyOf/oneOf que o GPT nao suporta bem
+    _remove_anyof(schema)
+
     return schema
+
+
+def _remove_anyof(obj):
+    """Remove anyOf/oneOf recursivamente, mantendo o primeiro tipo nao-null.
+
+    FastAPI gera anyOf: [{type: integer}, {type: null}] para campos Optional.
+    O GPT Builder pode dar erro com esses campos. Convertemos para tipo simples.
+    """
+    if isinstance(obj, dict):
+        for key in ("anyOf", "oneOf"):
+            if key in obj:
+                alternatives = obj.pop(key)
+                # Pega o primeiro tipo que nao eh null
+                for alt in alternatives:
+                    if isinstance(alt, dict) and alt.get("type") != "null":
+                        obj.update(alt)
+                        break
+        for v in list(obj.values()):
+            _remove_anyof(v)
+    elif isinstance(obj, list):
+        for item in obj:
+            _remove_anyof(item)
 
 
 def _filter_schema_by_tags(full_schema: dict, allowed_tags: list, server_url: str) -> dict:
@@ -118,14 +143,30 @@ def custom_openapi(app: FastAPI):
 
 
 def get_split_schema(app: FastAPI, slot: str) -> dict:
-    """Gera schema filtrado para um action slot especifico."""
+    """Gera schema filtrado para um action slot especifico.
+
+    Cada slot usa um dominio DIFERENTE para evitar o erro do GPT:
+    'Cannot have multiple custom actions for the same domain'.
+    Todos apontam para o mesmo servico Railway.
+    """
     full = app.openapi()
 
     if slot not in ACTION_SLOTS:
         return {"error": f"Slot invalido. Use: {list(ACTION_SLOTS.keys())}"}
 
     tags = ACTION_SLOTS[slot]
-    server_url = settings.api_base_url
+
+    # Cada slot precisa de um dominio diferente para o GPT aceitar 3 Actions
+    import os
+    base = settings.api_base_url  # https://api.luisgabriel.uk
+    railway_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
+
+    slot_domains = {
+        "combat": base,
+        "character": base.replace("api.", "rpg.") if "api." in base else base,
+        "world": f"https://{railway_domain}" if railway_domain else base,
+    }
+    server_url = slot_domains.get(slot, base)
 
     filtered = _filter_schema_by_tags(full, tags, server_url)
     filtered["info"]["title"] = f"Nexus RPG - {slot.title()}"

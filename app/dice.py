@@ -72,13 +72,16 @@ def roll_damage(expression: str, critical: bool = False) -> dict:
     """Rola dano. Se critico, dobra os dados (nao o modificador)."""
     if critical:
         parts = expression.split("+")
-        dice_part = parts[0].strip()
-        mod_part = "+".join(parts[1:]).strip() if len(parts) > 1 else ""
-        if "d" in dice_part:
-            num, rest = dice_part.split("d", 1)
-            num = int(num) if num else 1
-            dice_part = f"{num * 2}d{rest}"
-        expression = dice_part + ("+" + mod_part if mod_part else "")
+        doubled = []
+        for part in parts:
+            part = part.strip()
+            if "d" in part:
+                num, rest = part.split("d", 1)
+                num = int(num) if num else 1
+                doubled.append(f"{num * 2}d{rest}")
+            else:
+                doubled.append(part)
+        expression = "+".join(doubled)
 
     result = roll(expression)
     if not result.get("error"):

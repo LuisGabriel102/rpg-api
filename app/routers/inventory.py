@@ -56,7 +56,8 @@ async def search_items(nome: Optional[str] = Query(None), tipo: Optional[str] = 
                        conn: AsyncConnection = Depends(get_db), _token: str = Depends(verify_token)):
     conditions, params = [], []
     if nome:
-        conditions.append("(nome ILIKE %s OR nome_ptbr ILIKE %s)"); params.extend([f"%{nome}%", f"%{nome}%"])
+        _nome = nome.replace("%", "\\%").replace("_", "\\_")
+        conditions.append("(nome ILIKE %s OR nome_ptbr ILIKE %s)"); params.extend([f"%{_nome}%", f"%{_nome}%"])
     if tipo:
         conditions.append("tipo = %s"); params.append(tipo)
     if raridade:
@@ -86,9 +87,11 @@ async def search_creatures(nome: Optional[str] = Query(None), tipo: Optional[str
 
     conditions, params = [], []
     if nome:
-        conditions.append("(nome ILIKE %s OR nome_ptbr ILIKE %s)"); params.extend([f"%{nome}%", f"%{nome}%"])
+        _nome = nome.replace("%", "\\%").replace("_", "\\_")
+        conditions.append("(nome ILIKE %s OR nome_ptbr ILIKE %s)"); params.extend([f"%{_nome}%", f"%{_nome}%"])
     if tipo:
-        conditions.append("tipo ILIKE %s"); params.append(f"%{tipo}%")
+        _tipo = tipo.replace("%", "\\%").replace("_", "\\_")
+        conditions.append("tipo ILIKE %s"); params.append(f"%{_tipo}%")
     if cr_min is not None:
         conditions.append("cr >= %s"); params.append(cr_min)
     if cr_max is not None:

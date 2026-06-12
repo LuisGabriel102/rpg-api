@@ -76,8 +76,9 @@ async def search_spells(
         conditions.append("escola = %s")
         params.append(escola)
     if nome:
+        _nome = nome.replace("%", "\\%").replace("_", "\\_")
         conditions.append("nome ILIKE %s")
-        params.append(f"%{nome}%")
+        params.append(f"%{_nome}%")
 
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
     params.extend([limite, offset])

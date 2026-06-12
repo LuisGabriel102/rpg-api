@@ -9,12 +9,16 @@ class Settings(BaseSettings):
     db_pool_max: int = 15
     db_pool_max_idle: float = 300.0
 
-    # Auth
-    gpt_api_key: str = "change-me-in-production"
+    # Auth (renomeado de gpt_api_key â€” legado Custom GPT)
+    service_api_key: str
+
+    # CORS â€” CSV de origens permitidas. Em producao, setar para o dominio da app
+    # (ex: "https://app.luisgabriel.uk"). "*" libera tudo (sem credentials).
+    cors_origins: str = "*"
 
     # API
     api_base_url: str = "https://your-app.up.railway.app"
-    api_version: str = "3.0.0"
+    api_version: str = "3.1.0"
     environment: str = "production"
 
     # Sentry
@@ -33,7 +37,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_slow_threshold_ms: float = 1000.0
 
-    model_config = {"env_file": ".env"}
+    model_config = {"env_file": ".env", "extra": "ignore"}
 
 
 @lru_cache

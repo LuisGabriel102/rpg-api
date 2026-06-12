@@ -119,9 +119,9 @@ async def execute_turn(
             raise HTTPException(status_code=404, detail="Nenhum combate ativo nesta sessao")
 
         # Validar fase do combate via maquina de estados
-        current_phase = (estado.get("fase_atual") or "acao").lower()
+        current_phase = (estado.get("fase_atual") or "").lower()
         action_phase = "acao"
-        if current_phase in VALID_TRANSITIONS and not validate_phase_transition(current_phase, action_phase):
+        if current_phase and current_phase in VALID_TRANSITIONS and not validate_phase_transition(current_phase, action_phase):
             from app.errors import CombatPhaseError
             raise CombatPhaseError(current_phase, payload.acao)
 

@@ -94,13 +94,19 @@ async def get_version(conn: AsyncConnection = Depends(get_db), _token: str = Dep
             summary="[SSE] Stream de atualizacoes em tempo real",
             description="Server-Sent Events para o site companion. NAO para o GPT.",
             include_in_schema=False)
-async def sse_updates(personagem_id: int, request: Request):
+async def sse_updates(personagem_id: int, request: Request, _token: str = Depends(verify_token)):
     """Envia atualizacoes do personagem via SSE a cada 3 segundos."""
 
     async def event_generator():
+        falhas = 0
+        ticks = 0
         while True:
             if await request.is_disconnected():
                 break
+            if ticks >= 1200:
+                yield {"event": "close", "data": "max_lifetime_reached"}
+                break
+            ticks += 1
             try:
                 async with pool.connection() as conn:
                     async with conn.cursor(row_factory=dict_row) as cur:
@@ -108,8 +114,13 @@ async def sse_updates(personagem_id: int, request: Request):
                         ficha = await cur.fetchone()
                         if ficha:
                             yield {"event": "character_update", "data": json.dumps(ficha, default=str)}
+                falhas = 0
             except Exception:
+                falhas += 1
                 yield {"event": "error", "data": "connection_failed"}
+                if falhas >= 5:
+                    yield {"event": "close", "data": "too_many_errors"}
+                    break
             await asyncio.sleep(3)
 
     return EventSourceResponse(event_generator())
