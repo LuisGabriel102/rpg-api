@@ -78,6 +78,9 @@ MODO_MOCK = True
 
 # Prosa falsa do modo mock - witcher-grey, ambigua (serve pra qualquer acao),
 # sem numeros na prosa. Cada trecho carrega um delta que faz a Pressao mexer.
+# Cada trecho carrega (prosa, delta_pressao, atmosfera). No mock, as atmosferas
+# ciclam de proposito (ermo na abertura, depois mata/frio/sangue/corte) pra dar
+# pra TESTAR as 5 peles visuais sem IA - a prosa aqui e placeholder generico.
 _MOCK_ABERTURA = (
     "A estrada morria nos primeiros casebres quando o sol já se fora. "
     "Cheirava a fumaça velha, e por baixo dela algo que a fumaça não cobria. "
@@ -85,17 +88,18 @@ _MOCK_ABERTURA = (
     "nenhuma luz. No fim da ruela, um cão ergueu a cabeça, não latiu, e tornou "
     "a deitar.",
     1,
+    "ermo",
 )
 _MOCK_REACOES = [
     ("O que respondeu primeiro foi o silêncio. Depois, mais ao fundo, madeira "
      "rangeu sob um peso que não se mostrava. O ar parou. Algo ali sabia que "
-     "ele havia chegado.", 2),
+     "ele havia chegado.", 2, "mata"),
     ("Nada se moveu na rua. Mas numa das casas uma cortina voltou ao lugar "
-     "devagar demais para ter sido o vento.", 1),
+     "devagar demais para ter sido o vento.", 1, "frio"),
     ("O frio entrou pela gola antes do som. Então o som veio: passos, muitos, "
-     "que pararam todos no mesmo instante, como se houvessem combinado.", 3),
+     "que pararam todos no mesmo instante, como se houvessem combinado.", 3, "sangue"),
     ("A respiração foi cedendo. A rua continuava vazia, indiferente, e por um "
-     "momento o peso sobre o peito afrouxou.", -2),
+     "momento o peso sobre o peito afrouxou.", -2, "corte"),
 ]
 
 
@@ -107,11 +111,11 @@ def _cronista_mock(historico: list[dict]) -> str:
     pressao_entrada = int(m.group(1)) if m else 0
     turno = sum(1 for x in historico if x["role"] == "user")
     if turno <= 1:
-        prosa, delta = _MOCK_ABERTURA
+        prosa, delta, atm = _MOCK_ABERTURA
     else:
-        prosa, delta = _MOCK_REACOES[(turno - 2) % len(_MOCK_REACOES)]
+        prosa, delta, atm = _MOCK_REACOES[(turno - 2) % len(_MOCK_REACOES)]
     nova = max(0, min(10, pressao_entrada + delta))
-    return f"{prosa}\n\n<estado>\npressao_emocional: {nova}\n</estado>"
+    return f"{prosa}\n\n<estado>\npressao_emocional: {nova}\natmosfera: {atm}\n</estado>"
 
 
 _client = None
@@ -150,23 +154,36 @@ def _chamar_cronista(historico: list[dict]) -> str:
 _RE_ESTADO = re.compile(r"<estado>(.*?)</estado>", re.S | re.I)
 _RE_PRESSAO = re.compile(r"pressao_emocional\s*:\s*(\d+)", re.I)
 
+# As 5 atmosferas da Gravura. O Cronista pode pedir uma trocando a pele da cena
+# pelo bloco <estado> (atmosfera: X). Whitelist fechada: nome fora dela e ignorado
+# (a cena mantem a atmosfera atual) - degrada sem quebrar, e blinda contra valor
+# torto vindo do LLM. ESPELHA a lista no JS de window.setAtmosfera (manter juntas).
+ATMOSFERAS = ("ermo", "mata", "frio", "sangue", "corte")
+_RE_ATMOSFERA = re.compile(r"atmosfera\s*:\s*([a-z]+)", re.I)
 
-def _separar_estado(resposta: str, pressao_anterior: int) -> tuple[str, int]:
-    """Separa a prosa do bloco <estado>. Devolve (prosa_limpa, nova_pressao).
 
-    O bloco <estado> e maquinaria: NUNCA vai pra tela. A validacao aqui e so o
-    clamp 0-10. Se o bloco faltar ou vier torto, a prosa passa inteira e a
-    Pressao se mantem - degrada sem quebrar.
+def _separar_estado(resposta: str, pressao_anterior: int) -> tuple[str, int, str | None]:
+    """Separa a prosa do bloco <estado>. Devolve (prosa, nova_pressao, atmosfera).
+
+    O bloco <estado> e maquinaria: NUNCA vai pra tela. A validacao aqui e o clamp
+    0-10 da Pressao e a whitelist da atmosfera. Se o bloco faltar ou vier torto, a
+    prosa passa inteira, a Pressao se mantem e a atmosfera vem None (a cena nao
+    troca) - degrada sem quebrar.
     """
     m = _RE_ESTADO.search(resposta)
     if not m:
-        return resposta.strip(), pressao_anterior
+        return resposta.strip(), pressao_anterior, None
     prosa = resposta[: m.start()].rstrip()
+    bloco = m.group(1)
     nova = pressao_anterior
-    mp = _RE_PRESSAO.search(m.group(1))
+    mp = _RE_PRESSAO.search(bloco)
     if mp:
         nova = max(0, min(10, int(mp.group(1))))
-    return prosa, nova
+    atm = None
+    ma = _RE_ATMOSFERA.search(bloco)
+    if ma and ma.group(1).lower() in ATMOSFERAS:
+        atm = ma.group(1).lower()
+    return prosa, nova, atm
 
 
 def _prosa_para_html(texto: str) -> str:
@@ -208,14 +225,42 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 
 .alderyn-stage{
   min-height:100vh; display:flex; align-items:center; justify-content:center;
-  padding:5vh 20px; position:relative;
-  background:radial-gradient(130% 100% at 50% 12%, #1a150e 0%, #110d09 48%, #0a0806 100%);
+  padding:5vh 20px; position:relative; overflow:hidden;
+  background-color:#0a0806;
+  background-repeat:no-repeat; background-position:center 40%; background-size:cover;
+  /* 3 camadas empilhadas: overlay de leitura | foto (o JS sorteia em --cena) |
+     cor de fallback (por atmosfera). Sem foto/sem R2 -> --cena:none e fica a cor. */
+  --tint:linear-gradient(180deg, rgba(9,7,6,.40), rgba(8,6,5,.60));
+  --cena:none;
+  --fallback:radial-gradient(130% 100% at 50% 12%, #1a150e 0%, #110d09 48%, #0a0806 100%);
+  background-image:var(--tint), var(--cena), var(--fallback);
+  transition:background-color 1s ease;
 }
 .alderyn-stage::before{
   content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
   opacity:.06; mix-blend-mode:overlay;
 }
+
+/* ===========================================================================
+   ATMOSFERA: a pele da cena. Cor vai pro MUNDO (--fallback + --aura); a folha e o
+   texto ficam INTOCADOS. A classe .atm-X escolhe so a COR; a FOTO entra por --cena,
+   que o JS (window.setAtmosfera) SORTEIA entre as variacoes daquela cena. O stage
+   empilha: overlay de leitura | --cena (foto) | --fallback (cor). Sem R2/sem foto,
+   --cena fica none e aparece a cor - o jogo roda igual. Degrada sem quebrar.
+   =========================================================================== */
+.alderyn-stage::after{
+  content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
+  background:radial-gradient(62% 52% at 50% 32%, var(--aura, transparent), transparent 72%);
+  opacity:.5; mix-blend-mode:screen; animation:respira 9s ease-in-out infinite;
+}
+@keyframes respira{ 0%,100%{opacity:.3} 50%{opacity:.62} }
+
+.alderyn-stage.atm-ermo  { --aura:rgba(178,98,46,.34);  --fallback:radial-gradient(130% 100% at 50% 72%, #241710, #130d09 58%, #0a0806); }
+.alderyn-stage.atm-mata  { --aura:rgba(72,150,98,.28);  --fallback:radial-gradient(130% 100% at 50% 60%, #122017, #0c130d 58%, #070a08); }
+.alderyn-stage.atm-frio  { --aura:rgba(96,152,192,.28); --fallback:radial-gradient(130% 100% at 50% 55%, #14202b, #0c1219 58%, #080b0e); }
+.alderyn-stage.atm-sangue{ --aura:rgba(170,74,66,.32);  --fallback:radial-gradient(130% 100% at 50% 58%, #2a1110, #160b0a 58%, #0a0606); }
+.alderyn-stage.atm-corte { --aura:rgba(192,152,72,.28); --fallback:radial-gradient(130% 100% at 50% 50%, #221a0e, #14100a 58%, #0a0806); }
 .pagina{
   position:relative; z-index:1; width:100%; max-width:728px;
   background:
@@ -337,12 +382,12 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
   text-transform:lowercase; color:var(--osso2); opacity:.6;
   border:1px dashed rgba(140,129,103,.5); border-radius:2px; padding:.2rem .55rem; background:rgba(14,11,8,.5); }
 
-@media (prefers-reduced-motion:reduce){ .pagina, .corpo .glow.show{ animation:none; } .pondera .ret span{ animation:none; } }
+@media (prefers-reduced-motion:reduce){ .pagina, .corpo .glow.show{ animation:none; } .pondera .ret span{ animation:none; } .alderyn-stage::after{ animation:none; } }
 </style>
 """
 
 _BODY = """
-<div class="alderyn-stage">
+<div class="alderyn-stage atm-ermo">
   <main class="pagina" aria-label="Folha do almanaque - tela de jogo">
 
     <div class="head">
@@ -390,6 +435,72 @@ _BODY = """
 
 _SCRIPT = '<script src="/static/jogar.js"></script>'
 
+# Mapa de quantas variacoes cada atmosfera tem no R2 (1 = so {slug}.webp).
+# Arquivos: variacao 1 = {slug}.webp ; 2..N = {slug}-2.webp ... {slug}-N.webp.
+# DEVE casar com o que foi subido no R2. sangue=3 de proposito (a 4a, com armas
+# explicitas, ficou de fora pra preservar a sutileza witcher-grey).
+_ATM_VARIACOES = {"ermo": 4, "mata": 3, "frio": 4, "sangue": 3, "corte": 4}
+
+# Helper proprio (NAO mexe no bundle jogar.js minificado). Troca a pele da cena
+# (classe .atm-X = cor) e SORTEIA a foto da cena em --cena. Whitelist fechada
+# (LISTA) ESPELHA ATMOSFERAS do Python. A foto so e re-sorteada quando a atmosfera
+# MUDA (ou forcar=true) - a mesma cena nao troca de imagem embaixo do jogador.
+_ATMOSFERA_JS = """
+<script>
+(function () {
+  var LOCAL = '/static/cenarios/atmosferas/';
+  var R2 = 'https://imagens.luisgabriel.uk/cenarios/atmosferas/';
+  var VARS = __VARS__;
+  var LISTA = Object.keys(VARS);
+  var atual = null;
+  var ultimaVar = {};
+  var reqId = 0;
+
+  function rel(nome, n) { return nome + (n > 1 ? '-' + n : '') + '.webp'; }
+  function sorteia(nome) {
+    var total = VARS[nome] || 1, n;
+    if (total <= 1) return 1;
+    do { n = Math.floor(Math.random() * total) + 1; } while (n === ultimaVar[nome]);
+    ultimaVar[nome] = n;
+    return n;
+  }
+
+  // Cascata: tenta LOCAL; se falhar, tenta R2; se falhar, cai na cor (--cena:none -> --fallback).
+  // reqId evita corrida: se a cena mudar antes do probe terminar, o resultado antigo e descartado.
+  function pintarCena(s, nome) {
+    var meu = ++reqId;
+    var arq = rel(nome, sorteia(nome));
+    var local = LOCAL + arq, remoto = R2 + arq;
+    var p1 = new Image();
+    p1.onload = function () { if (meu === reqId) s.style.setProperty('--cena', 'url("' + local + '")'); };
+    p1.onerror = function () {
+      var p2 = new Image();
+      p2.onload = function () { if (meu === reqId) s.style.setProperty('--cena', 'url("' + remoto + '")'); };
+      p2.onerror = function () { if (meu === reqId) s.style.setProperty('--cena', 'none'); };
+      p2.src = remoto;
+    };
+    p1.src = local;
+  }
+
+  window.setAtmosfera = function (nome, opts) {
+    var s = document.querySelector('.alderyn-stage');
+    if (!s || LISTA.indexOf(nome) < 0) return;
+    var forcar = !!(opts && opts.forcar);
+    if (nome === atual && !forcar) return;
+    LISTA.forEach(function (a) { s.classList.remove('atm-' + a); });
+    s.classList.add('atm-' + nome);
+    pintarCena(s, nome);
+    atual = nome;
+  };
+
+  function init() { window.setAtmosfera('ermo', { forcar: true }); }
+  if (document.readyState !== 'loading') { init(); }
+  else { document.addEventListener('DOMContentLoaded', init); }
+})();
+</script>
+"""
+_ATMOSFERA_JS = _ATMOSFERA_JS.replace("__VARS__", json.dumps(_ATM_VARIACOES))
+
 
 @ui.page("/jogar")
 async def pagina_jogar():
@@ -403,6 +514,7 @@ async def pagina_jogar():
     if MODO_MOCK:
         ui.add_body_html('<div class="selo-mock">modo de teste &mdash; sem IA</div>')
     ui.add_body_html(_SCRIPT)
+    ui.add_body_html(_ATMOSFERA_JS)
 
     def _js(code: str) -> None:
         """Dispara JS no cliente (fire-and-forget, como o resto do monolito)."""
@@ -438,9 +550,13 @@ async def pagina_jogar():
             # turnos seguintes e preserva o historico de evolucao da Pressao.
             historico.append({"role": "assistant", "content": resposta})
             # canal duplo - SAIDA: separa a prosa do bloco <estado> (oculto).
-            prosa, pressao_atual = _separar_estado(resposta, pressao_atual)
+            prosa, pressao_atual, atmosfera = _separar_estado(resposta, pressao_atual)
             _arrive(prosa)
             _js(f"window.Jogar && window.Jogar.setPressao({pressao_atual})")
+            # a cena so troca de pele se o Cronista pediu uma atmosfera valida;
+            # senao 'atmosfera' vem None e a pele atual se mantem.
+            if atmosfera:
+                _js(f"window.setAtmosfera && window.setAtmosfera({json.dumps(atmosfera)})")
         except Exception as exc:
             # a chamada falhou: o turno do jogador ficou sem resposta. Removemos
             # ele do historico, senao o proximo turno manda dois "user" seguidos
@@ -471,6 +587,7 @@ async def pagina_jogar():
         pressao_atual = 0
         _js("window.Jogar && window.Jogar.recomecar()")
         _js("window.Jogar && window.Jogar.setPressao(0)")
+        _js("window.setAtmosfera && window.setAtmosfera('ermo', {forcar:true})")
 
     ui.on("jogar_action", ao_agir)
     ui.on("jogar_comecar", ao_comecar)
