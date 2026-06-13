@@ -221,6 +221,7 @@ _CSS = """
 /* --- resets p/ vencer o Quasar/NiceGUI --- */
 body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !important; }
 .nicegui-content{ padding:0 !important; gap:0 !important; }
+.nicegui-content > div{ width:100% !important; }
 .oculto{ display:none !important; }
 
 .alderyn-stage{
