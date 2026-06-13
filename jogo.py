@@ -224,7 +224,7 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .oculto{ display:none !important; }
 
 .alderyn-stage{
-  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  width:100%; min-height:100vh; display:flex; align-items:center; justify-content:center;
   padding:5vh 20px; position:relative; overflow:hidden;
   background-color:#0a0806;
   background-repeat:no-repeat; background-position:center 40%; background-size:cover;
@@ -262,7 +262,7 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .alderyn-stage.atm-sangue{ --aura:rgba(170,74,66,.32);  --fallback:radial-gradient(130% 100% at 50% 58%, #2a1110, #160b0a 58%, #0a0606); }
 .alderyn-stage.atm-corte { --aura:rgba(192,152,72,.28); --fallback:radial-gradient(130% 100% at 50% 50%, #221a0e, #14100a 58%, #0a0806); }
 .pagina{
-  position:relative; z-index:1; width:100%; max-width:728px;
+  position:relative; z-index:1; width:100%; max-width:900px;
   background:
     radial-gradient(60% 50% at 6% 4%, rgba(60,42,20,.32), transparent 60%),
     radial-gradient(55% 45% at 96% 97%, rgba(50,35,18,.3), transparent 60%),
