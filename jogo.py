@@ -439,8 +439,6 @@ _BODY = """
 </div>
 """
 
-_SCRIPT = '<script src="/static/jogar.js"></script>'
-
 # Mapa de quantas variacoes cada atmosfera tem no R2 (1 = so {slug}.webp).
 # Arquivos: variacao 1 = {slug}.webp ; 2..N = {slug}-2.webp ... {slug}-N.webp.
 # DEVE casar com o que foi subido no R2. sangue=3 de proposito (a 4a, com armas
@@ -519,8 +517,17 @@ async def pagina_jogar():
     ui.html(_BODY)
     if MODO_MOCK:
         ui.add_body_html('<div class="selo-mock">modo de teste &mdash; sem IA</div>')
-    ui.add_body_html(_SCRIPT)
-    ui.add_body_html(_ATMOSFERA_JS)
+    # NiceGUI 3.13 remove <script> injetado no body (sanitizacao). Injetamos pela
+    # porta nao-sanitizada (run_javascript): o bundle vira um <script> REAL via
+    # createElement (executa, ao contrario de innerHTML) e o atmosfera-JS roda
+    # direto, sem as tags. So muda a FORMA de injetar; o conteudo e o mesmo.
+    ui.run_javascript(
+        "if(!document.getElementById('jogar-bundle')){"
+        "var s=document.createElement('script');"
+        "s.id='jogar-bundle';s.src='/static/jogar.js';"
+        "document.body.appendChild(s);}"
+    )
+    ui.run_javascript(_ATMOSFERA_JS.replace("<script>", "").replace("</script>", ""))
 
     def _js(code: str) -> None:
         """Dispara JS no cliente (fire-and-forget, como o resto do monolito)."""
