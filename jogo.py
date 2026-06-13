@@ -237,6 +237,10 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
   background-image:var(--tint), var(--cena), var(--fallback);
   transition:background-color 1s ease;
 }
+.entrada-cena{ position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:linear-gradient(180deg,rgba(9,7,6,.30),rgba(8,6,5,.52)), url("/static/cenarios/entrada/tarelea_vespera.webp");
+  background-size:cover; background-position:center; transition:opacity 1.4s ease; }
+.alderyn-stage:has(#portal.indo) .entrada-cena{ opacity:0; }
 .alderyn-stage::before{
   content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
@@ -389,6 +393,7 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 
 _BODY = """
 <div class="alderyn-stage atm-ermo">
+  <div class="entrada-cena" aria-hidden="true"></div>
   <main class="pagina" aria-label="Folha do almanaque - tela de jogo">
 
     <div class="head">
