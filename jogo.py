@@ -589,6 +589,8 @@ async def pagina_jogar():
     await aguardar_conexao_websocket("Abrindo a folha...")
 
     historico: list[dict] = []
+    ocupado = False   # trava de turno: barra acao concorrente durante o await do Cronista
+    geracao = 0       # token de geracao: recomecar incrementa e invalida narrar em voo
     pressao_atual = 0
 
     ui.add_head_html(_FONTS + _CSS)
@@ -621,7 +623,13 @@ async def pagina_jogar():
         _js(f"document.getElementById('pondera') && document.getElementById('pondera').classList.{acao}('oculto')")
 
     async def narrar(msg_usuario: str, mostrar_acao: bool = True):
-        nonlocal pressao_atual
+        nonlocal pressao_atual, ocupado, geracao
+        # trava de turno: se ja ha um turno em voo, ignora a nova acao ANTES de
+        # tocar o historico - senao dois "user" seguidos quebram a alternancia.
+        if ocupado:
+            return
+        ocupado = True
+        minha_geracao = geracao   # se recomecar acontecer durante o await, muda
         historico.append({"role": "user", "content": msg_usuario})
 
         if mostrar_acao:
@@ -637,6 +645,10 @@ async def pagina_jogar():
         _pondera(True)
         try:
             resposta = await run.io_bound(_chamar_cronista, msgs)
+            # recomecou durante o await: abandona sem escrever prosa fantasma nem
+            # tocar o historico (que o recomecar ja zerou).
+            if minha_geracao != geracao:
+                return
             # guarda a resposta COMPLETA (com <estado>): reforca o formato nos
             # turnos seguintes e preserva o historico de evolucao da Pressao.
             historico.append({"role": "assistant", "content": resposta})
@@ -649,6 +661,10 @@ async def pagina_jogar():
             if atmosfera:
                 _js(f"window.setAtmosfera && window.setAtmosfera({json.dumps(atmosfera)})")
         except Exception as exc:
+            # recomecou durante o await: nao contamina o historico ja zerado nem
+            # mostra aviso de uma cena que nao existe mais.
+            if minha_geracao != geracao:
+                return
             # a chamada falhou: o turno do jogador ficou sem resposta. Removemos
             # ele do historico, senao o proximo turno manda dois "user" seguidos
             # e a API rejeita (mensagens precisam alternar) - travaria o jogo.
@@ -657,7 +673,12 @@ async def pagina_jogar():
             aviso = f"o Cronista vacila - {type(exc).__name__}. Tente de novo."
             _js(f"window.Jogar && window.Jogar.arrive({json.dumps(html.escape(aviso))})")
         finally:
-            _pondera(False)
+            # so libera a trava se EU ainda sou a geracao vigente. Se um recomecar
+            # me invalidou, quem manda agora e a geracao nova - nao toco no estado
+            # dela (senao destravaria no meio do turno novo).
+            if minha_geracao == geracao:
+                _pondera(False)
+                ocupado = False
 
     async def ao_comecar(_=None):
         _js("window.Jogar && window.Jogar.entrar()")
@@ -673,7 +694,13 @@ async def pagina_jogar():
     async def ao_recomecar(_=None):
         # zera a cena sem reiniciar o servidor: limpa historico, Pressao e tela,
         # devolve o portal de entrada. Custo zero.
-        nonlocal pressao_atual
+        nonlocal pressao_atual, ocupado, geracao
+        # invalida qualquer turno em voo (o narrar checa a geracao apos o await e
+        # se abandona) e destrava. Assim recomecar no meio de um turno nao deixa
+        # prosa fantasma cair na tela limpa nem o jogo preso.
+        geracao += 1
+        ocupado = False
+        _pondera(False)
         historico.clear()
         pressao_atual = 0
         _js("window.Jogar && window.Jogar.recomecar()")
