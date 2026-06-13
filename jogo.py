@@ -28,6 +28,7 @@ Opus 4.8 real (paga), com prompt caching ligado.
 
 import html
 import json
+import random
 import re
 from pathlib import Path
 
@@ -90,32 +91,109 @@ _MOCK_ABERTURA = (
     1,
     "ermo",
 )
-_MOCK_REACOES = [
-    ("O que respondeu primeiro foi o silêncio. Depois, mais ao fundo, madeira "
-     "rangeu sob um peso que não se mostrava. O ar parou. Algo ali sabia que "
-     "ele havia chegado.", 2, "mata"),
-    ("Nada se moveu na rua. Mas numa das casas uma cortina voltou ao lugar "
-     "devagar demais para ter sido o vento.", 1, "frio"),
-    ("O frio entrou pela gola antes do som. Então o som veio: passos, muitos, "
-     "que pararam todos no mesmo instante, como se houvessem combinado.", 3, "sangue"),
-    ("A respiração foi cedendo. A rua continuava vazia, indiferente, e por um "
-     "momento o peso sobre o peito afrouxou.", -2, "corte"),
+# Ordem IMPORTA: primeira intencao que casar vence. Agressao testada primeiro
+# (a cena mais pesada ganha quando o texto mistura sinais, ex.: "saio atacando").
+_INTENCOES = [
+    ("agressao", re.compile(
+        r"atac|golpe|esfaque|apunhal|soc[oa]|murr|chut|agrid|agred|investe|empunh|"
+        r"desembainh|esmag|estrangul|degol|espanc|surr|porrad|pancad|parto pra cima|"
+        r"vou pra cima|mato|matar|fer[ie]r", re.IGNORECASE)),
+    ("fuga", re.compile(
+        r"fuj|fug|corr|escap|recu|afast|saio|me sai|disparo|bat[eo] em retirada|"
+        r"me escond|escond|sumo|debando", re.IGNORECASE)),
+    ("dialogo", re.compile(
+        r"fal[ao]|grit|cham|pergunt|respond|diz[eo]|berr|sussurr|interpel|saud|"
+        r"cumpriment|conver|negoci|implor|exij|pedind", re.IGNORECASE)),
+    ("cautela", re.compile(
+        r"observ|escut|ou[cç]|ouv|espreit|espi|olh|examin|inspecion|vigi|avali|"
+        r"aguard|esper|fic[ao] parad|fic[ao] imo", re.IGNORECASE)),
+    ("avanco", re.compile(
+        r"entr|abr[oae]|avanc|avan[çc]|sig[ao]|segu|and[ao]|caminh|vou |adentr|"
+        r"sob[oe]|des[çc]|desc[oe]|atravess|cruz|aproxim|chega|prossig|avante|rumo", re.IGNORECASE)),
 ]
+
+# Quanto cada intencao mexe na Pressao (clampada 0-10 no retorno).
+_DELTA = {"agressao": 3, "fuga": -1, "cautela": 1, "dialogo": 2, "avanco": 1, "ambiguo": 0}
+
+# Banco de prosa por intencao. Cada item: (prosa, atmosfera).
+# atmosfera "" no fallback = mantem a pele atual (parser ignora atmosfera ausente).
+_BANCO_REACOES = {
+    "agressao": [
+        ("O golpe partiu o silêncio antes de partir qualquer outra coisa. No vão que abriu, algo se mexeu — sem pressa, como quem já esperava ter de aparecer.", "sangue"),
+        ("Por um instante o povoado inteiro pareceu parar para assistir. Depois o movimento voltou, e voltou errado: uma porta que não devia se abrir abriu, devagar, do lado de dentro.", "sangue"),
+        ("O ferro encontrou o ar frio e o ar respondeu mais frio ainda. Adiante, na penumbra, uma respiração se firmou — não a de quem foge.", "sangue"),
+    ],
+    "fuga": [
+        ("A rua que viera curta ficou longa na volta. O povoado deixou ir sem um som, do jeito de quem solta de propósito o que pretende reaver.", "corte"),
+        ("O fôlego encurtou e o beco fechou à frente. Atrás, nenhum passo perseguia — e a ausência de passos pesou mais do que pesaria a perseguição.", "corte"),
+        ("A distância cresceu entre os casebres. O frio, não: esse veio junto, colado na nuca, sem se deixar para trás.", "corte"),
+    ],
+    "cautela": [
+        ("A quietude se estendeu, e o povoado a acompanhou. Mas havia dois silêncios ali, e só um deles esperava; o outro media.", "frio"),
+        ("Atrás de uma fresta, algo ajustou a postura — o gesto curto de quem não quer ser notado notando. Depois a fresta voltou a ser só fresta.", "frio"),
+        ("Primeiro o ouvido: madeira sob um peso, um arrasto breve, e então nada. O nada durou tempo demais para ter sido o vento.", "frio"),
+    ],
+    "avanco": [
+        ("Cada passo afundou um pouco mais no escuro que o povoado guardava. A porta que batia ao vento parou de bater na aproximação — como se, do outro lado, uma mão a tivesse segurado.", "mata"),
+        ("O caminho seguiu entre os casebres, e os casebres seguiram fingindo-se vazios. Num deles o fingimento falhou: uma respiração, contida tarde demais.", "mata"),
+        ("Adiante a ruela se estreitou e a pouca luz acabou de vez. O cheiro de fumaça velha cedeu a outro, mais fundo, que vinha de algo ainda não visto.", "mata"),
+    ],
+    "dialogo": [
+        ("A voz saiu e a rua a engoliu sem eco. Então, de um ponto que não dava para apontar, o escuro se mexeu — e o modo como se mexeu foi toda a resposta.", "ermo"),
+        ("Ninguém devolveu palavra. Mas uma janela fechada deixou de estar fechada, sem ruído, e ficou assim: aberta, negra, à espera do resto.", "ermo"),
+        ("O chamado encontrou ouvidos — isso o ar deixava sentir. Quantos eram, e com que intenção escutavam, o ar não dizia.", "ermo"),
+    ],
+    "ambiguo": [
+        ("O gesto se perdeu no ar parado. O povoado não deu sinal de ter notado — ou fingiu não notar, que ali parecia dar no mesmo.", ""),
+        ("Fosse o que fosse, a rua absorveu sem resposta. O silêncio seguiu inteiro, paciente, à espera do que viria de fato.", ""),
+        ("Nada no escuro reagiu. As casas seguiram caladas, as janelas vazias, e o instante passou como se nada nele tivesse pesado.", ""),
+    ],
+}
+
+
+def _texto_do_jogador(conteudo: str) -> str:
+    # O narrar prefixa "[ESTADO] pressao_emocional: N\n\n{texto}". Isola o texto.
+    if conteudo.startswith("[ESTADO]"):
+        partes = conteudo.split("\n\n", 1)
+        return partes[1].strip() if len(partes) > 1 else ""
+    return conteudo.strip()
+
+
+def _classificar_intencao(texto: str) -> str:
+    for nome, rx in _INTENCOES:
+        if rx.search(texto):
+            return nome
+    return "ambiguo"
 
 
 def _cronista_mock(historico: list[dict]) -> str:
-    """Narrador FALSO. Le a Pressao da entrada, escolhe um trecho e devolve
-    prosa + bloco <estado> - exatamente o formato que o Opus produziria."""
+    """Narrador FALSO, REATIVO. Le a Pressao e a intencao do texto do jogador,
+    escolhe um trecho do banco da intencao e devolve prosa + bloco <estado> -
+    no mesmo formato que o Opus produziria."""
     ultima = historico[-1]["content"] if historico else ""
     m = _RE_PRESSAO.search(ultima)
     pressao_entrada = int(m.group(1)) if m else 0
     turno = sum(1 for x in historico if x["role"] == "user")
+
     if turno <= 1:
         prosa, delta, atm = _MOCK_ABERTURA
     else:
-        prosa, delta, atm = _MOCK_REACOES[(turno - 2) % len(_MOCK_REACOES)]
+        intencao = _classificar_intencao(_texto_do_jogador(ultima))
+        banco = _BANCO_REACOES[intencao]
+        # anti-repeticao: evita o trecho usado no ultimo turno do assistente
+        ultima_assist = next(
+            (x["content"] for x in reversed(historico) if x["role"] == "assistant"), ""
+        )
+        candidatos = [t for t in banco if t[0] not in ultima_assist] or banco
+        prosa, atm = random.choice(candidatos)
+        delta = _DELTA[intencao]
+
     nova = max(0, min(10, pressao_entrada + delta))
-    return f"{prosa}\n\n<estado>\npressao_emocional: {nova}\natmosfera: {atm}\n</estado>"
+    if atm:
+        corpo = f"pressao_emocional: {nova}\natmosfera: {atm}"
+    else:
+        corpo = f"pressao_emocional: {nova}"
+    return f"{prosa}\n\n<estado>\n{corpo}\n</estado>"
 
 
 _client = None
