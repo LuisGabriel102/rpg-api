@@ -615,49 +615,94 @@ def _render_card_estrela(e: dict) -> None:
             )
 
 
+_E_PERG = dict(folha="#fdf1dc", caixa="#f6ead0", pagina="#efe3c9", arte_bg="#efe2c4",
+               tijolo="#58180d", regua="#922610", pill="#6e2410", txt="#2a1c0e",
+               sec="#5a4632", rodape="#7a6648")
+_E_SERIF = "'Cinzel',serif"
+_E_BODY = "'Crimson Text',Georgia,serif"
+
+def _ee(s):
+    return html.escape(str(s)) if s is not None else ""
+
+def _estrela_barra_html(p1, p2, p3, *, escuro: bool) -> str:
+    if escuro:
+        c1, c2, c3 = "#b8902f", "#8a6d24", "#5a4a20"
+        rotulo = "#9a8a5a"
+    else:
+        P = _E_PERG
+        c1, c2, c3 = P["regua"], "#b5754a", "#cda37a"
+        rotulo = P["sec"]
+    return (
+        f'<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-top:4px;">'
+        f'<div style="width:{p1}%;background:{c1};"></div>'
+        f'<div style="width:{p2}%;background:{c2};"></div>'
+        f'<div style="width:{p3}%;background:{c3};"></div></div>'
+        f'<div style="display:flex;justify-content:space-between;font-family:{_E_SERIF};font-size:10px;'
+        f'letter-spacing:.04em;color:{rotulo};margin-top:3px;">'
+        f'<span>Raras {p1}%</span><span>Médias {p2}%</span><span>Comuns {p3}%</span></div>'
+    )
+
+def _card_estrela_html(e: dict) -> str:
+    cor = "#b8902f"
+    barra = _estrela_barra_html(e["pct_1"], e["pct_2"], e["pct_3"], escuro=True)
+    return (
+        f'<a href="/oficina/estrelas/{e["id"]}" class="criatura-card" '
+        'style="display:block;text-decoration:none;padding:18px 20px;">'
+        f'<div style="font-family:\'IM Fell English\',serif;font-size:23px;color:#f3e7c4;line-height:1.1;">{_ee(e["nome"])}</div>'
+        f'<div style="font-family:\'IM Fell English SC\',serif;font-size:11px;letter-spacing:.1em;color:{cor};margin-top:4px;">{_ee(e["epiteto"])}</div>'
+        f'<div style="font-family:\'Spectral\',Georgia,serif;font-style:italic;font-size:13px;color:#c0a36a;margin-top:10px;line-height:1.5;">“{_ee(e["lema"])}”</div>'
+        f'<div style="font-family:\'IM Fell English SC\',serif;font-size:11px;letter-spacing:.08em;color:#9a8a5a;margin-top:10px;">{_ee(e["atributos"])}</div>'
+        f'<div style="margin-top:12px;">{barra}</div>'
+        f'<div style="border-top:1px solid #2a2418;margin-top:14px;padding-top:10px;">'
+        f'<div style="font-family:\'IM Fell English SC\',serif;font-size:10px;letter-spacing:.1em;color:#7a6f55;">LENDÁRIA &middot; d100=100</div>'
+        f'<div style="font-family:\'Spectral\',Georgia,serif;font-style:italic;font-size:14px;color:{cor};margin-top:2px;">{_ee(e["lendaria"])}</div>'
+        '</div></a>'
+    )
+
+def _hab_estrela_html(h: dict) -> str:
+    P = _E_PERG
+    lend = h.get("lendaria")
+    preco = h.get("tem_preco")
+    borda = f'2px solid {P["regua"]}' if lend else f'1px solid {P["regua"]}'
+    pills = (f'<span style="font-family:{_E_SERIF};font-size:11px;color:#fdf1dc;background:{P["pill"]};'
+             f'border-radius:3px;padding:1px 7px;">d{h["d100"]:02d}</span>')
+    if preco:
+        pills += (f' <span style="font-family:{_E_SERIF};font-size:10px;color:{P["pill"]};border:1px solid {P["pill"]};'
+                  f'border-radius:3px;padding:1px 7px;">COBRA PREÇO</span>')
+    if lend:
+        pills += (f' <span style="font-family:{_E_SERIF};font-size:10px;color:#fdf1dc;background:{P["tijolo"]};'
+                  f'border-radius:3px;padding:1px 7px;">LENDÁRIA</span>')
+    nome_cor = P["tijolo"]
+    return _e_card(
+        f'<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">'
+        f'{pills}<span style="font-family:{_E_SERIF};font-weight:700;font-size:15px;color:{nome_cor};">{_ee(h["nome"])}</span></div>'
+        f'<div style="font-family:{_E_BODY};font-size:14px;color:{P["txt"]};line-height:1.6;white-space:pre-line;margin-top:5px;">{_ee(h["descricao"])}</div>'
+    )
+
+def _e_card(corpo):
+    P = _E_PERG
+    return f'<div style="background:{P["caixa"]};border:1px solid {P["regua"]};border-radius:5px;padding:12px 15px;margin-bottom:9px;">{corpo}</div>'
+
+
 @ui.page("/oficina/estrelas")
 async def pagina_estrelas():
-    """Grid 4x3 das 12 estrelas do Veu. Primeira tela real da Catedral."""
-    # FIX TIMEOUT NICEGUI: envia placeholder + aguarda WS antes das queries.
+    """Galeria vitral das 12 estrelas do Veu."""
     await aguardar_conexao_websocket("Catalogando estrelas do Véu...")
-
+    ui.add_head_html(CSS_VITRAL)
     barra_nav("estrelas")
 
     estrelas = await _buscar_estrelas()
+    cards = "".join(_card_estrela_html(e) for e in estrelas)
+    grade = '<div class="gp-grid">' + cards + '</div>'
 
-    with ui.column().classes(
-        "w-full min-h-screen bg-zinc-900 text-zinc-100 p-8 gap-6"
-    ):
-        # Header com botao voltar
-        with ui.row().classes("w-full items-center justify-between"):
-            with ui.row().classes("items-center gap-3"):
-                ui.button(
-                    icon="arrow_back",
-                    on_click=lambda: ui.navigate.to("/oficina"),
-                ).props("flat round dense color=amber-2")
-
-                with ui.column().classes("gap-0"):
-                    ui.label("Estrelas do Véu").classes(
-                        "text-3xl font-bold text-amber-200"
-                    )
-                    ui.label(
-                        f"{len(estrelas)} astros sob os quais as almas nascem"
-                    ).classes("text-sm text-zinc-400 italic")
-
-        ui.separator().classes("bg-zinc-700")
-
-        # Grid responsivo 4x3
-        with ui.element("div").classes(
-            "w-full grid grid-cols-1 md:grid-cols-2 "
-            "lg:grid-cols-3 xl:grid-cols-4 gap-4"
-        ):
-            for e in estrelas:
-                _render_card_estrela(e)
-
-        with ui.row().classes("w-full justify-center mt-auto pt-8"):
-            ui.label(
-                "Módulo 5.4 OK. Clique numa estrela pra ver suas 100 habilidades."
-            ).classes("text-xs text-zinc-600 italic")
+    with ui.column().classes("gp-screen w-full min-h-screen p-0 gap-0"):
+        with ui.column().classes("gp-inner w-full gap-4"):
+            ui.html(
+                '<div style="font-family:\'IM Fell English\',serif;font-size:34px;color:#f3e7c4;line-height:1.1;">Estrelas do Véu</div>'
+                f'<div style="font-family:\'IM Fell English SC\',serif;font-size:12px;letter-spacing:.14em;color:#9a8a5a;margin-top:6px;">'
+                f'{len(estrelas)} ASTROS SOB OS QUAIS SE NASCE</div>'
+            )
+            ui.html(grade).classes("w-full")
 
 
 
@@ -788,92 +833,78 @@ async def pagina_estrela_detalhe(estrela_id: int):
 
     estrela = await _buscar_estrela_por_id(estrela_id)
 
+    ui.add_head_html(CSS_PERGAMINHO)
+
     if not estrela:
         with ui.column().classes(
-            "w-full min-h-screen bg-zinc-900 text-zinc-100 p-8 items-center "
-            "justify-center gap-4"
-        ):
-            ui.label("Estrela nao encontrada.").classes(
-                "text-2xl text-zinc-400"
+            "w-full min-h-screen items-center justify-center gap-4 p-8"
+        ).style("background:#efe3c9;color:#2a1c0e;"):
+            ui.html(
+                '<div style="font-family:\'Cinzel\',serif;font-size:22px;color:#58180d;">'
+                'Estrela não encontrada.</div>'
             )
             ui.button(
                 "Voltar", on_click=lambda: ui.navigate.to("/oficina/estrelas")
-            ).props("color=amber-8")
+            ).props("flat color=brown-8")
         return
 
     habs_por_cat = await _buscar_habilidades_estrela(estrela_id)
+    P = _E_PERG
+    cat_meta = {1: "Raras", 2: "Médias", 3: "Comuns"}
 
-    with ui.column().classes(
-        "w-full min-h-screen bg-zinc-900 text-zinc-100 p-8 gap-6"
+    barra = _estrela_barra_html(
+        estrela["pct_1"], estrela["pct_2"], estrela["pct_3"], escuro=False
+    )
+    cabecalho = (
+        f'<div style="background:{P["caixa"]};border:1px solid {P["regua"]};'
+        f'border-radius:6px;padding:22px 26px;">'
+        f'<div style="font-family:{_E_SERIF};font-weight:700;font-size:34px;'
+        f'color:{P["tijolo"]};line-height:1.05;">{_ee(estrela["nome"])}</div>'
+        f'<div style="font-family:{_E_BODY};font-style:italic;font-size:16px;'
+        f'color:{P["sec"]};margin-top:3px;">{_ee(estrela["epiteto"])}</div>'
+        f'<div style="font-family:{_E_BODY};font-style:italic;font-size:15px;'
+        f'color:{P["txt"]};margin-top:10px;">“{_ee(estrela["lema"])}”</div>'
+        f'<div style="font-family:{_E_SERIF};font-size:12px;letter-spacing:.08em;'
+        f'color:{P["pill"]};margin-top:14px;">{_ee(estrela["atributos"])}</div>'
+        f'<div style="max-width:420px;margin-top:10px;">{barra}</div>'
+        '</div>'
+    )
+
+    secoes = ""
+    for cat in (1, 2, 3):
+        habs = habs_por_cat.get(cat, [])
+        n = len(habs)
+        if habs:
+            corpo = "".join(_hab_estrela_html(h) for h in habs)
+        else:
+            corpo = (
+                f'<div style="font-family:{_E_BODY};font-style:italic;'
+                f'color:{P["sec"]};">Nenhuma habilidade nesta categoria.</div>'
+            )
+        aberto = " open" if cat <= 2 else ""
+        secoes += (
+            f'<details{aberto} style="margin-top:18px;">'
+            f'<summary style="font-family:{_E_SERIF};font-size:13px;'
+            f'letter-spacing:.12em;color:{P["tijolo"]};'
+            f'border-bottom:2px solid {P["regua"]};padding-bottom:5px;'
+            f'margin-bottom:12px;cursor:pointer;">'
+            f'CATEGORIA {cat} — {cat_meta[cat].upper()} '
+            f'({n} HABILIDADES)</summary>{corpo}</details>'
+        )
+
+    with ui.column().classes("w-full min-h-screen p-0 gap-0").style(
+        "background:#efe3c9;color:#2a1c0e;"
     ):
-        # === Header ===
-        with ui.row().classes("w-full items-start justify-between"):
-            with ui.row().classes("items-center gap-3"):
-                ui.button(
-                    icon="arrow_back",
-                    on_click=lambda: ui.navigate.to("/oficina/estrelas"),
-                ).props("flat round dense color=amber-2")
-
-                with ui.column().classes("gap-0"):
-                    with ui.row().classes("items-baseline gap-3"):
-                        ui.label(estrela["nome"]).classes(
-                            "text-4xl font-bold text-amber-200 tracking-wide"
-                        )
-                        ui.label(estrela["epiteto"]).classes(
-                            "text-xl text-zinc-400 italic"
-                        )
-                    ui.label(
-                        f'\u201c{estrela["lema"]}\u201d'
-                    ).classes("text-sm text-zinc-300 italic mt-1")
-
-        # === Stats compactos ===
-        with ui.row().classes("w-full items-center gap-6 flex-wrap"):
-            with ui.row().classes("items-center gap-2"):
-                ui.icon("fitness_center", size="1rem").classes("text-zinc-500")
-                ui.label(estrela["atributos"]).classes(
-                    "text-sm font-mono text-zinc-400"
-                )
-            with ui.row().classes("items-center gap-4"):
-                ui.label(
-                    f'Raras {estrela["pct_1"]}%'
-                ).classes("text-xs font-mono text-amber-300")
-                ui.label(
-                    f'Medias {estrela["pct_2"]}%'
-                ).classes("text-xs font-mono text-zinc-500")
-                ui.label(
-                    f'Comuns {estrela["pct_3"]}%'
-                ).classes("text-xs font-mono text-zinc-600")
-
-        ui.separator().classes("bg-zinc-700")
-
-        # === 3 secoes por categoria ===
-        for cat in [1, 2, 3]:
-            label_cat, cor_cat, icone_cat = _CAT_LABELS[cat]
-            habs = habs_por_cat.get(cat, [])
-            n = len(habs)
-
-            with ui.expansion(
-                f"Categoria {cat} — {label_cat} ({n} habilidades)",
-                icon=icone_cat,
-                value=(cat <= 2),
-            ).classes(
-                "w-full bg-zinc-800 rounded mb-2"
-            ).props("dense header-class=text-amber-100"):
-                with ui.column().classes("w-full gap-3 p-2"):
-                    if not habs:
-                        ui.label("Nenhuma habilidade nesta categoria.").classes(
-                            "text-zinc-500 italic"
-                        )
-                    else:
-                        for h in habs:
-                            _render_habilidade(h)
-
-        # === Rodape ===
-        with ui.row().classes("w-full justify-center mt-auto pt-8"):
-            total = sum(len(v) for v in habs_por_cat.values())
-            ui.label(
-                f"Módulo 5.4 OK. {total} habilidades de {estrela['nome']}."
-            ).classes("text-xs text-zinc-600 italic")
+        with ui.column().classes(
+            "w-full max-w-4xl mx-auto px-6 py-8 gap-3"
+        ).style("box-sizing:border-box;"):
+            ui.html(
+                '<a href="/oficina/estrelas" style="text-decoration:none;'
+                'font-family:\'Cinzel\',serif;font-size:12px;'
+                'letter-spacing:.12em;color:#7a6648;">‹ ESTRELAS DO VÉU</a>'
+            )
+            ui.html(cabecalho).classes("w-full")
+            ui.html(secoes).classes("w-full")
 
 
 
