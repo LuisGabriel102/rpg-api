@@ -620,6 +620,8 @@ _E_PERG = dict(folha="#fdf1dc", caixa="#f6ead0", pagina="#efe3c9", arte_bg="#efe
                sec="#5a4632", rodape="#7a6648")
 _E_SERIF = "'Cinzel',serif"
 _E_BODY = "'Crimson Text',Georgia,serif"
+_ABRE = chr(0x201c)   # aspa curva abre
+_FECHA = chr(0x201d)  # aspa curva fecha
 
 def _ee(s):
     return html.escape(str(s)) if s is not None else ""
@@ -642,12 +644,104 @@ def _estrela_barra_html(p1, p2, p3, *, escuro: bool) -> str:
         f'<span>Raras {p1}%</span><span>Médias {p2}%</span><span>Comuns {p3}%</span></div>'
     )
 
+CONSTELACOES = {
+    1: {  # MARKA - A Forja - bigorna
+        "pts": [(28,32,'m'),(50,30,'a'),(74,35,'m'),(50,50,'p'),(34,70,'m'),(66,70,'m'),(50,77,'p')],
+        "linhas": [(0,1),(1,2),(1,3),(3,4),(3,5),(4,6),(6,5)],
+    },
+    2: {  # LIRETH - A Mare - onda em S
+        "pts": [(24,34,'m'),(44,27,'p'),(55,45,'a'),(45,62,'p'),(60,76,'p'),(80,68,'m')],
+        "linhas": [(0,1),(1,2),(2,3),(3,4),(4,5)],
+    },
+    3: {  # VORN - A Sombra - fragmentada, um ponto solto (ausencia)
+        "pts": [(26,30,'p'),(62,28,'p'),(46,52,'m'),(70,68,'p'),(34,72,'p')],
+        "linhas": [(0,2),(2,3),(2,4)],
+    },
+    4: {  # THESSAR - O Fogo Vivo - chama subindo, duas linguas
+        "pts": [(38,80,'m'),(62,80,'m'),(42,62,'p'),(58,56,'p'),(46,40,'p'),(56,30,'m'),(50,17,'a')],
+        "linhas": [(0,1),(0,2),(2,4),(4,5),(5,6),(1,3),(3,4)],
+    },
+    5: {  # AUREN - A Raiz - tronco central + raizes
+        "pts": [(50,18,'m'),(50,42,'a'),(50,60,'p'),(30,76,'m'),(42,82,'p'),(60,82,'p'),(72,74,'m')],
+        "linhas": [(0,1),(1,2),(2,3),(2,4),(2,5),(2,6)],
+    },
+    6: {  # CALDRIS - O Gelo - cristal hexagonal simetrico
+        "pts": [(50,20,'m'),(76,35,'p'),(76,65,'p'),(50,80,'m'),(24,65,'p'),(24,35,'p')],
+        "linhas": [(0,1),(1,2),(2,3),(3,4),(4,5),(5,0)],
+    },
+    7: {  # MIREHN - O Limiar - portal (2 pilares + verga)
+        "pts": [(32,24,'m'),(50,20,'a'),(68,24,'m'),(32,52,'p'),(32,80,'p'),(68,80,'p')],
+        "linhas": [(0,1),(1,2),(0,3),(3,4),(2,5)],
+    },
+    8: {  # DORRAS - A Tempestade - raio em ziguezague
+        "pts": [(42,16,'m'),(62,33,'p'),(40,45,'a'),(62,57,'p'),(40,67,'p'),(60,79,'p'),(46,88,'m')],
+        "linhas": [(0,1),(1,2),(2,3),(3,4),(4,5),(5,6)],
+    },
+    9: {  # SAEL - O Cantor - arco de som (curva)
+        "pts": [(24,64,'m'),(33,46,'p'),(46,35,'p'),(58,33,'a'),(70,40,'p'),(78,56,'m')],
+        "linhas": [(0,1),(1,2),(2,3),(3,4),(4,5)],
+    },
+    10: {  # VRETH - A Besta - cranio de fera (chifres + face triangular)
+        "pts": [(24,42,'m'),(36,26,'p'),(50,34,'a'),(64,26,'p'),(76,42,'m'),(50,60,'m')],
+        "linhas": [(0,1),(1,2),(2,3),(3,4),(1,5),(4,5)],
+    },
+    11: {  # ILUVEN - O Veu - olho (amendoa + pupila central isolada)
+        "pts": [(24,50,'m'),(40,38,'p'),(58,38,'p'),(76,50,'m'),(58,62,'p'),(40,62,'p'),(50,50,'a')],
+        "linhas": [(0,1),(1,2),(2,3),(3,4),(4,5),(5,0)],
+    },
+    12: {  # ORRATH - O Trono - coroa (base + 5 pontas)
+        "pts": [(30,62,'m'),(70,62,'m'),(30,44,'p'),(43,36,'p'),(50,28,'a'),(57,36,'p'),(70,44,'p')],
+        "linhas": [(0,1),(0,2),(2,3),(3,4),(4,5),(5,6),(6,1)],
+    },
+}
+
+_C_TIER = {'a': (4.4, 0.22, 2.1), 'm': (2.9, 0.18, 1.45), 'p': (0.0, 0.0, 1.0)}
+
+def _constelacao_svg(eid: int, px: int = 150, pergaminho: bool = False) -> str:
+    c = CONSTELACOES.get(eid)
+    if not c:
+        # fallback neutro: placa de ceu vazia (estrela sem forma definida)
+        moldura = ('stroke="#58180d" stroke-width="0.8" stroke-opacity="0.55"' if pergaminho
+                   else 'stroke="#caa23a" stroke-width="0.5" stroke-opacity="0.22"')
+        return (f'<svg viewBox="0 0 100 100" width="{px}" height="{px}" xmlns="http://www.w3.org/2000/svg">'
+                f'<rect x="0" y="0" width="100" height="100" rx="7" fill="#11151f"/>'
+                f'<rect x="0.6" y="0.6" width="98.8" height="98.8" rx="6.6" fill="none" {moldura}/></svg>')
+    pts = c["pts"]
+    linhas = ""
+    for i, j in c["linhas"]:
+        x1, y1, _ = pts[i]
+        x2, y2, _ = pts[j]
+        linhas += (f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
+                   f'stroke="#b8902f" stroke-width="0.5" stroke-opacity="0.30"/>')
+    estrelas = ""
+    for (x, y, t) in pts:
+        hr, ho, nr = _C_TIER[t]
+        if hr > 0:
+            estrelas += f'<circle cx="{x}" cy="{y}" r="{hr}" fill="#d8b24a" fill-opacity="{ho}"/>'
+        estrelas += f'<circle cx="{x}" cy="{y}" r="{nr}" fill="#f3e7c4"/>'
+    moldura = ('stroke="#58180d" stroke-width="0.8" stroke-opacity="0.55"' if pergaminho
+               else 'stroke="#caa23a" stroke-width="0.5" stroke-opacity="0.22"')
+    return (
+        f'<svg viewBox="0 0 100 100" width="{px}" height="{px}" xmlns="http://www.w3.org/2000/svg">'
+        f'<defs><radialGradient id="ceu{eid}" cx="50%" cy="42%" r="72%">'
+        f'<stop offset="0%" stop-color="#222c49"/>'
+        f'<stop offset="62%" stop-color="#141a2e"/>'
+        f'<stop offset="100%" stop-color="#080b14"/>'
+        f'</radialGradient></defs>'
+        f'<rect x="0" y="0" width="100" height="100" rx="7" fill="url(#ceu{eid})"/>'
+        f'<rect x="0.6" y="0.6" width="98.8" height="98.8" rx="6.6" fill="none" {moldura}/>'
+        f'{linhas}{estrelas}</svg>'
+    )
+
+
 def _card_estrela_html(e: dict) -> str:
     cor = "#b8902f"
     barra = _estrela_barra_html(e["pct_1"], e["pct_2"], e["pct_3"], escuro=True)
     return (
         f'<a href="/oficina/estrelas/{e["id"]}" class="criatura-card" '
-        'style="display:block;text-decoration:none;padding:18px 20px;">'
+        'style="display:block;text-decoration:none;padding:16px 18px;">'
+        f'<div style="display:flex;justify-content:center;margin-bottom:12px;">'
+        f'{_constelacao_svg(e["id"], px=132)}</div>'
         f'<div style="font-family:\'IM Fell English\',serif;font-size:23px;color:#f3e7c4;line-height:1.1;">{_ee(e["nome"])}</div>'
         f'<div style="font-family:\'IM Fell English SC\',serif;font-size:11px;letter-spacing:.1em;color:{cor};margin-top:4px;">{_ee(e["epiteto"])}</div>'
         f'<div style="font-family:\'Spectral\',Georgia,serif;font-style:italic;font-size:13px;color:#c0a36a;margin-top:10px;line-height:1.5;">“{_ee(e["lema"])}”</div>'
@@ -852,22 +946,21 @@ async def pagina_estrela_detalhe(estrela_id: int):
     P = _E_PERG
     cat_meta = {1: "Raras", 2: "Médias", 3: "Comuns"}
 
+    placa_det = _constelacao_svg(estrela["id"], px=120, pergaminho=True)
     barra = _estrela_barra_html(
         estrela["pct_1"], estrela["pct_2"], estrela["pct_3"], escuro=False
     )
     cabecalho = (
-        f'<div style="background:{P["caixa"]};border:1px solid {P["regua"]};'
-        f'border-radius:6px;padding:22px 26px;">'
-        f'<div style="font-family:{_E_SERIF};font-weight:700;font-size:34px;'
-        f'color:{P["tijolo"]};line-height:1.05;">{_ee(estrela["nome"])}</div>'
-        f'<div style="font-family:{_E_BODY};font-style:italic;font-size:16px;'
-        f'color:{P["sec"]};margin-top:3px;">{_ee(estrela["epiteto"])}</div>'
-        f'<div style="font-family:{_E_BODY};font-style:italic;font-size:15px;'
-        f'color:{P["txt"]};margin-top:10px;">“{_ee(estrela["lema"])}”</div>'
-        f'<div style="font-family:{_E_SERIF};font-size:12px;letter-spacing:.08em;'
-        f'color:{P["pill"]};margin-top:14px;">{_ee(estrela["atributos"])}</div>'
+        f'<div style="background:{P["caixa"]};border:1px solid {P["regua"]};border-radius:6px;'
+        f'padding:22px 26px;display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;">'
+        f'<div style="flex:0 0 auto;">{placa_det}</div>'
+        f'<div style="flex:1 1 240px;min-width:240px;">'
+        f'<div style="font-family:{_E_SERIF};font-weight:700;font-size:34px;color:{P["tijolo"]};line-height:1.05;">{_ee(estrela["nome"])}</div>'
+        f'<div style="font-family:{_E_BODY};font-style:italic;font-size:16px;color:{P["sec"]};margin-top:3px;">{_ee(estrela["epiteto"])}</div>'
+        f'<div style="font-family:{_E_BODY};font-style:italic;font-size:15px;color:{P["txt"]};margin-top:10px;">{_ABRE}{_ee(estrela["lema"])}{_FECHA}</div>'
+        f'<div style="font-family:{_E_SERIF};font-size:12px;letter-spacing:.08em;color:{P["pill"]};margin-top:14px;">{_ee(estrela["atributos"])}</div>'
         f'<div style="max-width:420px;margin-top:10px;">{barra}</div>'
-        '</div>'
+        f'</div></div>'
     )
 
     secoes = ""
