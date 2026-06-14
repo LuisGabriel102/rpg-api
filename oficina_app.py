@@ -26,6 +26,7 @@ quando queries demoram, causando loop infinito de WebSocket. Ver ui_helpers.py.
 """
 
 import asyncio
+import html
 import warnings
 
 # Silencia warnings cosmeticos do SQLModel
@@ -47,6 +48,7 @@ from auth import BasicAuthMiddleware
 from db import engine, get_session
 from models import Npcs, RefEstrelasNascimento, RefHabilidadesEstrela, RefVocacoes, RefCaminhos, RefHabilidadesClasseNivel, RefPilares
 from ui_helpers import aguardar_conexao_websocket, barra_nav
+from tema_oficina import CSS_VITRAL
 from oficina_npcs_42 import pagina_lista_npcs_rica, pagina_npc_detalhe
 from pages.atelie import pagina_atelie
 from pages.bestiario import pagina_lista_bestiario, pagina_criatura_detalhe, contar_criaturas_canonizadas
@@ -977,238 +979,169 @@ async def _buscar_pagina_vocacoes(
     return rows, total
 
 
+_COR_PILAR = {
+    "corpo": "#c0653f", "sombra": "#9b7fc0", "arcano": "#4f86c6",
+    "espirito": "#5aa882", "engenho": "#c9a23a",
+}
+
+async def _buscar_todas_vocacoes() -> list[dict]:
+    async with get_session() as session:
+        result = await session.exec(
+            select(RefVocacoes).order_by(RefVocacoes.nome_ptbr.asc())
+        )
+        vocs = result.all()
+    out = []
+    for v in vocs:
+        out.append({
+            "id": v.id,
+            "nome": v.nome_ptbr or "?",
+            "pilar": v.pilar or "",
+            "tipo": v.tipo or "",
+            "atribs": "/".join(v.atributos_primarios) if v.atributos_primarios else "",
+            "disponivel": bool(v.disponivel_escolha),
+        })
+    return out
+
+def _card_vocacao_html(v: dict) -> str:
+    cor = _COR_PILAR.get(v["pilar"], "#b8902f")
+    pilar_txt = html.escape(v["pilar"].upper()) if v["pilar"] else "—"
+    nome = html.escape(v["nome"])
+    linha2 = " · ".join(p for p in [html.escape(v["tipo"]) if v["tipo"] else "",
+                                    html.escape(v["atribs"]) if v["atribs"] else ""] if p)
+    selo = "" if v["disponivel"] else (
+        "<span style=\"position:absolute;top:10px;right:10px;font-family:'IM Fell English SC',serif;"
+        'font-size:9px;letter-spacing:.1em;color:#cdbfa6;background:rgba(10,10,14,.78);'
+        'border:1px solid #6a6052;border-radius:3px;padding:2px 7px;">bloqueada</span>'
+    )
+    corpo2 = (f'<div class="bestiario-body" style="font-size:13px;margin-top:6px;">{linha2}</div>'
+              if linha2 else "")
+    return (
+        f'<a href="/oficina/vocacoes/{v["id"]}" class="criatura-card" '
+        'style="position:relative;display:block;text-decoration:none;overflow:hidden;">'
+        f'<div style="height:3px;background:{cor};"></div>'
+        f'{selo}'
+        '<div style="padding:14px 16px 16px;">'
+        f'<div class="bestiario-title" style="font-size:18px;line-height:1.1;">{nome}</div>'
+        "<div style=\"font-family:'IM Fell English SC',serif;font-size:11px;letter-spacing:.12em;"
+        f'color:{cor};margin-top:5px;">{pilar_txt}</div>'
+        f'{corpo2}'
+        '</div></a>'
+    )
+
+def _grade_vocacoes_html(lista: list[dict]) -> str:
+    if not lista:
+        return ('<div style="text-align:center;font-style:italic;color:#7a6f55;'
+                'padding:50px 0;">Nenhuma vocação encontrada.</div>')
+    return '<div class="gp-grid">' + "".join(_card_vocacao_html(v) for v in lista) + '</div>'
+
+
 @ui.page("/oficina/vocacoes")
 async def pagina_vocacoes():
-    """Lista paginada das 126 vocacoes com filtros."""
-    # FIX TIMEOUT NICEGUI: envia placeholder + aguarda WS antes das queries.
+    """Galeria vitral das vocacoes do Alderyn, com filtros em memoria."""
     await aguardar_conexao_websocket("Catalogando vocações...")
-
+    ui.add_head_html(CSS_VITRAL)
     barra_nav("vocacoes")
 
-    filtros_state = {
-        "pilar": "todos",
-        "tipo": "todos",
-        "disponivel": "todos",
-        "busca": "",
-    }
+    todas = await _buscar_todas_vocacoes()
+    total = len(todas)
+    estado = {"pilar": "todos", "tipo": "todos", "disp": "todos", "busca": ""}
+    grade_ref = {"el": None}
+    contador_ref = {"el": None}
+    refs = {"filosofia": None}
 
-    pagination_state = {
-        "rowsPerPage": 25,
-        "rowsNumber": 0,
-        "page": 1,
-        "sortBy": "id",
-        "descending": False,
-    }
+    def filtrar() -> list[dict]:
+        out = todas
+        if estado["pilar"] != "todos":
+            out = [v for v in out if v["pilar"] == estado["pilar"]]
+        if estado["tipo"] != "todos":
+            out = [v for v in out if v["tipo"] == estado["tipo"]]
+        if estado["disp"] == "disponiveis":
+            out = [v for v in out if v["disponivel"]]
+        elif estado["disp"] == "bloqueadas":
+            out = [v for v in out if not v["disponivel"]]
+        if estado["busca"]:
+            q = estado["busca"].lower()
+            out = [v for v in out if q in v["nome"].lower()]
+        return out
 
-    rows_iniciais, total = await _buscar_pagina_vocacoes(
-        page=1, rows_per_page=25, sort_by="id", descending=False,
-    )
-    pagination_state["rowsNumber"] = total
+    def re_render():
+        filtrados = filtrar()
+        if grade_ref["el"]:
+            grade_ref["el"].set_content(_grade_vocacoes_html(filtrados))
+        if contador_ref["el"]:
+            contador_ref["el"].set_text(f"{len(filtrados)} de {total} vocações")
 
-    columns = [
-        {"name": "id", "label": "ID", "field": "id", "sortable": True, "align": "left"},
-        {"name": "nome_ptbr", "label": "Nome", "field": "nome_ptbr", "sortable": True, "align": "left"},
-        {"name": "pilar", "label": "Pilar", "field": "pilar", "sortable": True, "align": "left"},
-        {"name": "tipo", "label": "Tipo", "field": "tipo", "sortable": True, "align": "left"},
-        {"name": "atribs", "label": "Atribs", "field": "atribs", "sortable": False, "align": "left"},
-        {"name": "disponivel", "label": "Disp.", "field": "disponivel", "sortable": False, "align": "center"},
-    ]
-
-    table_ref: dict = {"widget": None}
-    counter_ref: dict = {"widget": None}
-
-    async def refresh() -> None:
-        if not table_ref["widget"]:
+    async def atualizar_filosofia():
+        cont = refs["filosofia"]
+        if cont is None:
             return
-        pag = dict(table_ref["widget"].pagination)
-        rows, total_atual = await _buscar_pagina_vocacoes(
-            page=pag.get("page", 1),
-            rows_per_page=pag.get("rowsPerPage", 25),
-            sort_by=pag.get("sortBy") or "id",
-            descending=pag.get("descending", False),
-            filtro_pilar=filtros_state["pilar"],
-            filtro_tipo=filtros_state["tipo"],
-            filtro_disponivel=filtros_state["disponivel"],
-            busca_nome=filtros_state["busca"],
-        )
-        pag["rowsNumber"] = total_atual
-        pag["page"] = 1
-        table_ref["widget"].rows = rows
-        table_ref["widget"].pagination = pag
-        table_ref["widget"].update()
-        if counter_ref["widget"]:
-            counter_ref["widget"].set_text(
-                f"{total_atual} vocação(ões) filtrada(s) de 126 total"
+        cont.clear()
+        nome = estado["pilar"]
+        if nome not in ("corpo", "sombra", "arcano", "espirito", "engenho"):
+            return
+        data = await _buscar_filosofia_pilar(nome)
+        if not data:
+            return
+        cor = _COR_PILAR.get(nome, "#b8902f")
+        with cont:
+            ui.html(
+                f'<div style="background:rgba(12,14,22,.6);border:1px solid {cor};'
+                f'border-left:3px solid {cor};border-radius:5px;padding:14px 18px;">'
+                "<div style=\"font-family:'IM Fell English',serif;font-size:18px;"
+                f'color:{cor};letter-spacing:.05em;">{html.escape((data["nome"] or "").upper())}'
+                '<span style="font-style:italic;font-size:13px;color:#9a8a5a;margin-left:10px;">'
+                f'{html.escape(data["epiteto"] or "")}</span></div>'
+                "<div style=\"font-family:'Spectral',Georgia,serif;font-style:italic;"
+                'color:#c0a36a;font-size:14px;line-height:1.6;margin-top:8px;">'
+                f'{html.escape(data["filosofia"] or "")}</div></div>'
             )
 
-    def set_filtro_pilar(valor: str) -> None:
-        filtros_state["pilar"] = valor
-        asyncio.create_task(refresh())
+    def set_pilar(v):
+        estado["pilar"] = v
+        re_render()
+        asyncio.create_task(atualizar_filosofia())
 
-    def set_filtro_tipo(valor: str) -> None:
-        filtros_state["tipo"] = valor
-        asyncio.create_task(refresh())
+    def set_tipo(v):
+        estado["tipo"] = v
+        re_render()
 
-    def set_filtro_disponivel(valor: str) -> None:
-        filtros_state["disponivel"] = valor
-        asyncio.create_task(refresh())
+    def set_disp(v):
+        estado["disp"] = v
+        re_render()
 
-    def set_busca(e) -> None:
-        filtros_state["busca"] = (e.value or "").strip()
-        asyncio.create_task(refresh())
+    def set_busca(e):
+        estado["busca"] = (e.value or "").strip()
+        re_render()
 
-    with ui.column().classes(
-        "w-full min-h-screen bg-zinc-900 text-zinc-100 p-8 gap-4"
-    ):
-        # === Header ===
-        with ui.row().classes("w-full items-center justify-between"):
-            with ui.row().classes("items-center gap-3"):
-                ui.button(
-                    icon="arrow_back",
-                    on_click=lambda: ui.navigate.to("/oficina"),
-                ).props("flat round dense color=amber-2")
+    with ui.column().classes("gp-screen w-full min-h-screen p-0 gap-0"):
+        with ui.column().classes("gp-inner w-full gap-4"):
+            with ui.row().classes("w-full items-center gap-3"):
+                ui.button(icon="arrow_back",
+                          on_click=lambda: ui.navigate.to("/oficina")
+                          ).props("flat round dense color=amber-2")
                 with ui.column().classes("gap-0"):
-                    ui.label("Vocações do Alderyn").classes(
-                        "text-3xl font-bold text-amber-200"
-                    )
-                    counter_ref["widget"] = ui.label(
-                        f"{total} vocação(ões) filtrada(s) de 126 total"
-                    ).classes("text-sm text-zinc-400 italic")
+                    ui.label("Vocações do Alderyn").classes("bestiario-title").style("font-size:30px;")
+                    contador_ref["el"] = ui.label(f"{total} de {total} vocações").classes(
+                        "bestiario-body").style("font-style:italic;font-size:13px;")
+            ui.html('<div class="gp-rule"></div>')
 
-        ui.separator().classes("bg-zinc-700")
+            with ui.row().classes("gp-filtros w-full items-center gap-3 flex-wrap").style("padding:12px 14px;"):
+                ui.input(placeholder="Buscar por nome...", on_change=set_busca
+                         ).props("dense outlined dark clearable").style("min-width:240px;")
+                ui.select({"todos": "Todos os pilares", "corpo": "Corpo", "sombra": "Sombra",
+                           "arcano": "Arcano", "espirito": "Espírito", "engenho": "Engenho"},
+                          value="todos", on_change=lambda e: set_pilar(e.value)
+                          ).props("dense outlined dark").style("min-width:170px;")
+                ui.select({"todos": "Todos os tipos", "base": "Base", "fusao": "Fusão",
+                           "cross": "Cross", "especial": "Especial"},
+                          value="todos", on_change=lambda e: set_tipo(e.value)
+                          ).props("dense outlined dark").style("min-width:160px;")
+                ui.select({"todos": "Todas", "disponiveis": "Disponíveis", "bloqueadas": "Bloqueadas"},
+                          value="todos", on_change=lambda e: set_disp(e.value)
+                          ).props("dense outlined dark").style("min-width:150px;")
 
-        # === Filtros ===
-        with ui.column().classes("w-full gap-2"):
-            # Busca por nome
-            ui.input(
-                label="Buscar por nome",
-                placeholder="Guerreiro, Arcano-Lâmina, Pugilista...",
-                on_change=set_busca,
-            ).classes("w-full max-w-md").props("dense dark outlined clearable")
-
-            # Filtro Pilar
-            with ui.row().classes("w-full items-center gap-2 flex-wrap"):
-                ui.label("Pilar:").classes("text-xs uppercase text-zinc-500")
-                for opcao, label in [
-                    ("todos", "Todos"),
-                    ("corpo", "Corpo"),
-                    ("sombra", "Sombra"),
-                    ("arcano", "Arcano"),
-                    ("espirito", "Espírito"),
-                    ("engenho", "Engenho"),
-                    ("Fundida", "Fundida"),
-                    ("anomalias", "⚠ Anomalias"),
-                ]:
-                    cor = "amber-8" if opcao != "anomalias" else "red-9"
-                    ui.button(label, on_click=lambda v=opcao: set_filtro_pilar(v)).props(
-                        f"flat dense size=sm color={cor}"
-                    )
-
-            # Filtro Tipo
-            with ui.row().classes("w-full items-center gap-2 flex-wrap"):
-                ui.label("Tipo:").classes("text-xs uppercase text-zinc-500")
-                for opcao, label in [("todos", "Todos"), ("base", "Base"), ("fundida", "Fundida")]:
-                    ui.button(label, on_click=lambda v=opcao: set_filtro_tipo(v)).props(
-                        "flat dense size=sm color=amber-8"
-                    )
-
-            # Filtro Disponibilidade
-            with ui.row().classes("w-full items-center gap-2 flex-wrap"):
-                ui.label("Disponível:").classes("text-xs uppercase text-zinc-500")
-                for opcao, label in [
-                    ("todos", "Todas"),
-                    ("disponiveis", "Disponíveis"),
-                    ("bloqueadas", "🚫 Bloqueadas (13)"),
-                ]:
-                    cor = "amber-8" if opcao != "bloqueadas" else "red-9"
-                    ui.button(label, on_click=lambda v=opcao: set_filtro_disponivel(v)).props(
-                        f"flat dense size=sm color={cor}"
-                    )
-
-        # === Card de filosofia do pilar (reativo) ===
-        filosofia_container = ui.column().classes("w-full")
-
-        async def atualizar_filosofia() -> None:
-            filosofia_container.clear()
-            nome = filtros_state["pilar"]
-            if nome not in ("corpo", "sombra", "arcano", "espirito", "engenho"):
-                return
-            data = await _buscar_filosofia_pilar(nome)
-            if not data:
-                return
-            with filosofia_container:
-                with ui.card().classes(
-                    "w-full bg-zinc-800 border border-amber-800 p-4"
-                ).props("flat"):
-                    with ui.row().classes("items-baseline gap-3"):
-                        ui.label(data["nome"]).classes(
-                            "text-xl font-bold text-amber-200 uppercase tracking-wider"
-                        )
-                        ui.label(data["epiteto"]).classes(
-                            "text-sm text-zinc-400 italic"
-                        )
-                    ui.label(data["filosofia"]).classes(
-                        "text-sm text-zinc-300 italic leading-relaxed mt-2"
-                    )
-
-        _refresh_original = refresh
-
-        async def refresh_com_filosofia() -> None:
-            await _refresh_original()
-            await atualizar_filosofia()
-
-        def set_filtro_pilar_v2(valor: str) -> None:
-            filtros_state["pilar"] = valor
-            asyncio.create_task(refresh_com_filosofia())
-
-        set_filtro_pilar = set_filtro_pilar_v2  # noqa: F811
-
-        ui.separator().classes("bg-zinc-700")
-
-        # === Tabela ===
-        table = ui.table(
-            columns=columns,
-            rows=rows_iniciais,
-            row_key="id",
-            pagination=pagination_state,
-        ).classes("w-full bg-zinc-800 rounded-lg").props(
-            'flat bordered dark rows-per-page-options="[10, 25, 50, 100]"'
-        )
-        table_ref["widget"] = table
-
-        async def on_request(e: GenericEventArguments) -> None:
-            new_pag = e.args["pagination"]
-            rows, total_atual = await _buscar_pagina_vocacoes(
-                page=new_pag.get("page", 1),
-                rows_per_page=new_pag.get("rowsPerPage", 25),
-                sort_by=new_pag.get("sortBy") or "id",
-                descending=new_pag.get("descending", False),
-                filtro_pilar=filtros_state["pilar"],
-                filtro_tipo=filtros_state["tipo"],
-                filtro_disponivel=filtros_state["disponivel"],
-                busca_nome=filtros_state["busca"],
-            )
-            new_pag["rowsNumber"] = total_atual
-            table.rows = rows
-            table.pagination = new_pag
-            table.update()
-            counter_ref["widget"].set_text(
-                f"{total_atual} vocação(ões) filtrada(s) de 126 total"
-            )
-
-        table.on("request", on_request)
-
-        def ir_pro_detalhe(e: GenericEventArguments) -> None:
-            row = e.args[1]
-            if row and "id" in row:
-                ui.navigate.to(f"/oficina/vocacoes/{row['id']}")
-
-        table.on("rowClick", ir_pro_detalhe)
-
-        with ui.row().classes("w-full justify-center mt-auto pt-6"):
-            ui.label(
-                "Módulo 6.3 OK. Clique numa linha pra ver detalhes."
-            ).classes("text-xs text-zinc-600 italic")
+            refs["filosofia"] = ui.column().classes("w-full")
+            grade_ref["el"] = ui.html(_grade_vocacoes_html(todas))
 
 
 
