@@ -91,24 +91,44 @@ async def aguardar_conexao_websocket(titulo: str = "Carregando...") -> None:
     placeholder.delete()
 
 
+_VITRAL_NAV_CSS = """
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
+<style>
+.cat-nav{display:flex;align-items:center;gap:2px;padding:14px 30px;background:#0a0c14;border-bottom:1px solid #b8902f;width:100%;box-sizing:border-box;}
+.cat-navicon{margin-right:12px;flex:none;}
+.cat-navlink{font-family:'IM Fell English SC',serif;letter-spacing:.12em;font-size:15px;color:#b3a06f;text-decoration:none;padding:4px 12px;white-space:nowrap;}
+.cat-navlink:hover{color:#e8c66a;}
+.cat-navlink.on{color:#f0d98a;border-bottom:1px solid #e8c66a;padding-bottom:3px;}
+.cat-enter{font-family:'IM Fell English',serif;font-style:italic;letter-spacing:.04em;color:#e8c66a;text-decoration:none;font-size:16px;}
+.cat-enter:hover{color:#f6d98a;}
+</style>
+"""
+
+
 def barra_nav(ativo: str = "") -> None:
-    """Barra de navegacao compartilhada da Oficina (pele zinc/amber). Fixa no topo.
-    'ativo' acende o botao da pagina atual: oficina, npcs, bestiario, estrelas,
-    vocacoes. (No /jogar NAO se usa esta barra - la a saida e na pele Gravura.)"""
+    """Barra de navegação compartilhada — pele vitral de catedral.
+    'ativo' acende a aba atual. Aceita os argumentos antigos:
+    oficina, npcs, bestiario, estrelas, vocacoes (e historias).
+    Emite HTML próprio + injeta o CSS escopado da barra (classes .cat-*),
+    sem regras globais — não afeta o corpo zinc/amber abaixo."""
+    ui.add_head_html(_VITRAL_NAV_CSS)
+    icone = ('<svg class="cat-navicon" width="16" height="14" viewBox="0 0 24 20" fill="none" '
+             'stroke="#c9a227" stroke-width="1.1" aria-hidden="true">'
+             '<path d="M12 3c3 0 5 2 5 5s-2 7-5 9c-3-2-5-6-5-9s2-5 5-5z"/><path d="M3 10h6M15 10h6"/></svg>')
+    # (rotulo_exibido, chave_de_comparacao, destino) — a chave bate com o arg antigo
     itens = [
-        ("oficina", "Oficina", "/oficina"),
-        ("npcs", "NPCs", "/oficina/npcs"),
-        ("bestiario", "Bestiário", "/oficina/bestiario"),
-        ("estrelas", "Estrelas", "/oficina/estrelas"),
-        ("vocacoes", "Vocações", "/oficina/vocacoes"),
-        ("jogar", "Jogar", "/jogar"),
+        ("oficina", "oficina", "/oficina"),
+        ("personagens", "npcs", "/oficina/npcs"),
+        ("bestiário", "bestiario", "/oficina/bestiario"),
+        ("estrelas", "estrelas", "/oficina/estrelas"),
+        ("vocações", "vocacoes", "/oficina/vocacoes"),
+        ("histórias", "historias", "/oficina/historias"),
     ]
-    with ui.row().classes(
-        "w-full items-center gap-2 px-8 py-3 bg-zinc-900 "
-        "border-b border-zinc-700 sticky top-0 z-50"
-    ):
-        for chave, rotulo, destino in itens:
-            base = ("text-sm uppercase tracking-wider px-3 py-1 rounded "
-                    "transition-colors no-underline ")
-            cor = "text-amber-200 font-bold" if chave == ativo else "text-zinc-400 hover:text-amber-200"
-            ui.link(rotulo, destino).classes(base + cor)
+    links = "".join(
+        f'<a class="cat-navlink{" on" if chave == ativo else ""}" href="{destino}">{rotulo}</a>'
+        for rotulo, chave, destino in itens
+    )
+    html = (f'<div class="cat-nav">{icone}{links}<span style="flex:1"></span>'
+            f'<a class="cat-enter" href="/jogar">entrar no mundo</a></div>')
+    ui.html(html).classes("w-full sticky top-0 z-50")
