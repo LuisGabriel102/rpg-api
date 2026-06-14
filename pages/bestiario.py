@@ -293,6 +293,25 @@ _CSS_DARK_FANTASY = """
 """
 
 
+_CSS_VITRAL_LISTA = """
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Spectral:ital@0;1&display=swap" rel="stylesheet">
+<style>
+.q-layout,.q-page-container,.q-page{width:100%!important;max-width:none!important;}
+.nicegui-content{width:100%!important;max-width:none!important;padding:0!important;gap:0!important;align-items:stretch!important;}
+body{margin:0;}
+.gp-screen{position:relative;font-family:'Spectral',Georgia,serif;color:#e8dcc0;min-height:100vh;width:100%;background:linear-gradient(180deg,#0a0d1a 0%,#10141f 50%,#13161f 100%);box-sizing:border-box;}
+.gp-inner{max-width:1180px;margin:0 auto;padding:26px 28px 40px;}
+.gp-rule{height:1px;width:100%;background:linear-gradient(90deg,#5c4413,#c9a227 40%,transparent);margin:16px 0 22px;border:none;}
+.gp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;}
+.criatura-card{background:#0c0e16!important;border:1px solid #b8902f!important;border-radius:5px!important;box-shadow:inset 0 1px 0 rgba(255,238,190,.14);transition:border-color .25s,transform .2s;cursor:pointer;overflow:hidden;}
+.criatura-card:hover{border-color:#f0d98a!important;transform:translateY(-2px);}
+.bestiario-title{font-family:'IM Fell English',serif!important;letter-spacing:.5px;color:#f3e7c4!important;}
+.bestiario-body{font-family:'Spectral',Georgia,serif!important;line-height:1.5;color:#c0a36a!important;}
+</style>
+"""
+
+
 # ====================================================================
 # PAGINA LISTA
 # ====================================================================
@@ -302,32 +321,33 @@ async def pagina_lista_bestiario():
     async with get_session() as session:
         result = await session.execute(_SQL_LISTAR_CANONIZADAS)
         rows = result.mappings().all()
-    ui.add_head_html(_CSS_DARK_FANTASY)
+    ui.add_head_html(_CSS_VITRAL_LISTA)
     barra_nav("bestiario")
-    with ui.column().classes("w-full min-h-screen bg-zinc-900 text-zinc-100 p-8 gap-6"):
-        with ui.row().classes("w-full items-center justify-between"):
-            with ui.column().classes("gap-0"):
-                with ui.row().classes("items-center gap-3"):
-                    ui.button(icon="arrow_back",
-                              on_click=lambda: ui.navigate.to("/oficina"),
-                              ).props("flat round dense color=amber-2")
-                    ui.label("Bestiario de Alderyn").classes(
-                        "text-3xl font-bold text-amber-200 bestiario-title")
-                ui.label(f"{len(rows)} criaturas canonizadas").classes(
-                    "text-sm text-zinc-400 italic ml-12")
-        ui.separator().classes("bg-zinc-700")
-        if not rows:
-            with ui.column().classes("w-full items-center py-20 gap-4"):
-                ui.icon("pets", size="4rem").classes("text-zinc-600")
-                ui.label("O bestiario ainda esta vazio.").classes(
-                    "text-xl text-zinc-500 bestiario-title")
-            return
-        with ui.row().classes("w-full gap-4 flex-wrap"):
-            for row in rows:
-                _render_card_lista(row)
-        with ui.row().classes("w-full justify-center mt-auto pt-6"):
-            ui.label(f"Bestiario de Alderyn - {len(rows)} criaturas").classes(
-                "text-xs text-zinc-600 italic")
+    with ui.column().classes("gp-screen w-full min-h-screen p-0 gap-0"):
+        with ui.column().classes("gp-inner w-full gap-6"):
+            with ui.row().classes("w-full items-center justify-between"):
+                with ui.column().classes("gap-0"):
+                    with ui.row().classes("items-center gap-3"):
+                        ui.button(icon="arrow_back",
+                                  on_click=lambda: ui.navigate.to("/oficina"),
+                                  ).props("flat round dense color=amber-2")
+                        ui.label("Bestiario de Alderyn").classes(
+                            "text-3xl font-bold text-amber-200 bestiario-title")
+                    ui.label(f"{len(rows)} criaturas canonizadas").classes(
+                        "text-sm text-zinc-400 italic ml-12")
+            ui.html('<div class="gp-rule"></div>')
+            if not rows:
+                with ui.column().classes("w-full items-center py-20 gap-4"):
+                    ui.icon("pets", size="4rem").classes("text-zinc-600")
+                    ui.label("O bestiario ainda esta vazio.").classes(
+                        "text-xl text-zinc-500 bestiario-title")
+                return
+            with ui.element("div").classes("gp-grid w-full"):
+                for row in rows:
+                    _render_card_lista(row)
+            with ui.row().classes("w-full justify-center mt-auto pt-6"):
+                ui.label(f"Bestiario de Alderyn - {len(rows)} criaturas").classes(
+                    "text-xs text-zinc-600 italic")
 
 
 def _render_card_lista(row):
@@ -345,7 +365,7 @@ def _render_card_lista(row):
     cor_o = _cor_origem(origem)
     epi = epigrafe[:120] + "..." if len(epigrafe) > 120 else epigrafe
 
-    with ui.card().classes("criatura-card flex-none p-0").style("width:320px").on(
+    with ui.card().classes("criatura-card p-0").on(
         "click", lambda c=cid: ui.navigate.to(f"/oficina/bestiario/{c}")):
         if portrait:
             ui.image(portrait).classes("w-full").style(
