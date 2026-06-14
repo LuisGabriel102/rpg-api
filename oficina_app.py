@@ -999,6 +999,7 @@ async def _buscar_todas_vocacoes() -> list[dict]:
             "tipo": v.tipo or "",
             "atribs": "/".join(v.atributos_primarios) if v.atributos_primarios else "",
             "disponivel": bool(v.disponivel_escolha),
+            "imagem_url": v.imagem_url,
         })
     return out
 
@@ -1008,22 +1009,40 @@ def _card_vocacao_html(v: dict) -> str:
     nome = html.escape(v["nome"])
     linha2 = " · ".join(p for p in [html.escape(v["tipo"]) if v["tipo"] else "",
                                     html.escape(v["atribs"]) if v["atribs"] else ""] if p)
+    corpo2 = (f'<div class="bestiario-body" style="font-size:13px;margin-top:4px;">{linha2}</div>'
+              if linha2 else "")
     selo = "" if v["disponivel"] else (
-        "<span style=\"position:absolute;top:10px;right:10px;font-family:'IM Fell English SC',serif;"
+        "<span style=\"position:absolute;top:8px;right:8px;z-index:2;font-family:'IM Fell English SC',serif;"
         'font-size:9px;letter-spacing:.1em;color:#cdbfa6;background:rgba(10,10,14,.78);'
         'border:1px solid #6a6052;border-radius:3px;padding:2px 7px;">bloqueada</span>'
     )
-    corpo2 = (f'<div class="bestiario-body" style="font-size:13px;margin-top:6px;">{linha2}</div>'
-              if linha2 else "")
+    url = (v.get("imagem_url") or "").strip()
+    if url:
+        arte_img = (
+            f'<img src="{html.escape(url, quote=True)}" alt="" '
+            "onerror=\"this.style.display='none'\" "
+            'style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:1;">'
+        )
+    else:
+        arte_img = ""
+    arte = (
+        '<div style="position:relative;width:100%;aspect-ratio:3/4;overflow:hidden;'
+        f'background:linear-gradient(160deg,#1a1d2a,#0e1018);border-bottom:1px solid {cor};">'
+        f'{selo}'
+        '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'
+        "font-family:'IM Fell English',serif;font-style:italic;font-size:12px;color:#5a5440;"
+        'text-align:center;padding:14px;">arte a gerar</div>'
+        f'{arte_img}'
+        '</div>'
+    )
     return (
         f'<a href="/oficina/vocacoes/{v["id"]}" class="criatura-card" '
         'style="position:relative;display:block;text-decoration:none;overflow:hidden;">'
-        f'<div style="height:3px;background:{cor};"></div>'
-        f'{selo}'
-        '<div style="padding:14px 16px 16px;">'
-        f'<div class="bestiario-title" style="font-size:18px;line-height:1.1;">{nome}</div>'
-        "<div style=\"font-family:'IM Fell English SC',serif;font-size:11px;letter-spacing:.12em;"
-        f'color:{cor};margin-top:5px;">{pilar_txt}</div>'
+        f'{arte}'
+        '<div style="padding:12px 14px 14px;">'
+        f'<div class="bestiario-title" style="font-size:17px;line-height:1.1;">{nome}</div>'
+        "<div style=\"font-family:'IM Fell English SC',serif;font-size:10px;letter-spacing:.12em;"
+        f'color:{cor};margin-top:4px;">{pilar_txt}</div>'
         f'{corpo2}'
         '</div></a>'
     )
@@ -1141,7 +1160,7 @@ async def pagina_vocacoes():
                           ).props("dense outlined dark").style("min-width:150px;")
 
             refs["filosofia"] = ui.column().classes("w-full")
-            grade_ref["el"] = ui.html(_grade_vocacoes_html(todas))
+            grade_ref["el"] = ui.html(_grade_vocacoes_html(todas)).classes("w-full")
 
 
 
