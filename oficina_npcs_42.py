@@ -17,6 +17,7 @@ try/except no detalhe pra logar erros.
 """
 
 import asyncio
+import html
 from typing import Any, Optional
 
 from nicegui import ui
@@ -27,6 +28,7 @@ from sqlmodel import select
 from db import get_session
 from models import Npcs
 from ui_helpers import aguardar_conexao_websocket, barra_nav
+from tema_oficina import CSS_PERGAMINHO
 
 
 # ====================================================================
@@ -551,6 +553,320 @@ async def pagina_lista_npcs_rica() -> None:
 # PAGINA /oficina/npcs/{id} · DETALHE RICO (com try/except + dict)
 # ====================================================================
 
+_PERG = dict(
+    folha="#fdf1dc", caixa="#f6ead0", pagina="#efe3c9", arte_bg="#efe2c4",
+    tijolo="#58180d", regua="#922610", pill="#6e2410",
+    txt="#2a1c0e", sec="#5a4632", rodape="#7a6648",
+)
+_PSERIF = "'Cinzel',serif"
+_PBODY = "'Crimson Text',Georgia,serif"
+
+def _pe(s):  # escape seguro
+    return html.escape(str(s)) if s is not None else ""
+
+def _p_pill(txto, *, forte=False):
+    P = _PERG
+    if forte:
+        return (f'<span style="font-family:{_PSERIF};font-size:10px;letter-spacing:.05em;'
+                f'color:#fdf1dc;background:{P["pill"]};border-radius:3px;padding:2px 8px;">{_pe(txto)}</span>')
+    return (f'<span style="font-family:{_PSERIF};font-size:10px;letter-spacing:.05em;'
+            f'color:{P["pill"]};border:1px solid {P["pill"]};border-radius:3px;padding:2px 8px;">{_pe(txto)}</span>')
+
+def _p_secao(titulo, sub, corpo_html):
+    P = _PERG
+    sub_html = (f'<span style="font-family:{_PBODY};font-style:italic;font-size:12px;'
+                f'letter-spacing:0;color:{P["sec"]};margin-left:10px;">{_pe(sub)}</span>') if sub else ""
+    return (
+        '<div style="margin-top:20px;">'
+        f'<div style="font-family:{_PSERIF};font-size:13px;letter-spacing:.14em;color:{P["tijolo"]};'
+        f'border-bottom:2px solid {P["regua"]};padding-bottom:5px;margin-bottom:12px;">{_pe(titulo).upper()}{sub_html}</div>'
+        f'{corpo_html}</div>'
+    )
+
+def _p_kv(rotulo, valor):
+    if not valor:
+        return ""
+    P = _PERG
+    return (
+        '<div style="display:flex;gap:12px;margin-bottom:6px;">'
+        f'<div style="flex:none;width:150px;font-family:{_PSERIF};font-size:11px;letter-spacing:.08em;color:{P["sec"]};">{_pe(rotulo).upper()}</div>'
+        f'<div style="flex:1;font-family:{_PBODY};font-size:15px;color:{P["txt"]};">{_pe(valor)}</div>'
+        '</div>'
+    )
+
+def _p_bloco(rotulo, valor, *, italico=False):
+    if not valor:
+        return ""
+    P = _PERG
+    sty = "font-style:italic;" if italico else ""
+    return (
+        '<div style="margin-bottom:12px;">'
+        f'<div style="font-family:{_PSERIF};font-size:11px;letter-spacing:.08em;color:{P["sec"]};margin-bottom:3px;">{_pe(rotulo).upper()}</div>'
+        f'<div style="font-family:{_PBODY};font-size:15px;color:{P["txt"]};line-height:1.6;white-space:pre-line;{sty}">{_pe(valor)}</div>'
+        '</div>'
+    )
+
+def _p_card(corpo_html, *, destaque=False):
+    P = _PERG
+    borda = f'border-left:3px solid {P["regua"]};' if destaque else f'border:1px solid {P["regua"]};'
+    return (f'<div style="background:{P["caixa"]};{borda}border-radius:5px;padding:13px 16px;margin-bottom:9px;">{corpo_html}</div>')
+
+def _p_big_five(rotulo, valor):
+    P = _PERG
+    v = valor if isinstance(valor, int) else 0
+    return (
+        '<div style="margin-bottom:9px;">'
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;">'
+        f'<span style="font-family:{_PSERIF};font-size:12px;color:{P["txt"]};">{_pe(rotulo)}</span>'
+        f'<span style="font-family:{_PSERIF};font-size:12px;color:{P["sec"]};">{v}</span></div>'
+        f'<div style="height:7px;background:{P["arte_bg"]};border:1px solid {P["regua"]};border-radius:4px;margin-top:3px;overflow:hidden;">'
+        f'<div style="height:100%;width:{max(0,min(100,v))}%;background:{P["regua"]};"></div></div>'
+        '</div>'
+    )
+
+# cores semanticas em pergaminho (mantem o SIGNIFICADO, troca a paleta)
+def _p_trust_txt(level):
+    lv = level or 0
+    if lv <= 3: return "trust " + str(lv)
+    return "trust " + str(lv)
+
+def _p_status_html(status):
+    P = _PERG
+    m = {"vivo": ("●", "vivo"), "morto": ("†", "morto"),
+         "desaparecido": ("?", "desaparecido"), "exilado": ("→", "exilado")}
+    ch, txt = m.get(status, ("—", status or "?"))
+    return _p_pill(f"{ch} {txt}")
+
+def _p_camada_html(camada):
+    rot = {1: "Âncora", 2: "Recorrente", 3: "Fundo"}.get(camada, "?")
+    return _p_pill(f"C{camada} · {rot}")
+
+def _p_rel_html(rel: dict, nome_key: str, id_key: str) -> str:
+    P = _PERG
+    tipo = rel.get("tipo", "")
+    alvo_id = rel.get(id_key)
+    nome = rel.get(nome_key) or "(NPC removido)"
+    if alvo_id:
+        nome_html = f'<a href="/oficina/npcs/{alvo_id}" style="color:{P["tijolo"]};font-weight:700;text-decoration:none;">{_pe(nome)}</a>'
+    else:
+        nome_html = f'<span style="color:{P["sec"]};font-style:italic;">{_pe(nome)}</span>'
+    nums = (f'{_p_pill("conf " + str(rel.get("confianca", 0)))} '
+            f'{_p_pill("afe " + format(rel.get("afeicao", 0), "+d"))} '
+            f'{_p_pill("res " + format(rel.get("respeito", 0), "+d"))}')
+    if rel.get("medo"):
+        nums += " " + _p_pill("medo " + str(rel["medo"]))
+    hist = (f'<div style="font-family:{_PBODY};font-style:italic;font-size:13px;color:{P["sec"]};margin-top:4px;">{_pe(rel["historia_previa"])}</div>'
+            if rel.get("historia_previa") else "")
+    return _p_card(
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+        f'{_p_pill(tipo)}{nome_html}'
+        f'<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">{nums}</span>'
+        f'</div>{hist}'
+    )
+
+
+def _npc_corpo_html(data: dict) -> str:
+    P = _PERG
+    npc = data["npc"]
+    B = []
+
+    badges = _p_camada_html(npc.get("camada") or 3) + " " + _p_status_html(npc.get("status") or "desconhecido")
+    for campo in ("raca", "sexo"):
+        if npc.get(campo):
+            badges += " " + _p_pill(npc[campo])
+    if npc.get("idade_aparente"):
+        badges += " " + _p_pill(f'idade {npc["idade_aparente"]}')
+    if npc.get("idade_real") and npc["idade_real"] != npc.get("idade_aparente"):
+        badges += " " + _p_pill(f'real: {npc["idade_real"]}', forte=True)
+    if npc.get("singularidade"):
+        badges += " " + _p_pill(f'singularidade {npc["singularidade"]}/10')
+    ep = (f'<div style="font-family:{_PBODY};font-style:italic;font-size:16px;color:{P["sec"]};margin-top:3px;">{_pe(npc["epiteto"])}</div>'
+          if npc.get("epiteto") else "")
+    B.append(
+        '<div style="flex:1;min-width:240px;">'
+        f'<div style="font-family:{_PSERIF};font-weight:700;font-size:32px;color:{P["tijolo"]};line-height:1.05;">{_pe(npc["nome"])}</div>'
+        f'{ep}<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;">{badges}</div>'
+        '</div>'
+    )
+    cabecalho_texto = "".join(B)
+
+    S = []
+
+    ident = _p_kv("Profissão", npc.get("profissao")) + _p_kv("Localização atual", npc.get("localizacao_atual")) + _p_kv("Localização base", npc.get("localizacao_base"))
+    if npc.get("facoes"):
+        chips = "".join(_p_pill(f) + " " for f in npc["facoes"])
+        ident += (
+            '<div style="display:flex;gap:12px;margin-bottom:6px;">'
+            f'<div style="flex:none;width:150px;font-family:{_PSERIF};font-size:11px;letter-spacing:.08em;color:{P["sec"]};">FACÇÕES</div>'
+            f'<div style="flex:1;display:flex;gap:5px;flex-wrap:wrap;">{chips}</div></div>'
+        )
+    if data.get("locations"):
+        locs = "".join(f'<div style="font-family:{_PBODY};font-size:14px;color:{P["txt"]};">{_pe(l["nome"])} ({_pe(l["tipo_presenca"])})</div>' for l in data["locations"])
+        ident += (
+            '<div style="display:flex;gap:12px;margin-bottom:6px;">'
+            f'<div style="flex:none;width:150px;font-family:{_PSERIF};font-size:11px;letter-spacing:.08em;color:{P["sec"]};">ENCONTRADO EM</div>'
+            f'<div style="flex:1;">{locs}</div></div>'
+        )
+    if ident.strip():
+        S.append(_p_secao("Identidade & Contexto", "", ident))
+
+    bf = (_p_big_five("Abertura", npc.get("abertura")) + _p_big_five("Conscienciosidade", npc.get("conscienciosidade"))
+          + _p_big_five("Extroversão", npc.get("extroversao")) + _p_big_five("Amabilidade", npc.get("amabilidade"))
+          + _p_big_five("Neuroticismo", npc.get("neuroticismo")))
+    if npc.get("valores"):
+        bf += '<div style="margin-top:10px;display:flex;gap:5px;flex-wrap:wrap;">' + "".join(_p_pill(v) for v in npc["valores"]) + '</div>'
+    bf += _p_bloco("Estilo de fala", npc.get("estilo_de_fala"), italico=True)
+    S.append(_p_secao("Personalidade", "", bf))
+
+    nar = ""
+    if npc.get("tensao_interna"):
+        nar += _p_card(f'<div style="font-family:{_PSERIF};font-size:11px;letter-spacing:.08em;color:{P["tijolo"]};">TENSÃO INTERNA</div>'
+                       f'<div style="font-family:{_PBODY};font-size:15px;color:{P["txt"]};margin-top:4px;">{_pe(npc["tensao_interna"])}</div>', destaque=True)
+    nar += _p_bloco("Identidade (prompt)", npc.get("prompt_identidade"))
+    nar += _p_bloco("Diálogo (prompt)", npc.get("prompt_dialogo"))
+    nar += _p_bloco("Contexto protagonista (prompt)", npc.get("prompt_contexto_protagonista"))
+    nar += _p_bloco("Personality summary", npc.get("personality_summary"))
+    if nar.strip():
+        S.append(_p_secao("Campos do Narrador IA", "vão direto ao prompt do modelo", nar))
+
+    psi = _p_bloco("Medo principal", npc.get("medo_principal"))
+    if npc.get("medos_secundarios"):
+        psi += '<div style="margin-bottom:12px;">' + f'<div style="font-family:{_PSERIF};font-size:11px;letter-spacing:.08em;color:{P["sec"]};margin-bottom:3px;">MEDOS SECUNDÁRIOS</div>' + "".join(f'<div style="font-family:{_PBODY};font-size:15px;color:{P["txt"]};">· {_pe(m)}</div>' for m in npc["medos_secundarios"]) + '</div>'
+    psi += _p_bloco("Desejo oculto", npc.get("desejo_oculto"))
+    psi += _p_bloco("Linha que não cruza", npc.get("linha_que_nao_cruza"))
+    psi += _p_bloco("Maior arrependimento", npc.get("maior_arrependimento"))
+    if psi.strip():
+        S.append(_p_secao("Psicologia Profunda", "", psi))
+
+    if data.get("emotional"):
+        e = data["emotional"]
+        val = e.get("humor_valence", 0) or 0
+        def _kvbox(rot, valor):
+            return (f'<div style="margin-right:28px;"><div style="font-family:{_PSERIF};font-size:10px;letter-spacing:.08em;color:{P["sec"]};">{_pe(rot).upper()}</div>'
+                    f'<div style="font-family:{_PBODY};font-size:18px;color:{P["txt"]};">{valor}</div></div>')
+        emo = ('<div style="display:flex;flex-wrap:wrap;align-items:flex-start;">'
+               + _kvbox("Emoção dominante", _pe(e.get("emocao_dominante", "")))
+               + _kvbox("Intensidade", f'{e.get("intensidade","?")}/10')
+               + _kvbox("Estresse", f'{e.get("estresse_atual","?")}/100')
+               + _kvbox("Humor (valência)", format(val, "+d"))
+               + '</div>')
+        if e.get("causa_principal"):
+            emo += _p_bloco("Causa principal", e["causa_principal"], italico=True)
+        S.append(_p_secao("Estado Emocional", "baseline canônico 312", emo))
+
+    hist = _p_bloco("Resumo", npc.get("backstory_resumida"))
+    if npc.get("backstory_completa"):
+        hist += (f'<details style="margin-bottom:12px;"><summary style="font-family:{_PSERIF};font-size:12px;color:{P["tijolo"]};cursor:pointer;">História completa</summary>'
+                 f'<div style="font-family:{_PBODY};font-size:15px;color:{P["txt"]};line-height:1.6;white-space:pre-line;margin-top:6px;">{_pe(npc["backstory_completa"])}</div></details>')
+    hist += _p_bloco("Evento formativo", npc.get("evento_formativo"), italico=True)
+    if hist.strip():
+        S.append(_p_secao("História", "", hist))
+
+    if npc.get("o_que_so_ele_pode_fazer") or npc.get("momento_de_singularidade"):
+        sg = _p_bloco("O que só ele pode fazer", npc.get("o_que_so_ele_pode_fazer")) + _p_bloco("Momento de singularidade", npc.get("momento_de_singularidade"), italico=True)
+        sub = f'{npc["singularidade"]}/10' if npc.get("singularidade") else ""
+        S.append(_p_secao("Singularidade", sub, sg))
+
+    if data.get("routine"):
+        r = data["routine"]
+        partes = ""
+        for campo, lab in [("amanhecer","Amanhecer"),("manha","Manhã"),("meio_dia","Meio-dia"),("tarde","Tarde"),("noite","Noite"),("madrugada","Madrugada")]:
+            if r.get(campo):
+                partes += (f'<div style="margin-bottom:6px;"><div style="font-family:{_PSERIF};font-size:10px;letter-spacing:.08em;color:{P["sec"]};">{lab.upper()}</div>'
+                           f'<div style="font-family:{_PBODY};font-size:14px;color:{P["txt"]};line-height:1.55;">{_pe(r[campo])}</div></div>')
+        alt = r.get("rotina_alterada_por")
+        if alt and isinstance(alt, dict) and alt.get("evento"):
+            partes += _p_card(f'<div style="font-family:{_PSERIF};font-size:11px;color:{P["tijolo"]};">ALTERAÇÕES</div><div style="font-family:{_PBODY};font-size:14px;color:{P["txt"]};margin-top:4px;">{_pe(alt["evento"])}</div>', destaque=True)
+        if partes.strip():
+            S.append(_p_secao("Rotina Diária", "", partes))
+
+    if data.get("secrets"):
+        itens = ""
+        for s in data["secrets"]:
+            top = _p_pill(f'trust {s.get("trust_level_required",0)}')
+            if s.get("impacto_emocional"):
+                top += " " + _p_pill(f'impacto {s["impacto_emocional"]}/10')
+            if s.get("is_discoverable") is False:
+                top += " " + _p_pill("não-descoberta", forte=True)
+            corpo = (f'<div style="display:flex;gap:6px;flex-wrap:wrap;">{top}</div>'
+                     f'<div style="font-family:{_PSERIF};font-weight:700;font-size:15px;color:{P["tijolo"]};margin-top:5px;">{_pe(s.get("titulo",""))}</div>'
+                     f'<div style="font-family:{_PBODY};font-size:14px;color:{P["txt"]};line-height:1.6;margin-top:3px;">{_pe(s.get("descricao_interna",""))}</div>')
+            if s.get("versao_revelavel"):
+                corpo += f'<div style="background:{P["pagina"]};border-radius:4px;padding:8px 10px;margin-top:6px;"><div style="font-family:{_PSERIF};font-size:10px;color:{P["sec"]};font-style:italic;">VERSÃO REVELÁVEL</div><div style="font-family:{_PBODY};font-size:14px;color:{P["txt"]};">{_pe(s["versao_revelavel"])}</div></div>'
+            itens += _p_card(corpo)
+        S.append(_p_secao("Segredos", f'{len(data["secrets"])} itens', itens))
+
+    if data.get("goals"):
+        itens = ""
+        for g in data["goals"]:
+            top = _p_pill(g.get("tipo","")) + " " + _p_pill(g.get("prazo_narrativo","")) + " " + _p_pill(g.get("nivel_de_consciencia") or "?")
+            if g.get("progresso_percentual") is not None:
+                top += " " + _p_pill(f'{g["progresso_percentual"]}%')
+            if g.get("conflita_com_protagonista"):
+                top += " " + _p_pill("conflita c/ protagonista", forte=True)
+            itens += _p_card(f'<div style="display:flex;gap:6px;flex-wrap:wrap;">{top}</div>'
+                             f'<div style="font-family:{_PBODY};font-size:14px;color:{P["txt"]};margin-top:5px;">{_pe(g.get("descricao",""))}</div>')
+        S.append(_p_secao("Objetivos", f'{len(data["goals"])} itens', itens))
+
+    if data.get("rels_out") or data.get("rels_in"):
+        total = len(data["rels_out"]) + len(data["rels_in"])
+        corpo = ""
+        if data.get("rels_out"):
+            corpo += f'<div style="font-family:{_PSERIF};font-size:11px;letter-spacing:.08em;color:{P["sec"]};margin:6px 0;">→ SENTIMENTOS DESTE NPC ({len(data["rels_out"])})</div>'
+            corpo += "".join(_p_rel_html(r, "alvo_nome", "npc_alvo_id") for r in data["rels_out"])
+        if data.get("rels_in"):
+            corpo += f'<div style="font-family:{_PSERIF};font-size:11px;letter-spacing:.08em;color:{P["sec"]};margin:14px 0 6px;">← SENTIMENTOS DE OUTROS ({len(data["rels_in"])})</div>'
+            corpo += "".join(_p_rel_html(r, "origem_nome", "npc_origem_id") for r in data["rels_in"])
+        S.append(_p_secao("Relacionamentos", f'{total} vínculos', corpo))
+
+    if data.get("family"):
+        itens = ""
+        for f in data["family"]:
+            linha = _p_pill(f.get("grau_parentesco","")) + " " + _p_pill(f.get("status_parente") or "?")
+            if f.get("parente_id"):
+                linha += f' <a href="/oficina/npcs/{f["parente_id"]}" style="color:{P["tijolo"]};font-weight:700;text-decoration:none;">{_pe(f.get("parente_nome") or "?")}</a>'
+            else:
+                linha += f' <span style="color:{P["sec"]};font-style:italic;">{_pe(f.get("parente_nome") or "?")}</span>'
+            if f.get("notas"):
+                linha += f' <span style="font-family:{_PBODY};font-style:italic;font-size:13px;color:{P["sec"]};">— {_pe(f["notas"])}</span>'
+            itens += f'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:5px 0;">{linha}</div>'
+        S.append(_p_secao("Família", f'{len(data["family"])} parentescos', itens))
+
+    if data.get("memories"):
+        itens = ""
+        for m in data["memories"]:
+            top = _p_pill(f'imp {m.get("importancia",0)}/10')
+            if m.get("data_narrativa"):
+                top += " " + _p_pill(m["data_narrativa"])
+            if m.get("emocao_associada"):
+                top += " " + _p_pill(m["emocao_associada"])
+            if m.get("esta_suprimida"):
+                top += " " + _p_pill("SUPRIMIDA", forte=True)
+            corpo = (f'<div style="display:flex;gap:6px;flex-wrap:wrap;">{top}</div>'
+                     f'<div style="font-family:{_PBODY};font-size:14px;color:{P["txt"]};line-height:1.6;margin-top:4px;">{_pe(m.get("descricao",""))}</div>')
+            if m.get("gatilho_de_superficie"):
+                corpo += f'<div style="font-family:{_PBODY};font-style:italic;font-size:13px;color:{P["sec"]};margin-top:3px;">Gatilho: {_pe(m["gatilho_de_superficie"])}</div>'
+            if m.get("como_o_gpt_narra"):
+                corpo += f'<div style="background:{P["pagina"]};border-left:2px solid {P["regua"]};border-radius:4px;padding:8px 10px;margin-top:6px;"><div style="font-family:{_PSERIF};font-size:10px;color:{P["tijolo"]};">COMO O NARRADOR MANIFESTA</div><div style="font-family:{_PBODY};font-style:italic;font-size:14px;color:{P["txt"]};">{_pe(m["como_o_gpt_narra"])}</div></div>'
+            itens += _p_card(corpo)
+        S.append(_p_secao("Memórias", f'{len(data["memories"])} episódios', itens))
+
+    if data.get("knowledge"):
+        itens = ""
+        for k in data["knowledge"]:
+            top = f'<span style="font-family:{_PSERIF};font-weight:700;font-size:14px;color:{P["tijolo"]};">{_pe(k.get("topico",""))}</span> ' + _p_pill(f'certeza {k.get("certeza",0)}%')
+            if k.get("e_crenca_falsa"):
+                top += " " + _p_pill("CRENÇA FALSA", forte=True)
+            corpo = (f'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">{top}</div>'
+                     f'<div style="font-family:{_PBODY};font-size:14px;color:{P["txt"]};line-height:1.6;margin-top:4px;">{_pe(k.get("conteudo",""))}</div>')
+            if k.get("fonte"):
+                corpo += f'<div style="font-family:{_PBODY};font-style:italic;font-size:13px;color:{P["sec"]};margin-top:3px;">Fonte: {_pe(k["fonte"])}</div>'
+            itens += _p_card(corpo)
+        S.append(_p_secao("Conhecimento do Mundo", f'{len(data["knowledge"])} itens', itens))
+
+    return cabecalho_texto, "".join(S)
+
+
 async def pagina_npc_detalhe(npc_id: int) -> None:
     """Detalhe rico com 13 cards: identidade, personalidade, prompts, etc."""
 
@@ -588,19 +904,17 @@ async def pagina_npc_detalhe(npc_id: int) -> None:
     npc = data["npc"]
 
     try:
-        with ui.column().classes("w-full min-h-screen bg-zinc-900 text-zinc-100 p-8 gap-4 max-w-7xl mx-auto"):
-
-            # Breadcrumb
-            with ui.row().classes("items-center gap-2 text-sm"):
-                ui.link("← Oficina", "/oficina").classes("text-zinc-500 hover:text-amber-200")
-                ui.label("/").classes("text-zinc-600")
-                ui.link("NPCs", "/oficina/npcs").classes("text-zinc-500 hover:text-amber-200")
-                ui.label("/").classes("text-zinc-600")
-                ui.label(npc.get("nome_curto") or npc.get("nome") or "?").classes("text-zinc-300")
-
-            # ═══ CABEÇALHO ═══
-            with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-6"):
-                with ui.row().classes("w-full items-start gap-6"):
+        ui.add_head_html(CSS_PERGAMINHO)
+        cab_texto, secoes_html = _npc_corpo_html(data)
+        with ui.column().classes("w-full min-h-screen p-0 gap-0").style("background:#efe3c9;color:#2a1c0e;"):
+            with ui.column().classes("w-full max-w-5xl mx-auto px-6 py-6 gap-0").style("box-sizing:border-box;"):
+                ui.html(
+                    '<div style="font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:.1em;color:#7a6648;">'
+                    '<a href="/oficina" style="color:#7a6648;text-decoration:none;">OFICINA</a> &middot; '
+                    '<a href="/oficina/npcs" style="color:#7a6648;text-decoration:none;">NPCS</a> &middot; '
+                    f'<span style="color:#5a4632;">{html.escape(npc.get("nome_curto") or npc.get("nome") or "?")}</span></div>'
+                )
+                with ui.row().classes("w-full items-start gap-6").style("background:#f6ead0;border:1px solid #922610;border-radius:6px;padding:20px;margin-top:14px;"):
 
                     # ── COLUNA ESQUERDA: imagem principal + galeria ──
                     # Modulo 4.5: galeria de versoes com rotulo narrativo opcional.
@@ -917,339 +1231,9 @@ async def pagina_npc_detalhe(npc_id: int) -> None:
                                                 "flat dense round color=red-7 size=xs"
                                             ).tooltip("deletar")
 
-                    # ── COLUNA DIREITA: identidade ──
-                    with ui.column().classes("gap-1 flex-1"):
-                        ui.label(npc["nome"]).classes(
-                            "text-3xl font-bold text-amber-200 tracking-wide"
-                        )
-                        if npc.get("epiteto"):
-                            ui.label(npc["epiteto"]).classes(
-                                "text-lg text-zinc-400 italic"
-                            )
-                        with ui.row().classes("items-center gap-2 mt-3 flex-wrap"):
-                            _camada_badge(npc.get("camada") or 3)
-                            _status_badge(npc.get("status") or "desconhecido")
-                            if npc.get("raca"):
-                                _badge(npc["raca"], "bg-zinc-700 text-zinc-300")
-                            if npc.get("sexo"):
-                                _badge(npc["sexo"], "bg-zinc-700 text-zinc-300")
-                            if npc.get("idade_aparente"):
-                                _badge(f"idade {npc['idade_aparente']}", "bg-zinc-700 text-zinc-300")
-                            if npc.get("idade_real") and npc["idade_real"] != npc.get("idade_aparente"):
-                                _badge(
-                                    f"real: {npc['idade_real']}",
-                                    "bg-violet-900/50 text-violet-300 font-semibold"
-                                )
-                            if npc.get("singularidade"):
-                                _badge(
-                                    f"singularidade {npc['singularidade']}/10",
-                                    _trust_color(npc["singularidade"])
-                                )
+                    ui.html(cab_texto).classes("flex-1")
 
-            # ═══ IDENTIDADE & CONTEXTO ═══
-            with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                _section_header("Identidade & Contexto")
-                with ui.column().classes("gap-2"):
-                    _kv("Profissão", npc.get("profissao"))
-                    _kv("Localização atual", npc.get("localizacao_atual"))
-                    _kv("Localização base", npc.get("localizacao_base"))
-
-                    if npc.get("facoes"):
-                        with ui.row().classes("items-start gap-2 w-full"):
-                            ui.label("Facções").classes("text-xs uppercase text-zinc-500 w-40 tracking-wider pt-0.5")
-                            with ui.row().classes("gap-1 flex-wrap flex-1"):
-                                for f in npc["facoes"]:
-                                    _badge(f, "bg-amber-900/50 text-amber-200")
-
-                    if data["locations"]:
-                        with ui.row().classes("items-start gap-2 w-full mt-2"):
-                            ui.label("Encontrado em").classes("text-xs uppercase text-zinc-500 w-40 tracking-wider pt-0.5")
-                            with ui.column().classes("gap-1 flex-1"):
-                                for loc in data["locations"]:
-                                    ui.label(
-                                        f"{loc['nome']} ({loc['tipo_presenca']})"
-                                    ).classes("text-sm text-zinc-300")
-
-            # ═══ PERSONALIDADE · Big Five ═══
-            with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                _section_header("Personalidade")
-                with ui.column().classes("gap-3"):
-                    _big_five_bar("Abertura", npc.get("abertura"))
-                    _big_five_bar("Conscienciosidade", npc.get("conscienciosidade"))
-                    _big_five_bar("Extroversão", npc.get("extroversao"))
-                    _big_five_bar("Amabilidade", npc.get("amabilidade"))
-                    _big_five_bar("Neuroticismo", npc.get("neuroticismo"))
-
-                    if npc.get("valores"):
-                        with ui.column().classes("gap-2 mt-3"):
-                            ui.label("Valores").classes("text-xs uppercase text-zinc-500 tracking-wider")
-                            with ui.row().classes("gap-1 flex-wrap"):
-                                for v in npc["valores"]:
-                                    _badge(v, "bg-amber-900/40 text-amber-200")
-
-                    _block("Estilo de fala", npc.get("estilo_de_fala"), italic=True)
-
-            # ═══ CAMPOS DO NARRADOR AI ═══
-            with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                _section_header("Campos do Narrador AI", "vão direto ao prompt do modelo")
-                with ui.column().classes("gap-4"):
-                    if npc.get("tensao_interna"):
-                        with ui.element("div").classes(
-                            "bg-amber-900/30 border-l-2 border-amber-500 p-3 rounded"
-                        ):
-                            ui.label("TENSÃO INTERNA").classes(
-                                "text-xs font-bold tracking-wider text-amber-300"
-                            )
-                            ui.label(npc["tensao_interna"]).classes("text-sm text-zinc-200 mt-1")
-
-                    _block("Identidade (prompt)", npc.get("prompt_identidade"))
-                    _block("Diálogo (prompt)", npc.get("prompt_dialogo"))
-                    _block("Contexto protagonista (prompt)", npc.get("prompt_contexto_protagonista"))
-                    _block("Personality summary", npc.get("personality_summary"))
-
-            # ═══ PSICOLOGIA PROFUNDA ═══
-            with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                _section_header("Psicologia Profunda")
-                with ui.column().classes("gap-3"):
-                    _block("Medo principal", npc.get("medo_principal"))
-                    if npc.get("medos_secundarios"):
-                        with ui.column().classes("gap-1"):
-                            ui.label("Medos secundários").classes("text-xs uppercase text-zinc-500 tracking-wider")
-                            for m in npc["medos_secundarios"]:
-                                ui.label(f"· {m}").classes("text-sm text-zinc-300 ml-2")
-                    _block("Desejo oculto", npc.get("desejo_oculto"))
-                    _block("Linha que não cruza", npc.get("linha_que_nao_cruza"))
-                    _block("Maior arrependimento", npc.get("maior_arrependimento"))
-
-            # ═══ ESTADO EMOCIONAL ═══
-            if data["emotional"]:
-                e = data["emotional"]
-                valence = e.get("humor_valence", 0) or 0
-                val_color = "text-emerald-400" if valence > 20 else (
-                    "text-red-400" if valence < -20 else "text-zinc-400"
-                )
-                with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                    _section_header("Estado Emocional", "baseline canônico 312")
-                    with ui.row().classes("gap-6 flex-wrap items-center"):
-                        with ui.column().classes("gap-0"):
-                            ui.label("Emoção dominante").classes("text-xs text-zinc-500 uppercase tracking-wider")
-                            ui.label(e["emocao_dominante"]).classes("text-lg text-amber-200 font-semibold")
-                        with ui.column().classes("gap-0"):
-                            ui.label("Intensidade").classes("text-xs text-zinc-500 uppercase tracking-wider")
-                            ui.label(f"{e['intensidade']}/10").classes("text-lg text-zinc-100 font-mono")
-                        with ui.column().classes("gap-0"):
-                            ui.label("Estresse").classes("text-xs text-zinc-500 uppercase tracking-wider")
-                            ui.label(f"{e['estresse_atual']}/100").classes("text-lg text-zinc-100 font-mono")
-                        with ui.column().classes("gap-0"):
-                            ui.label("Humor (valência)").classes("text-xs text-zinc-500 uppercase tracking-wider")
-                            ui.label(f"{valence:+d}").classes(f"text-lg {val_color} font-mono font-semibold")
-                    if e.get("causa_principal"):
-                        _block("Causa principal", e["causa_principal"], italic=True)
-
-            # ═══ HISTÓRIA ═══
-            with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                _section_header("História")
-                with ui.column().classes("gap-3"):
-                    _block("Resumo", npc.get("backstory_resumida"))
-                    if npc.get("backstory_completa"):
-                        with ui.expansion(
-                            "História completa", icon="history"
-                        ).classes("w-full bg-zinc-900/50 rounded").props("dense"):
-                            ui.label(npc["backstory_completa"]).classes(
-                                "text-sm text-zinc-300 leading-relaxed whitespace-pre-line p-3"
-                            )
-                    _block("Evento formativo", npc.get("evento_formativo"), italic=True)
-
-            # ═══ SINGULARIDADE ═══
-            if npc.get("o_que_so_ele_pode_fazer") or npc.get("momento_de_singularidade"):
-                with ui.card().classes("w-full bg-zinc-800 border-l-2 border-amber-600 border border-zinc-700 p-5"):
-                    _section_header("Singularidade", f"{npc['singularidade']}/10" if npc.get("singularidade") else "")
-                    with ui.column().classes("gap-3"):
-                        _block("O que só ele pode fazer", npc.get("o_que_so_ele_pode_fazer"))
-                        _block("Momento de singularidade", npc.get("momento_de_singularidade"), italic=True)
-
-            # ═══ ROTINA DIÁRIA ═══
-            if data["routine"]:
-                r = data["routine"]
-                with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                    _section_header("Rotina Diária")
-                    with ui.column().classes("gap-2"):
-                        for campo, label_pt in [
-                            ("amanhecer", "Amanhecer"), ("manha", "Manhã"),
-                            ("meio_dia", "Meio-dia"), ("tarde", "Tarde"),
-                            ("noite", "Noite"), ("madrugada", "Madrugada"),
-                        ]:
-                            if r.get(campo):
-                                with ui.column().classes("gap-0"):
-                                    ui.label(label_pt.upper()).classes(
-                                        "text-xs text-zinc-500 font-semibold tracking-wider"
-                                    )
-                                    ui.label(r[campo]).classes("text-sm text-zinc-300 leading-relaxed")
-                        alt = r.get("rotina_alterada_por")
-                        if alt and isinstance(alt, dict) and alt.get("evento"):
-                            with ui.element("div").classes(
-                                "bg-amber-900/30 border-l-2 border-amber-500 p-3 rounded mt-2"
-                            ):
-                                ui.label("ALTERAÇÕES").classes(
-                                    "text-xs font-bold tracking-wider text-amber-300"
-                                )
-                                ui.label(alt["evento"]).classes("text-sm text-zinc-200 mt-1")
-
-            # ═══ SEGREDOS ═══
-            if data["secrets"]:
-                with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                    _section_header("Segredos", f"{len(data['secrets'])} itens")
-                    with ui.column().classes("gap-3"):
-                        for s in data["secrets"]:
-                            tcolor = _trust_color(s.get("trust_level_required") or 0)
-                            with ui.element("div").classes(
-                                "border-l-2 border-zinc-700 pl-3 py-1 hover:bg-zinc-900/50 rounded"
-                            ):
-                                with ui.row().classes("items-center gap-2 flex-wrap"):
-                                    _badge(f"trust {s.get('trust_level_required')}", tcolor)
-                                    if s.get("impacto_emocional"):
-                                        _badge(
-                                            f"impacto {s['impacto_emocional']}/10",
-                                            "bg-zinc-700 text-zinc-300"
-                                        )
-                                    if s.get("is_discoverable") is False:
-                                        _badge("não-descoberta por confiança", "bg-red-900/50 text-red-300")
-                                ui.label(s["titulo"]).classes("text-zinc-100 font-semibold mt-1")
-                                ui.label(s["descricao_interna"]).classes(
-                                    "text-sm text-zinc-400 mt-1 leading-relaxed"
-                                )
-                                if s.get("versao_revelavel"):
-                                    with ui.element("div").classes("mt-2 bg-zinc-900/60 p-2 rounded"):
-                                        ui.label("Versão revelável").classes("text-xs text-zinc-500 italic")
-                                        ui.label(s["versao_revelavel"]).classes("text-sm text-zinc-300")
-
-            # ═══ OBJETIVOS ═══
-            if data["goals"]:
-                with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                    _section_header("Objetivos", f"{len(data['goals'])} itens")
-                    with ui.column().classes("gap-2"):
-                        for g in data["goals"]:
-                            with ui.element("div").classes(
-                                "border-l-2 border-zinc-700 pl-3 py-1 hover:bg-zinc-900/50 rounded"
-                            ):
-                                with ui.row().classes("items-center gap-2 flex-wrap"):
-                                    _badge(g["tipo"], "bg-sky-900/50 text-sky-300")
-                                    _badge(g["prazo_narrativo"], "bg-zinc-700 text-zinc-300")
-                                    consc = g.get("nivel_de_consciencia") or "?"
-                                    cons_cls = "bg-violet-900/40 text-violet-300" if consc != "consciente" else "bg-zinc-700 text-zinc-300"
-                                    _badge(consc, cons_cls)
-                                    if g.get("progresso_percentual") is not None:
-                                        _badge(f"{g['progresso_percentual']}%", "bg-zinc-700 text-zinc-300")
-                                    if g.get("conflita_com_protagonista"):
-                                        _badge("conflita com protagonista", "bg-red-900/50 text-red-300")
-                                ui.label(g["descricao"]).classes("text-sm text-zinc-300 mt-1")
-
-            # ═══ RELACIONAMENTOS ═══
-            if data["rels_out"] or data["rels_in"]:
-                total_rels = len(data["rels_out"]) + len(data["rels_in"])
-                with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                    _section_header("Relacionamentos", f"{total_rels} vínculos")
-                    with ui.column().classes("gap-2"):
-                        if data["rels_out"]:
-                            ui.label(f"→ Sentimentos deste NPC por outros ({len(data['rels_out'])})").classes(
-                                "text-xs text-zinc-500 uppercase mt-2 tracking-wider"
-                            )
-                            for r in data["rels_out"]:
-                                _render_rel(r, "alvo_nome", "npc_alvo_id")
-                        if data["rels_in"]:
-                            ui.label(f"← Sentimentos de outros por este NPC ({len(data['rels_in'])})").classes(
-                                "text-xs text-zinc-500 uppercase mt-4 tracking-wider"
-                            )
-                            for r in data["rels_in"]:
-                                _render_rel(r, "origem_nome", "npc_origem_id")
-
-            # ═══ FAMÍLIA ═══
-            if data["family"]:
-                with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                    _section_header("Família", f"{len(data['family'])} parentescos")
-                    with ui.column().classes("gap-2"):
-                        for f in data["family"]:
-                            with ui.row().classes("items-center gap-3 py-1 flex-wrap"):
-                                _badge(f["grau_parentesco"], "bg-zinc-700 text-zinc-300")
-                                _badge(f.get("status_parente") or "?", "bg-zinc-700 text-zinc-400")
-                                if f.get("parente_id"):
-                                    ui.link(
-                                        f.get("parente_nome") or "?",
-                                        f"/oficina/npcs/{f['parente_id']}"
-                                    ).classes("text-zinc-200 hover:text-amber-200 font-medium")
-                                else:
-                                    ui.label(f.get("parente_nome") or "?").classes("text-zinc-400 italic")
-                                if f.get("notas"):
-                                    ui.label(f"— {f['notas']}").classes("text-xs text-zinc-500 italic")
-
-            # ═══ MEMÓRIAS ═══
-            if data["memories"]:
-                with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                    _section_header("Memórias", f"{len(data['memories'])} episódios")
-                    with ui.column().classes("gap-3"):
-                        for m in data["memories"]:
-                            border = "border-violet-500" if m.get("esta_suprimida") else "border-zinc-700"
-                            with ui.element("div").classes(
-                                f"border-l-2 {border} pl-3 py-1 hover:bg-zinc-900/50 rounded"
-                            ):
-                                with ui.row().classes("items-center gap-2 flex-wrap"):
-                                    _badge(
-                                        f"imp {m['importancia']}/10",
-                                        _trust_color(m["importancia"])
-                                    )
-                                    if m.get("data_narrativa"):
-                                        _badge(m["data_narrativa"], "bg-zinc-700 text-zinc-400")
-                                    if m.get("emocao_associada"):
-                                        _badge(m["emocao_associada"], "bg-sky-900/40 text-sky-300")
-                                    if m.get("esta_suprimida"):
-                                        _badge("SUPRIMIDA", "bg-violet-900/60 text-violet-200 font-bold")
-                                ui.label(m["descricao"]).classes(
-                                    "text-sm text-zinc-300 mt-1 leading-relaxed"
-                                )
-                                if m.get("gatilho_de_superficie"):
-                                    ui.label(f"Gatilho: {m['gatilho_de_superficie']}").classes(
-                                        "text-xs text-zinc-500 italic mt-1"
-                                    )
-                                if m.get("como_o_gpt_narra"):
-                                    with ui.element("div").classes(
-                                        "bg-amber-900/20 border-l border-amber-700 p-2 mt-2 rounded"
-                                    ):
-                                        ui.label("Como o narrador manifesta").classes(
-                                            "text-xs text-amber-300 font-bold tracking-wider"
-                                        )
-                                        ui.label(m["como_o_gpt_narra"]).classes(
-                                            "text-sm text-zinc-300 italic"
-                                        )
-
-            # ═══ CONHECIMENTO ═══
-            if data["knowledge"]:
-                with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-5"):
-                    _section_header("Conhecimento do Mundo", f"{len(data['knowledge'])} itens")
-                    with ui.column().classes("gap-2"):
-                        for k in data["knowledge"]:
-                            cert_color = "text-emerald-400" if k["certeza"] >= 80 else (
-                                "text-yellow-300" if k["certeza"] >= 50 else "text-orange-300"
-                            )
-                            with ui.element("div").classes(
-                                "border-l-2 border-zinc-700 pl-3 py-1 hover:bg-zinc-900/50 rounded"
-                            ):
-                                with ui.row().classes("items-center gap-2 flex-wrap"):
-                                    ui.label(k["topico"]).classes("text-zinc-100 font-semibold")
-                                    _badge(f"certeza {k['certeza']}%", f"{cert_color} bg-zinc-800")
-                                    if k.get("e_crenca_falsa"):
-                                        _badge("CRENÇA FALSA", "bg-red-900/60 text-red-300 font-bold")
-                                ui.label(k["conteudo"]).classes(
-                                    "text-sm text-zinc-400 mt-1 leading-relaxed"
-                                )
-                                if k.get("fonte"):
-                                    ui.label(f"Fonte: {k['fonte']}").classes(
-                                        "text-xs text-zinc-500 italic mt-1"
-                                    )
-
-            with ui.row().classes("w-full justify-center mt-auto pt-6"):
-                ui.label(
-                    "Módulo 4.2 · Detalhe completo. 13 seções do ecossistema NPC."
-                ).classes("text-xs text-zinc-600 italic")
+            ui.html(secoes_html).classes("w-full")
 
     except Exception as e:
         # Captura qualquer erro de renderizacao. Antes do fix v4 isso nao
