@@ -260,7 +260,9 @@ _VITRAL_HEAD = """
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Spectral:ital@0;1&display=swap" rel="stylesheet">
 <style>
-.nicegui-content{padding:0!important;gap:0!important;}
+.q-layout,.q-page-container,.q-page{width:100%!important;max-width:none!important;}
+.nicegui-content{width:100%!important;max-width:none!important;padding:0!important;gap:0!important;align-items:stretch!important;}
+.cat-screen{box-sizing:border-box;}
 body{margin:0;}
 .cat-screen{position:relative;font-family:'Spectral',Georgia,serif;color:#e8dcc0;min-height:100vh;width:100%;overflow:hidden;background:linear-gradient(180deg,#0a0d1a 0%,#10141f 42%,#161b27 72%,#1b2029 100%);}
 .cat-city{position:absolute;left:0;right:0;bottom:0;width:100%;height:46vh;z-index:0;}
@@ -444,7 +446,7 @@ async def pagina_oficina():
         print(f"[home] erro ao contar: {e}")
         total_npcs = total_estrelas = total_vocacoes = total_criaturas = 0
 
-    ui.html(_vitral_dashboard(total_npcs, total_estrelas, total_vocacoes, total_criaturas))
+    ui.html(_vitral_dashboard(total_npcs, total_estrelas, total_vocacoes, total_criaturas)).classes("w-full")
 
 
 @ui.page("/oficina/historias")
@@ -463,7 +465,7 @@ async def pagina_historias():
         '</div>'
         + '<div class="cat-foot">vigília quebrada &middot; ano 312</div>'
         + '</div>'
-    )
+    ).classes("w-full")
 
 
 # ====================================================================
