@@ -402,6 +402,169 @@ def _render_card_lista(row):
 # PAGINA DETALHE
 # ====================================================================
 
+_DESLOC_ROTULOS = {"terrestre": "", "natacao": "nado", "voo": "voo",
+                   "escavacao": "escavação", "escalada": "escalada"}
+
+def _mod(v):
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return "—"
+    m = (n - 10) // 2
+    return f"+{m}" if m >= 0 else f"−{abs(m)}"
+
+def _fmt_desloc(vel):
+    v = vel if isinstance(vel, dict) else (_safe_json(vel) or {})
+    if not isinstance(v, dict) or not v:
+        return "—"
+    partes = []
+    if v.get("terrestre") is not None:
+        partes.append(f"{v['terrestre']} m")
+    for k, val in v.items():
+        if k == "terrestre":
+            continue
+        partes.append(f"{_DESLOC_ROTULOS.get(k, k)} {val} m")
+    return ", ".join(partes) if partes else "—"
+
+def _render_statblock_html(row, dados_json):
+    import html as _h
+    nome = _h.escape(str(row.get("nome") or "?"))
+    sub = " ".join(p for p in [str(row.get("tamanho") or "").strip(),
+                               str(row.get("tipo") or "").strip()] if p)
+    alin = str(row.get("alinhamento") or "").strip()
+    if alin:
+        sub = f"{sub}, {alin}" if sub else alin
+    sub = _h.escape(sub) or "—"
+    ca = row.get("ca")
+    hp = row.get("hp_medio")
+    dv = str(row.get("dado_vida") or "").strip()
+    hp_txt = str(hp) if hp is not None else "—"
+    if dv:
+        hp_txt = f"{hp_txt} ({_h.escape(dv)})"
+    desloc = _h.escape(_fmt_desloc(row.get("velocidades")))
+
+    stat_cells = ""
+    for lab, col in [("FOR","forca"),("DES","destreza"),("CON","constituicao"),
+                     ("INT","inteligencia"),("SAB","sabedoria"),("CAR","carisma")]:
+        val = row.get(col)
+        vtxt = str(val) if val is not None else "—"
+        stat_cells += (
+            '<div style="text-align:center;">'
+            f'<div style="font-family:Cinzel,serif;font-weight:600;font-size:11px;color:#58180d;letter-spacing:.5px;">{lab}</div>'
+            f'<div style="font-size:14px;">{vtxt}</div>'
+            f'<div style="font-size:11px;color:#7a6a48;">{_mod(val)}</div></div>'
+        )
+
+    def _arr(a):
+        if not a:
+            return ""
+        return ", ".join(str(x) for x in a) if isinstance(a, list) else str(a)
+    meta_bits = []
+    sent = str(row.get("sentidos") or "").strip()
+    pp = row.get("percepcao_passiva")
+    if sent or pp is not None:
+        s = sent
+        if pp is not None:
+            s = (f"{s}, Percepção passiva {pp}" if s else f"Percepção passiva {pp}")
+        meta_bits.append(("Sentidos", s))
+    for lab, key in [("Idiomas","idiomas")]:
+        val = str(row.get(key) or "").strip()
+        if val:
+            meta_bits.append((lab, val))
+    for lab, key in [("Resistências","resistencias"),("Imunidades","imunidades"),
+                     ("Vulnerabilidades","vulnerabilidades")]:
+        val = _arr(row.get(key))
+        if val:
+            meta_bits.append((lab, val))
+    cr = row.get("cr")
+    meta_bits.append(("Desafio", ("%g" % float(cr)) if cr is not None else "—"))
+    perigo = str(row.get("perigo") or "").strip()
+    if perigo:
+        meta_bits.append(("Perigo", perigo))
+    meta_html = " &nbsp;·&nbsp; ".join(
+        f'<span style="font-family:Cinzel,serif;font-weight:600;color:#58180d;">{_h.escape(lab)}</span> {_h.escape(str(val))}'
+        for lab, val in meta_bits
+    )
+
+    def _bloco(titulo, itens):
+        if not isinstance(itens, list) or not itens:
+            return ""
+        linhas = ""
+        for it in itens:
+            if not isinstance(it, dict):
+                continue
+            n = _h.escape(str(it.get("nome") or "").strip())
+            d = _h.escape(str(it.get("descricao") or "").strip())
+            if not n and not d:
+                continue
+            linhas += (
+                '<div style="font-size:13.5px;line-height:1.5;margin-bottom:7px;">'
+                f'<span style="font-style:italic;font-weight:600;">{n}.</span> {d}</div>'
+            )
+        if not linhas:
+            return ""
+        cab = ""
+        if titulo:
+            cab = (
+                f'<div style="font-family:Cinzel,serif;font-size:17px;font-weight:600;color:#58180d;margin:13px 0 3px;">{titulo}</div>'
+                '<div style="height:3px;background:#922610;margin-bottom:8px;clip-path:polygon(0 50%,1% 0,99% 0,100% 50%,99% 100%,1% 100%);"></div>'
+            )
+        return cab + linhas
+
+    bloco_tracos = _bloco("", dados_json.get("tracos") or [])
+    bloco_acoes = _bloco("Ações", dados_json.get("acoes") or [])
+    bloco_bonus = _bloco("Ações Bônus", dados_json.get("acoes_bonus") or [])
+    bloco_reacoes = _bloco("Reações", dados_json.get("reacoes") or [])
+
+    portrait = str(dados_json.get("portrait_url") or "").strip()
+    if portrait:
+        arte = (
+            '<div style="aspect-ratio:4/5;border:2px solid #922610;border-radius:3px;overflow:hidden;background:#efe2c4;">'
+            f'<img src="{_h.escape(portrait, quote=True)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
+        )
+    else:
+        arte = (
+            '<div style="aspect-ratio:4/5;border:2px solid #922610;border-radius:3px;background:#efe2c4;'
+            'display:flex;align-items:center;justify-content:center;color:#a07a48;font-style:italic;font-size:12px;text-align:center;padding:14px;">'
+            'arte do Alderyn (a gerar)</div>'
+        )
+
+    epig = str(row.get("epigrafe") or "").strip()
+    epig_html = ""
+    if epig:
+        epig_html = (
+            '<div style="border-left:3px solid #922610;padding:9px 12px;margin-top:12px;'
+            "background:rgba(146,38,16,.05);font-family:'Crimson Text',Georgia,serif;"
+            f'font-style:italic;font-size:13px;color:#5a4a32;line-height:1.5;">{_h.escape(epig)}</div>'
+        )
+
+    rule = '<div style="height:4px;background:#922610;margin:10px 0;clip-path:polygon(0 50%,1.5% 0,98.5% 0,100% 50%,98.5% 100%,1.5% 100%);"></div>'
+
+    return (
+        '<div style="padding:22px 16px;">'
+        '<div style="max-width:900px;margin:0 auto;background:#fdf1dc;border:1px solid #d9c9a8;'
+        'border-top:3px solid #58180d;border-bottom:3px solid #58180d;border-radius:3px;'
+        "padding:18px 22px;color:#1d1107;font-family:'Crimson Text',Georgia,serif;box-sizing:border-box;\">"
+        '<div style="display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:start;">'
+        f'<div>{arte}{epig_html}</div>'
+        '<div>'
+        f'<div style="font-family:Cinzel,serif;font-size:24px;font-weight:600;color:#58180d;line-height:1.05;">{nome}</div>'
+        f'<div style="font-style:italic;font-size:12.5px;color:#5a4a32;margin-top:2px;">{sub}</div>'
+        f'{rule}'
+        '<div style="font-size:13.5px;line-height:1.7;">'
+        f'<span style="font-family:Cinzel,serif;font-weight:600;color:#58180d;">Classe de Armadura</span> {ca if ca is not None else "—"}<br>'
+        f'<span style="font-family:Cinzel,serif;font-weight:600;color:#58180d;">Pontos de Vida</span> {hp_txt}<br>'
+        f'<span style="font-family:Cinzel,serif;font-weight:600;color:#58180d;">Deslocamento</span> {desloc}</div>'
+        f'{rule}'
+        f'<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px;">{stat_cells}</div>'
+        f'{rule}'
+        f'<div style="font-size:12.5px;line-height:1.6;">{meta_html}</div>'
+        f'{rule}'
+        f'{bloco_tracos}{bloco_acoes}{bloco_bonus}{bloco_reacoes}'
+        '</div></div></div></div>'
+    )
+
+
 async def pagina_criatura_detalhe(criatura_id: int):
     await aguardar_conexao_websocket(f"Consultando criatura #{criatura_id}...")
     async with get_session() as session:
@@ -444,41 +607,10 @@ async def pagina_criatura_detalhe(criatura_id: int):
             ui.button(icon="arrow_back",
                       on_click=lambda: ui.navigate.to("/oficina/bestiario"),
                       ).props("flat round dense color=amber-2")
-        if portrait:
-            ui.image(portrait).classes("w-full").style(
-                "height:400px;object-fit:cover;object-position:center 30%;"
-                "border-bottom:1px solid #8b7355;")
-        else:
-            ui.html(_svg_silhueta_hero(tipo))
-        with ui.column().classes("w-full px-8 py-4 gap-1").style(
-            "background:#0d0b09;border-bottom:1px solid #8b7355;"):
-            ui.label(nome).classes("text-4xl font-bold text-amber-100 bestiario-title").style(
-                "letter-spacing:3px;text-transform:uppercase;")
-            ui.label(f"{origem} - {cont_str} - {row.get('andar_primario','Superficie')}").classes(
-                "text-sm text-amber-600 bestiario-title").style(
-                "letter-spacing:3px;text-transform:uppercase;")
-
-        # STATS BAR
-        with ui.row().classes("w-full").style(
-            "background:#2a2520;border-bottom:1px solid rgba(139,115,85,0.3);"):
-            for label, val, hl in [("CR",cr,True),("FOR",row["forca"] or 0,False),
-                ("DES",row["destreza"] or 0,False),("CON",row["constituicao"] or 0,False),
-                ("INT",row["inteligencia"] or 0,False),("SAB",row["sabedoria"] or 0,False),
-                ("CAR",row["carisma"] or 0,False),("CA",row["ca"] or 0,True),
-                ("HP",row["hp_medio"] or 0,False)]:
-                with ui.column().classes("flex-1 items-center py-3").style(
-                    "border-right:1px solid rgba(139,115,85,0.1);"):
-                    ui.label(label).classes("text-xs text-zinc-500 bestiario-title").style("letter-spacing:2px;")
-                    c = "text-amber-300" if hl else "text-zinc-200"
-                    ui.label(str(val)).classes(f"text-lg font-bold {c} bestiario-title")
-            with ui.column().classes("flex-1 items-center py-3"):
-                ui.label("PERIGO").classes("text-xs text-zinc-500 bestiario-title").style("letter-spacing:2px;")
-                ui.badge(perigo, color=f"{cor_p}-8").props("rounded")
+        ui.html(_render_statblock_html(row, dados_json))
 
         # CONTENT
         with ui.column().classes("w-full p-8 gap-6 max-w-4xl mx-auto"):
-            if epigrafe:
-                ui.html(f'<div class="epigrafe-box"><span style="color:#9a8b70;font-size:16px;">{html.escape(epigrafe)}</span></div>')
             with ui.row().classes("gap-2 flex-wrap"):
                 for t in [tipo, row.get("tamanho",""), origem, row.get("pilar_associado",""),
                            row.get("behavior_archetype","")]:
