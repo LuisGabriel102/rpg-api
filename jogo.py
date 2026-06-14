@@ -113,7 +113,7 @@ _INTENCOES = [
 ]
 
 # Quanto cada intencao mexe na Pressao (clampada 0-10 no retorno).
-_DELTA = {"agressao": 3, "fuga": -1, "cautela": 1, "dialogo": 2, "avanco": 1, "ambiguo": 0}
+_DELTA = {"agressao": 3, "fuga": -2, "cautela": 0, "dialogo": 1, "avanco": 1, "ambiguo": -1}
 
 # Banco de prosa: intencao -> faixa de pressao -> lista de trechos.
 # A faixa (calma/tensa/critica) modula o TOM; a atmosfera (pele) vem da
