@@ -30,6 +30,83 @@ from ui_helpers import aguardar_conexao_websocket, barra_nav
 
 
 # ====================================================================
+# GALERIA DE RETRATOS · pele vitral (Fatia 3)
+# CSS escopado em .gp-* + helpers que emitem HTML (re-renderizavel).
+# ====================================================================
+
+_GALERIA_CSS = """
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Spectral:ital@0;1&display=swap" rel="stylesheet">
+<style>
+.q-layout,.q-page-container,.q-page{width:100%!important;max-width:none!important;}
+.nicegui-content{width:100%!important;max-width:none!important;padding:0!important;gap:0!important;align-items:stretch!important;}
+body{margin:0;}
+.gp-screen{position:relative;font-family:'Spectral',Georgia,serif;color:#e8dcc0;min-height:100vh;width:100%;background:linear-gradient(180deg,#0a0d1a 0%,#10141f 50%,#13161f 100%);box-sizing:border-box;}
+.gp-inner{max-width:1180px;margin:0 auto;padding:26px 28px 40px;}
+.gp-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+.gp-title{font-family:'IM Fell English',serif;font-size:32px;color:#f6ecd2;}
+.gp-count{font-style:italic;font-size:13px;color:#9a8a5a;}
+.gp-rule{height:1px;background:linear-gradient(90deg,#5c4413,#c9a227 40%,transparent);margin:16px 0 22px;}
+.gp-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;}
+.gp-card{position:relative;border:1px solid #b8902f;border-radius:5px;overflow:hidden;background:#0c0e16;box-shadow:inset 0 1px 0 rgba(255,238,190,.14);text-decoration:none;display:block;}
+.gp-card:hover{border-color:#f0d98a;}
+.gp-portrait{position:relative;width:100%;aspect-ratio:3/4;overflow:hidden;background:linear-gradient(160deg,#1a1d2a,#0e1018);}
+.gp-portrait img{width:100%;height:100%;object-fit:cover;display:block;}
+.gp-dead .gp-portrait img{filter:grayscale(1) brightness(.62);}
+.gp-seldead{position:absolute;top:8px;right:8px;font-family:'IM Fell English SC',serif;font-size:10px;letter-spacing:.1em;color:#cdbfa6;background:rgba(10,10,14,.78);border:1px solid #6a6052;border-radius:3px;padding:2px 7px;}
+.gp-foot{padding:11px 12px 13px;border-top:1px solid #2c2c1a;background:rgba(10,11,17,.6);}
+.gp-name{font-family:'IM Fell English',serif;font-size:17px;color:#f3e7c4;line-height:1.05;}
+.gp-epi{font-style:italic;font-size:12.5px;color:#c0a36a;margin-top:2px;line-height:1.2;}
+.gp-prof{font-size:11px;color:#7f7558;margin-top:5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gp-empty{display:flex;align-items:center;justify-content:center;width:100%;height:100%;}
+.gp-initials{font-family:'IM Fell English',serif;font-size:46px;color:#b8902f;opacity:.85;}
+.gp-dead .gp-name{color:#cfc7b4;}.gp-dead .gp-epi{color:#9a9078;}
+.gp-vazio{text-align:center;font-style:italic;color:#7a6f55;padding:50px 0;}
+</style>
+"""
+
+
+def _iniciais(nome: str) -> str:
+    import html as _h
+    partes = [p for p in (nome or "").split() if p]
+    if not partes:
+        return "?"
+    if len(partes) == 1:
+        return _h.escape(partes[0][:2].upper())
+    return _h.escape((partes[0][:1] + partes[-1][:1]).upper())
+
+
+def _card_npc(npc: dict) -> str:
+    import html as _h
+    nome = _h.escape(str(npc.get("nome") or "-"))
+    epi = _h.escape(str(npc.get("epiteto") or ""))
+    prof = str(npc.get("profissao") or "")
+    prof = _h.escape(prof if len(prof) <= 60 else prof[:57] + "…")
+    img = npc.get("imagem_url")
+    morto = (str(npc.get("status") or "")).lower() == "morto"
+    cls_dead = " gp-dead" if morto else ""
+    if img:
+        src = _h.escape(str(img), quote=True)
+        retrato = f'<img src="{src}" alt="" loading="lazy">'
+    else:
+        retrato = f'<div class="gp-empty"><span class="gp-initials">{_iniciais(npc.get("nome"))}</span></div>'
+    selo = '<span class="gp-seldead">&#10013; morto</span>' if morto else ""
+    epi_html = f'<div class="gp-epi">{epi}</div>' if epi else ""
+    prof_html = f'<div class="gp-prof">{prof}</div>' if prof else ""
+    return (
+        f'<a class="gp-card{cls_dead}" href="/oficina/npcs/{npc.get("id")}">'
+        f'<div class="gp-portrait">{retrato}{selo}</div>'
+        f'<div class="gp-foot"><div class="gp-name">{nome}</div>{epi_html}{prof_html}</div></a>'
+    )
+
+
+def _grade_npcs(rows: list[dict]) -> str:
+    if not rows:
+        return '<div class="gp-vazio">Nenhum nome encontrado com esses filtros.</div>'
+    return '<div class="gp-grid">' + "".join(_card_npc(n) for n in rows) + '</div>'
+
+
+# ====================================================================
 # HELPERS DE QUERY · listagem paginada
 # ====================================================================
 
@@ -355,6 +432,7 @@ async def pagina_lista_npcs_rica() -> None:
     await aguardar_conexao_websocket("Catalogando almas do Alderyn...")
 
     barra_nav("npcs")
+    ui.add_head_html(_GALERIA_CSS)
 
     filtros = {
         "busca": "",
@@ -363,208 +441,98 @@ async def pagina_lista_npcs_rica() -> None:
         "faccao": None,
         "status": None,
     }
-    pagination_state = {
-        "rowsPerPage": 20,
-        "rowsNumber": 0,
-        "page": 1,
-        "sortBy": "nome",
-        "descending": False,
-    }
 
     opcoes = await _opcoes_filtros()
 
-    rows_iniciais, total = await _buscar_pagina_npcs_rica(
-        page=1, rows_per_page=20, sort_by="nome", descending=False,
-    )
-    pagination_state["rowsNumber"] = total
-
-    columns = [
-        {"name": "nome", "label": "Nome", "field": "nome", "sortable": True, "align": "left"},
-        {"name": "camada", "label": "Camada", "field": "camada", "sortable": True, "align": "center"},
-        {"name": "raca", "label": "Raça", "field": "raca", "sortable": True, "align": "left"},
-        {"name": "idade", "label": "Idade", "field": "idade", "sortable": False, "align": "right"},
-        {"name": "profissao", "label": "Profissão", "field": "profissao", "sortable": False, "align": "left"},
-        {"name": "localizacao", "label": "Localização", "field": "localizacao", "sortable": False, "align": "left"},
-        {"name": "facoes_str", "label": "Facções", "field": "facoes_str", "sortable": False, "align": "left"},
-        {"name": "status", "label": "Status", "field": "status", "sortable": True, "align": "center"},
-        {"name": "singularidade", "label": "Sing.", "field": "singularidade", "sortable": True, "align": "right"},
-    ]
-
-    table_ref: dict = {"w": None}
     counter_ref: dict = {"w": None}
+    galeria_ref: dict = {"w": None}
 
-    async def refresh() -> None:
-        if not table_ref["w"]:
-            return
-        pag = dict(table_ref["w"].pagination)
+    async def _refresh() -> None:
+        # 44 NPCs hoje: rows_per_page=500 traz todos numa galeria so.
         rows, total_atual = await _buscar_pagina_npcs_rica(
-            page=pag.get("page", 1),
-            rows_per_page=pag.get("rowsPerPage", 20),
-            sort_by=pag.get("sortBy") or "nome",
-            descending=pag.get("descending", False),
+            page=1, rows_per_page=500,
+            sort_by="nome", descending=False,
             **filtros,
         )
-        pag["rowsNumber"] = total_atual
-        pag["page"] = 1
-        table_ref["w"].rows = rows
-        table_ref["w"].pagination = pag
-        table_ref["w"].update()
+        if galeria_ref["w"]:
+            galeria_ref["w"].set_content(_grade_npcs(rows))
         if counter_ref["w"]:
-            counter_ref["w"].set_text(f"{total_atual} alma(s) filtrada(s)")
+            counter_ref["w"].set_text(
+                f"{total_atual} figuras — os que vivem, e os que já viveram"
+            )
 
     def _schedule(coro) -> None:
         asyncio.create_task(coro)
 
     def set_busca(e) -> None:
         filtros["busca"] = (e.value or "").strip()
-        ui.timer(0.05, lambda: _schedule(refresh()), once=True)
+        ui.timer(0.05, lambda: _schedule(_refresh()), once=True)
 
     def set_camada(e) -> None:
         filtros["camada"] = e.value
-        ui.timer(0.05, lambda: _schedule(refresh()), once=True)
+        ui.timer(0.05, lambda: _schedule(_refresh()), once=True)
 
     def set_localizacao(e) -> None:
         filtros["localizacao"] = e.value
-        ui.timer(0.05, lambda: _schedule(refresh()), once=True)
+        ui.timer(0.05, lambda: _schedule(_refresh()), once=True)
 
     def set_faccao(e) -> None:
         filtros["faccao"] = e.value
-        ui.timer(0.05, lambda: _schedule(refresh()), once=True)
+        ui.timer(0.05, lambda: _schedule(_refresh()), once=True)
 
     def set_status(e) -> None:
         filtros["status"] = e.value
-        ui.timer(0.05, lambda: _schedule(refresh()), once=True)
+        ui.timer(0.05, lambda: _schedule(_refresh()), once=True)
 
-    with ui.column().classes("w-full min-h-screen bg-zinc-900 text-zinc-100 p-8 gap-4"):
+    with ui.column().classes("gp-screen w-full min-h-screen p-0 gap-0"):
+        with ui.column().classes("gp-inner w-full gap-4"):
 
-        with ui.row().classes("w-full items-center justify-between"):
-            with ui.row().classes("items-center gap-3"):
+            with ui.row().classes("w-full items-center gap-3"):
                 ui.button(
                     icon="arrow_back",
                     on_click=lambda: ui.navigate.to("/oficina"),
                 ).props("flat round dense color=amber-2")
                 with ui.column().classes("gap-0"):
-                    ui.label("NPCs do Alderyn").classes("text-3xl font-bold text-amber-200")
-                    counter_ref["w"] = ui.label(
-                        f"{total} alma(s) catalogada(s)"
-                    ).classes("text-sm text-zinc-400 italic")
+                    ui.label("Personagens").classes("text-3xl font-bold text-amber-200")
+                    counter_ref["w"] = ui.label("").classes("text-sm text-zinc-400 italic")
 
-        ui.separator().classes("bg-zinc-700")
+            with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-4"):
+                with ui.row().classes("w-full gap-3 flex-wrap items-end"):
+                    ui.input(
+                        label="Busca (nome, nome_curto, epíteto)",
+                        placeholder="ex: Hesar, patriarca, o silente...",
+                        on_change=set_busca,
+                    ).classes("flex-1 min-w-64").props("dense dark outlined clearable")
 
-        with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-4"):
-            with ui.row().classes("w-full gap-3 flex-wrap items-end"):
-                ui.input(
-                    label="Busca (nome, nome_curto, epíteto)",
-                    placeholder="ex: Hesar, patriarca, o silente...",
-                    on_change=set_busca,
-                ).classes("flex-1 min-w-64").props("dense dark outlined clearable")
+                    ui.select(
+                        options={None: "Todas", 1: "C1 Âncora", 2: "C2 Recorrente", 3: "C3 Fundo"},
+                        label="Camada", value=None, on_change=set_camada,
+                    ).classes("w-40").props("dense dark outlined")
 
-                ui.select(
-                    options={None: "Todas", 1: "C1 Âncora", 2: "C2 Recorrente", 3: "C3 Fundo"},
-                    label="Camada", value=None, on_change=set_camada,
-                ).classes("w-40").props("dense dark outlined")
+                    ui.select(
+                        options={None: "Todas", **{l: l for l in opcoes["locs"]}},
+                        label="Localização", value=None, on_change=set_localizacao,
+                    ).classes("w-56").props("dense dark outlined")
 
-                ui.select(
-                    options={None: "Todas", **{l: l for l in opcoes["locs"]}},
-                    label="Localização", value=None, on_change=set_localizacao,
-                ).classes("w-56").props("dense dark outlined")
+                    ui.select(
+                        options={None: "Todas", **{f: f for f in opcoes["faccoes"]}},
+                        label="Facção", value=None, on_change=set_faccao,
+                    ).classes("w-56").props("dense dark outlined")
 
-                ui.select(
-                    options={None: "Todas", **{f: f for f in opcoes["faccoes"]}},
-                    label="Facção", value=None, on_change=set_faccao,
-                ).classes("w-56").props("dense dark outlined")
+                    ui.select(
+                        options={
+                            None: "Todos",
+                            "vivo": "● vivo",
+                            "morto": "† morto",
+                            "desaparecido": "? desaparecido",
+                            "exilado": "→ exilado",
+                        },
+                        label="Status", value=None, on_change=set_status,
+                    ).classes("w-48").props("dense dark outlined")
 
-                ui.select(
-                    options={
-                        None: "Todos",
-                        "vivo": "● vivo",
-                        "morto": "† morto",
-                        "desaparecido": "? desaparecido",
-                        "exilado": "→ exilado",
-                    },
-                    label="Status", value=None, on_change=set_status,
-                ).classes("w-48").props("dense dark outlined")
+            galeria_ref["w"] = ui.html("").classes("w-full")
 
-        table = ui.table(
-            columns=columns,
-            rows=rows_iniciais,
-            row_key="id",
-            pagination=pagination_state,
-        ).classes("w-full bg-zinc-800 rounded-lg").props(
-            'flat bordered dark rows-per-page-options="[10, 20, 50]"'
-        )
-        table_ref["w"] = table
-
-        table.add_slot("body-cell-camada", r"""
-            <q-td :props="props">
-                <q-badge :color="props.value === 1 ? 'amber-8' : props.value === 2 ? 'blue-8' : 'grey-7'"
-                         rounded>
-                    C{{ props.value }}
-                </q-badge>
-            </q-td>
-        """)
-
-        table.add_slot("body-cell-status", r"""
-            <q-td :props="props">
-                <q-badge :color="
-                    props.value === 'vivo' ? 'green-7' :
-                    props.value === 'morto' ? 'red-9' :
-                    props.value === 'desaparecido' ? 'purple-9' :
-                    props.value === 'exilado' ? 'orange-9' : 'grey-7'
-                " rounded>
-                    {{ props.value }}
-                </q-badge>
-            </q-td>
-        """)
-
-        table.add_slot("body-cell-nome", r"""
-            <q-td :props="props">
-                <q-item dense class="q-pa-none">
-                    <q-item-section avatar>
-                        <q-avatar size="36px" color="grey-9" text-color="grey-5">
-                            <img v-if="props.row.imagem_url" :src="props.row.imagem_url" />
-                            <q-icon v-else name="person" size="20px" />
-                        </q-avatar>
-                    </q-item-section>
-                    <q-item-section>
-                        <q-item-label class="text-weight-medium text-zinc-100">{{ props.row.nome }}</q-item-label>
-                        <q-item-label v-if="props.row.epiteto" caption class="text-zinc-500 italic">
-                            {{ props.row.epiteto.length > 60 ? props.row.epiteto.substring(0,60)+'…' : props.row.epiteto }}
-                        </q-item-label>
-                    </q-item-section>
-                </q-item>
-            </q-td>
-        """)
-
-        def ir_detalhe(e: GenericEventArguments) -> None:
-            row = e.args[1]
-            if row and "id" in row:
-                ui.navigate.to(f"/oficina/npcs/{row['id']}")
-
-        table.on("rowClick", ir_detalhe)
-
-        async def on_request(e: GenericEventArguments) -> None:
-            new_pag = e.args["pagination"]
-            rows, total_atual = await _buscar_pagina_npcs_rica(
-                page=new_pag.get("page", 1),
-                rows_per_page=new_pag.get("rowsPerPage", 20),
-                sort_by=new_pag.get("sortBy") or "nome",
-                descending=new_pag.get("descending", False),
-                **filtros,
-            )
-            new_pag["rowsNumber"] = total_atual
-            table.rows = rows
-            table.pagination = new_pag
-            table.update()
-            if counter_ref["w"]:
-                counter_ref["w"].set_text(f"{total_atual} alma(s) filtrada(s)")
-
-        table.on("request", on_request)
-
-        with ui.row().classes("w-full justify-center mt-auto pt-6"):
-            ui.label(
-                "Módulo 4.2 OK. Clique numa linha pra ver o perfil completo."
-            ).classes("text-xs text-zinc-600 italic")
+    await _refresh()
 
 
 # ====================================================================
