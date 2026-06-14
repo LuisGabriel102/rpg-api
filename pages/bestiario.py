@@ -293,6 +293,39 @@ _CSS_DARK_FANTASY = """
 """
 
 
+_CSS_PERGAMINHO = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+.bestiario-title { font-family:'Cinzel',serif !important; letter-spacing:2px; }
+.bestiario-body  { font-family:'Crimson Text',Georgia,serif !important; line-height:1.7; color:#2a1c0e; }
+.section-header {
+    font-family:'Cinzel',serif !important; font-size:12px; font-weight:600;
+    letter-spacing:3px; text-transform:uppercase; color:#58180d;
+    border-bottom:1px solid rgba(88,24,13,0.25); padding-bottom:8px; margin-bottom:12px;
+}
+.epigrafe-box {
+    border-left:2px solid #922610; padding:12px 16px;
+    background:rgba(146,38,16,0.05);
+    font-family:'Crimson Text',Georgia,serif !important; font-style:italic; color:#5a4632;
+}
+.weakness-box {
+    background:#f6ead0; border:1px solid rgba(88,24,13,0.22);
+    border-radius:3px; padding:14px 16px;
+}
+.eco-row { display:flex; gap:12px; padding:6px 0; border-bottom:1px solid rgba(88,24,13,0.1); }
+.eco-label {
+    font-family:'Cinzel',serif !important; font-size:11px; color:#58180d;
+    letter-spacing:1px; text-transform:uppercase; min-width:90px;
+}
+.tag-pill {
+    font-family:'Cinzel',serif !important; font-size:10px; letter-spacing:1.5px;
+    text-transform:uppercase; padding:3px 10px;
+    border:1px solid rgba(88,24,13,0.35); border-radius:2px; color:#6e2410;
+}
+</style>
+"""
+
+
 _CSS_VITRAL_LISTA = """
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Spectral:ital@0;1&display=swap" rel="stylesheet">
@@ -517,17 +550,19 @@ def _render_statblock_html(row, dados_json):
     bloco_reacoes = _bloco("Reações", dados_json.get("reacoes") or [])
 
     portrait = str(dados_json.get("portrait_url") or "").strip()
-    if portrait:
-        arte = (
-            '<div style="aspect-ratio:4/5;border:2px solid #922610;border-radius:3px;overflow:hidden;background:#efe2c4;">'
-            f'<img src="{_h.escape(portrait, quote=True)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div>'
-        )
-    else:
-        arte = (
-            '<div style="aspect-ratio:4/5;border:2px solid #922610;border-radius:3px;background:#efe2c4;'
-            'display:flex;align-items:center;justify-content:center;color:#a07a48;font-style:italic;font-size:12px;text-align:center;padding:14px;">'
-            'arte do Alderyn (a gerar)</div>'
-        )
+    arte_img = (
+        f'<img src="{_h.escape(portrait, quote=True)}" alt="" '
+        "onerror=\"this.style.display='none'\" "
+        'style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">'
+    ) if portrait else ""
+    arte = (
+        '<div style="position:relative;aspect-ratio:4/5;border:2px solid #922610;'
+        'border-radius:3px;overflow:hidden;background:#efe2c4;display:flex;'
+        'align-items:center;justify-content:center;color:#a07a48;font-style:italic;'
+        'font-size:12px;text-align:center;padding:14px;">'
+        'arte do Alderyn (a gerar)'
+        f'{arte_img}</div>'
+    )
 
     epig = str(row.get("epigrafe") or "").strip()
     epig_html = ""
@@ -570,12 +605,12 @@ async def pagina_criatura_detalhe(criatura_id: int):
     async with get_session() as session:
         result = await session.execute(_SQL_BUSCAR_CRIATURA, {"id": criatura_id})
         row = result.mappings().first()
-    ui.add_head_html(_CSS_DARK_FANTASY)
+    ui.add_head_html(_CSS_PERGAMINHO)
     if not row:
-        with ui.column().classes("w-full min-h-screen bg-zinc-900 items-center justify-center gap-4"):
+        with ui.column().classes("w-full min-h-screen items-center justify-center gap-4").style("background:#efe3c9;"):
             ui.label(f"Criatura #{criatura_id} nao encontrada").classes(
-                "text-2xl text-zinc-400 bestiario-title")
-            ui.button("Voltar", on_click=lambda: ui.navigate.to("/oficina/bestiario")).props("color=amber-8")
+                "text-2xl bestiario-title").style("color:#5a4632;")
+            ui.button("Voltar", on_click=lambda: ui.navigate.to("/oficina/bestiario")).props("color=red-10")
         return
 
     nome = row["nome"] or "?"
@@ -601,12 +636,12 @@ async def pagina_criatura_detalhe(criatura_id: int):
     portrait = dados_json.get("portrait_url")
     cor_p = _cor_perigo(perigo)
 
-    with ui.column().classes("w-full min-h-screen bg-zinc-900 text-zinc-100 p-0"):
+    with ui.column().classes("w-full min-h-screen p-0").style("background:#efe3c9;color:#2a1c0e;"):
         # HERO
-        with ui.column().classes("w-full px-8 pt-6 pb-2").style("background:#0d0b09;"):
+        with ui.column().classes("w-full px-8 pt-6 pb-2").style("background:#efe3c9;"):
             ui.button(icon="arrow_back",
                       on_click=lambda: ui.navigate.to("/oficina/bestiario"),
-                      ).props("flat round dense color=amber-2")
+                      ).props("flat round dense color=red-10")
         ui.html(_render_statblock_html(row, dados_json))
 
         # CONTENT
@@ -627,30 +662,30 @@ async def pagina_criatura_detalhe(criatura_id: int):
                     if fraq_conhecida:
                         with ui.column().classes("flex-1"):
                             ui.html(f'''<div class="weakness-box">
-                                <div style="font-family:Cinzel,serif;font-size:11px;color:#c9a96e;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Conhecida (povo)</div>
-                                <div class="bestiario-body" style="font-size:14px;color:#9a8b70;">{html.escape(fraq_conhecida)}</div></div>''')
+                                <div style="font-family:Cinzel,serif;font-size:11px;color:#58180d;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Conhecida (povo)</div>
+                                <div class="bestiario-body" style="font-size:14px;color:#2a1c0e;">{html.escape(fraq_conhecida)}</div></div>''')
                     if fraq_real:
                         with ui.column().classes("flex-1"):
                             ui.html(f'''<div class="weakness-box">
-                                <div style="font-family:Cinzel,serif;font-size:11px;color:#c9a96e;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Real (cacador)</div>
-                                <div class="bestiario-body" style="font-size:14px;color:#9a8b70;">{html.escape(fraq_real)}</div></div>''')
+                                <div style="font-family:Cinzel,serif;font-size:11px;color:#58180d;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Real (cacador)</div>
+                                <div class="bestiario-body" style="font-size:14px;color:#2a1c0e;">{html.escape(fraq_real)}</div></div>''')
             if ecologia:
                 ui.html('<div class="section-header">Cadeia Ecologica</div>')
                 for chave in ["presa","predador","competidor","simbionte","indicador"]:
                     items = ecologia.get(chave, [])
                     if items:
                         for item in (items if isinstance(items, list) else [items]):
-                            ui.html(f'<div class="eco-row"><span class="eco-label">{chave}</span><span style="font-size:14px;color:#9a8b70;">{html.escape(str(item))}</span></div>')
+                            ui.html(f'<div class="eco-row"><span class="eco-label">{chave}</span><span style="font-size:14px;color:#2a1c0e;">{html.escape(str(item))}</span></div>')
             if loot:
                 ui.html('<div class="section-header">Materiais Coletaveis</div>')
                 for item in loot:
                     with ui.card().classes("w-full p-3").style(
-                        "background:rgba(42,37,32,0.4);border:1px solid rgba(139,115,85,0.15);border-radius:3px;").props("flat"):
+                        "background:#f6ead0;border:1px solid rgba(88,24,13,0.18);border-radius:3px;").props("flat"):
                         with ui.row().classes("items-center gap-2"):
-                            ui.label(item.get("material","?")).classes("text-sm font-bold text-amber-200 bestiario-title")
-                            ui.badge(item.get("raridade","?"), color="zinc-7").props("rounded outline")
+                            ui.label(item.get("material","?")).classes("text-sm font-bold bestiario-title").style("color:#58180d")
+                            ui.badge(item.get("raridade","?"), color="red-10").props("rounded outline")
                         if item.get("uso"):
-                            ui.label(item["uso"]).classes("text-sm text-zinc-400 mt-1 bestiario-body")
+                            ui.label(item["uso"]).classes("text-sm mt-1 bestiario-body").style("color:#5a4632")
             if desc_sensorial: _render_section("Encontro - Descricao Sensorial", desc_sensorial)
             if camada_nar:
                 ui.html('<div class="section-header">Camada Narrativa (IA)</div>')
@@ -666,11 +701,11 @@ async def pagina_criatura_detalhe(criatura_id: int):
                 if desf and isinstance(desf, list):
                     _render_subsection("Desfechos Nao-Combate", "\n".join(f"* {d}" for d in desf))
         with ui.row().classes("w-full px-8 py-4 items-center justify-between").style(
-            "background:#2a2520;border-top:1px solid rgba(139,115,85,0.2);"):
-            ui.label("Bestiario de Alderyn").classes("text-xs text-zinc-500 bestiario-title").style("letter-spacing:2px;")
+            "background:#e6d8ba;border-top:1px solid rgba(88,24,13,0.2);"):
+            ui.label("Bestiario de Alderyn").classes("text-xs bestiario-title").style("letter-spacing:2px;color:#58180d;")
             fonte = row.get("fonte", "")
             ui.label(f"id {criatura_id} - {fonte}" if fonte else f"id {criatura_id}").classes(
-                "text-xs text-zinc-600 font-mono")
+                "text-xs font-mono").style("color:#7a6648;")
 
 
 # ====================================================================
@@ -679,11 +714,11 @@ async def pagina_criatura_detalhe(criatura_id: int):
 
 def _render_section(titulo: str, conteudo: str):
     ui.html(f'<div class="section-header">{titulo}</div>')
-    ui.html(f'<div class="bestiario-body" style="color:#d4c5a9;font-size:16px;">{html.escape(conteudo).replace(chr(10), "<br>")}</div>')
+    ui.html(f'<div class="bestiario-body" style="color:#2a1c0e;font-size:16px;">{html.escape(conteudo).replace(chr(10), "<br>")}</div>')
 
 
 def _render_subsection(titulo: str, conteudo: str):
     ui.html(f'''<div style="margin-bottom:12px;">
-        <span style="font-family:Cinzel,serif;font-size:11px;color:#c9a96e;letter-spacing:1px;text-transform:uppercase;">{titulo}</span>
-        <div class="bestiario-body" style="color:#9a8b70;font-size:14px;margin-top:4px;">{html.escape(conteudo).replace(chr(10), "<br>")}</div>
+        <span style="font-family:Cinzel,serif;font-size:11px;color:#58180d;letter-spacing:1px;text-transform:uppercase;">{titulo}</span>
+        <div class="bestiario-body" style="color:#5a4632;font-size:14px;margin-top:4px;">{html.escape(conteudo).replace(chr(10), "<br>")}</div>
     </div>''')
