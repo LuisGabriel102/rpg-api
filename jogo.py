@@ -440,6 +440,10 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .head .ttl{ font-family:"IM Fell English SC",serif !important; letter-spacing:.16em; font-size:14px; color:var(--osso); text-transform:lowercase; }
 .head .fleur{ flex:none; opacity:.8; }
 .head .ln{ flex:1; height:1px; background:var(--regua); }
+.head .sair{ font-family:"IM Fell English",serif; font-style:italic; font-size:12px;
+  color:var(--osso2); text-decoration:none; white-space:nowrap; opacity:.65;
+  transition:opacity .3s ease; }
+.head .sair:hover{ opacity:1; }
 
 /* marginalia: HOJE so a Pressao Emocional (0-10). Stats/Tensao ficam pro combate. */
 .marg{ display:flex; align-items:center; justify-content:flex-end; gap:14px; flex-wrap:wrap;
@@ -557,6 +561,7 @@ _BODY = """
       </svg>
       <span class="ttl">vig&iacute;lia&nbsp;quebrada</span>
       <span class="ln"></span>
+      <a class="sair" href="/oficina" title="Voltar a Oficina">&larr;&nbsp;oficina</a>
     </div>
 
     <div class="marg">

@@ -46,7 +46,7 @@ import config
 from auth import BasicAuthMiddleware
 from db import engine, get_session
 from models import Npcs, RefEstrelasNascimento, RefHabilidadesEstrela, RefVocacoes, RefCaminhos, RefHabilidadesClasseNivel, RefPilares
-from ui_helpers import aguardar_conexao_websocket
+from ui_helpers import aguardar_conexao_websocket, barra_nav
 from oficina_npcs_42 import pagina_lista_npcs_rica, pagina_npc_detalhe
 from pages.atelie import pagina_atelie
 from pages.bestiario import pagina_lista_bestiario, pagina_criatura_detalhe, contar_criaturas_canonizadas
@@ -254,6 +254,8 @@ async def _criar_npc_no_banco(dados: dict) -> Npcs:
 async def pagina_oficina():
     # FIX TIMEOUT NICEGUI: envia placeholder + aguarda WS antes das queries.
     await aguardar_conexao_websocket("Carregando Oficina...")
+
+    barra_nav("oficina")
 
     try:
         total_npcs, total_estrelas, total_vocacoes, total_criaturas = await asyncio.wait_for(
@@ -539,6 +541,8 @@ async def pagina_estrelas():
     """Grid 4x3 das 12 estrelas do Veu. Primeira tela real da Catedral."""
     # FIX TIMEOUT NICEGUI: envia placeholder + aguarda WS antes das queries.
     await aguardar_conexao_websocket("Catalogando estrelas do Véu...")
+
+    barra_nav("estrelas")
 
     estrelas = await _buscar_estrelas()
 
@@ -901,6 +905,8 @@ async def pagina_vocacoes():
     """Lista paginada das 126 vocacoes com filtros."""
     # FIX TIMEOUT NICEGUI: envia placeholder + aguarda WS antes das queries.
     await aguardar_conexao_websocket("Catalogando vocações...")
+
+    barra_nav("vocacoes")
 
     filtros_state = {
         "pilar": "todos",

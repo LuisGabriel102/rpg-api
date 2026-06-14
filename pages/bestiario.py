@@ -18,7 +18,7 @@ from nicegui import ui
 from sqlalchemy import text
 
 from db import get_session
-from ui_helpers import aguardar_conexao_websocket
+from ui_helpers import aguardar_conexao_websocket, barra_nav
 
 
 # ====================================================================
@@ -303,6 +303,7 @@ async def pagina_lista_bestiario():
         result = await session.execute(_SQL_LISTAR_CANONIZADAS)
         rows = result.mappings().all()
     ui.add_head_html(_CSS_DARK_FANTASY)
+    barra_nav("bestiario")
     with ui.column().classes("w-full min-h-screen bg-zinc-900 text-zinc-100 p-8 gap-6"):
         with ui.row().classes("w-full items-center justify-between"):
             with ui.column().classes("gap-0"):

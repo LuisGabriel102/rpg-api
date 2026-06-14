@@ -89,3 +89,26 @@ async def aguardar_conexao_websocket(titulo: str = "Carregando...") -> None:
     await ui.context.client.connected()
 
     placeholder.delete()
+
+
+def barra_nav(ativo: str = "") -> None:
+    """Barra de navegacao compartilhada da Oficina (pele zinc/amber). Fixa no topo.
+    'ativo' acende o botao da pagina atual: oficina, npcs, bestiario, estrelas,
+    vocacoes. (No /jogar NAO se usa esta barra - la a saida e na pele Gravura.)"""
+    itens = [
+        ("oficina", "Oficina", "/oficina"),
+        ("npcs", "NPCs", "/oficina/npcs"),
+        ("bestiario", "Bestiário", "/oficina/bestiario"),
+        ("estrelas", "Estrelas", "/oficina/estrelas"),
+        ("vocacoes", "Vocações", "/oficina/vocacoes"),
+        ("jogar", "Jogar", "/jogar"),
+    ]
+    with ui.row().classes(
+        "w-full items-center gap-2 px-8 py-3 bg-zinc-900 "
+        "border-b border-zinc-700 sticky top-0 z-50"
+    ):
+        for chave, rotulo, destino in itens:
+            base = ("text-sm uppercase tracking-wider px-3 py-1 rounded "
+                    "transition-colors no-underline ")
+            cor = "text-amber-200 font-bold" if chave == ativo else "text-zinc-400 hover:text-amber-200"
+            ui.link(rotulo, destino).classes(base + cor)

@@ -26,7 +26,7 @@ from sqlmodel import select
 
 from db import get_session
 from models import Npcs
-from ui_helpers import aguardar_conexao_websocket
+from ui_helpers import aguardar_conexao_websocket, barra_nav
 
 
 # ====================================================================
@@ -353,6 +353,8 @@ async def pagina_lista_npcs_rica() -> None:
     # FIX TIMEOUT NICEGUI: envia placeholder + aguarda WS antes das queries.
     # Hoje a lista carrega em <3s, mas com mais NPCs vai estourar — preventivo.
     await aguardar_conexao_websocket("Catalogando almas do Alderyn...")
+
+    barra_nav("npcs")
 
     filtros = {
         "busca": "",
