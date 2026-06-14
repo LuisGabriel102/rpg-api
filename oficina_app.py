@@ -984,6 +984,39 @@ _COR_PILAR = {
     "espirito": "#5aa882", "engenho": "#c9a23a",
 }
 
+_NOME_PILAR = {
+    "corpo": "Corpo", "sombra": "Sombra", "arcano": "Arcano",
+    "espirito": "Espírito", "engenho": "Engenho",
+}
+_ESSENCIA_PILAR = {
+    "corpo": "A Carne", "sombra": "O Silêncio", "arcano": "A Palavra",
+    "espirito": "O Pacto", "engenho": "A Construção",
+}
+_GLIFO_PILAR = {
+    "corpo": '''<svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M50 16 Q45 38 50 50 Q55 62 50 84"/><path d="M39 27 L61 31" stroke-width="2.5"/><path d="M39 43 L61 45" stroke-width="2.5"/><path d="M40 59 L60 61" stroke-width="2.5"/><path d="M42 73 L58 73" stroke-width="2.5"/></svg>''',
+    "sombra": '''<svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="M50 14 L41 44 L50 52 L59 44 Z"/><path d="M44 58 L50 64 L56 58" opacity="0.7"/><path d="M45 70 L50 75 L55 70" opacity="0.45"/><path d="M47 82 L50 86 L53 82" opacity="0.25"/></svg>''',
+    "arcano": '''<svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="50" cy="50" r="36"/><path d="M50 20 L50 80"/><path d="M50 38 L67 28"/><path d="M50 52 L33 42"/><path d="M50 64 L67 55"/></svg>''',
+    "espirito": '''<svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" stroke="currentColor"><circle cx="50" cy="50" r="7" fill="currentColor"/><circle cx="50" cy="50" r="19" stroke-width="3"/><circle cx="50" cy="50" r="31" stroke-width="2.5" opacity="0.65"/><circle cx="50" cy="50" r="43" stroke-width="2" opacity="0.35"/></svg>''',
+    "engenho": '''<svg viewBox="0 0 100 100" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="3"><circle cx="50" cy="50" r="22"/><circle cx="50" cy="50" r="7"/><g stroke-width="4" stroke-linecap="round"><path d="M50 14 L50 21"/><path d="M50 79 L50 86"/><path d="M14 50 L21 50"/><path d="M79 50 L86 50"/><path d="M25 25 L30 30"/><path d="M70 70 L75 75"/><path d="M75 25 L70 30"/><path d="M30 70 L25 75"/></g></svg>''',
+}
+
+def _cabecalho_pilar_html(cor, nome, essencia, epiteto, filosofia, glifo):
+    return (
+        f'<div style="position:relative;overflow:hidden;border:1px solid {cor};'
+        f'border-left:4px solid {cor};border-radius:6px;padding:22px 26px;'
+        'background:rgba(12,14,22,.55);">'
+        f'<div style="position:absolute;right:-24px;top:50%;transform:translateY(-50%);'
+        f'width:240px;height:240px;color:{cor};opacity:.06;pointer-events:none;">{glifo}</div>'
+        '<div style="position:relative;display:flex;gap:20px;align-items:flex-start;">'
+        f'<div style="flex:none;width:62px;height:62px;color:{cor};margin-top:4px;">{glifo}</div>'
+        '<div style="flex:1;min-width:0;">'
+        f'<div style="font-family:\'IM Fell English\',serif;font-size:34px;color:{cor};line-height:1;">{html.escape(nome)}</div>'
+        f'<div style="font-family:\'IM Fell English SC\',serif;font-size:13px;letter-spacing:.18em;color:#c0a36a;margin-top:5px;">{html.escape(essencia.upper())}</div>'
+        f'<div style="font-family:\'Spectral\',Georgia,serif;font-style:italic;font-size:15px;color:#9a8a5a;margin-top:12px;">{html.escape(epiteto)}</div>'
+        f'<div style="font-family:\'Spectral\',Georgia,serif;font-size:14px;color:#c0a36a;line-height:1.65;margin-top:10px;max-width:780px;">{html.escape(filosofia)}</div>'
+        '</div></div></div>'
+    )
+
 async def _buscar_todas_vocacoes() -> list[dict]:
     async with get_session() as session:
         result = await session.exec(
@@ -1162,6 +1195,95 @@ async def pagina_vocacoes():
             refs["filosofia"] = ui.column().classes("w-full")
             grade_ref["el"] = ui.html(_grade_vocacoes_html(todas)).classes("w-full")
 
+
+@ui.page("/oficina/vocacoes/pilar/{slug}")
+async def pagina_vocacoes_pilar(slug: str):
+    """Salao de um pilar: filosofia + galeria so das vocacoes daquele pilar."""
+    await aguardar_conexao_websocket("Abrindo o salão...")
+    ui.add_head_html(CSS_VITRAL)
+    barra_nav("vocacoes")
+    slug = (slug or "").lower().strip()
+
+    if slug not in _NOME_PILAR:
+        with ui.column().classes("gp-screen w-full min-h-screen p-0 gap-0"):
+            with ui.column().classes("gp-inner w-full gap-4"):
+                ui.label("Pilar desconhecido.").classes("bestiario-title").style("font-size:22px;")
+                ui.button("Voltar aos pilares",
+                          on_click=lambda: ui.navigate.to("/oficina/vocacoes")
+                          ).props("flat color=amber-2")
+        return
+
+    cor = _COR_PILAR.get(slug, "#b8902f")
+    nome = _NOME_PILAR[slug]
+    essencia = _ESSENCIA_PILAR[slug]
+    glifo = _GLIFO_PILAR[slug]
+    fil = await _buscar_filosofia_pilar(slug) or {}
+    epiteto = fil.get("epiteto", "") or ""
+    filosofia = fil.get("filosofia", "") or ""
+
+    todas = await _buscar_todas_vocacoes()
+    desta = [v for v in todas if v["pilar"] == slug]
+    total = len(desta)
+
+    estado = {"tipo": "todos", "disp": "todos", "busca": ""}
+    grade_ref = {"el": None}
+    contador_ref = {"el": None}
+
+    def filtrar():
+        out = desta
+        if estado["tipo"] != "todos":
+            out = [v for v in out if v["tipo"] == estado["tipo"]]
+        if estado["disp"] == "disponiveis":
+            out = [v for v in out if v["disponivel"]]
+        elif estado["disp"] == "bloqueadas":
+            out = [v for v in out if not v["disponivel"]]
+        if estado["busca"]:
+            q = estado["busca"].lower()
+            out = [v for v in out if q in v["nome"].lower()]
+        return out
+
+    def re_render():
+        f = filtrar()
+        if grade_ref["el"]:
+            grade_ref["el"].set_content(_grade_vocacoes_html(f))
+        if contador_ref["el"]:
+            contador_ref["el"].set_text(f"{len(f)} de {total} vocações")
+
+    def set_tipo(v):
+        estado["tipo"] = v
+        re_render()
+
+    def set_disp(v):
+        estado["disp"] = v
+        re_render()
+
+    def set_busca(e):
+        estado["busca"] = (e.value or "").strip()
+        re_render()
+
+    with ui.column().classes("gp-screen w-full min-h-screen p-0 gap-0"):
+        with ui.column().classes("gp-inner w-full gap-4"):
+            ui.html(
+                '<a href="/oficina/vocacoes" style="text-decoration:none;'
+                "font-family:'IM Fell English SC',serif;font-size:12px;letter-spacing:.12em;"
+                'color:#9a8a5a;">&lsaquo; CATEDRAL &middot; TODOS OS PILARES</a>'
+            )
+            ui.html(_cabecalho_pilar_html(cor, nome, essencia, epiteto, filosofia, glifo))
+
+            with ui.row().classes("gp-filtros w-full items-center gap-3 flex-wrap").style("padding:12px 14px;"):
+                ui.input(placeholder="Buscar por nome...", on_change=set_busca
+                         ).props("dense outlined dark clearable").style("min-width:240px;")
+                ui.select({"todos": "Todos os tipos", "base": "Base", "fusao": "Fusão",
+                           "cross": "Cross", "especial": "Especial"},
+                          value="todos", on_change=lambda e: set_tipo(e.value)
+                          ).props("dense outlined dark").style("min-width:160px;")
+                ui.select({"todos": "Todas", "disponiveis": "Disponíveis", "bloqueadas": "Bloqueadas"},
+                          value="todos", on_change=lambda e: set_disp(e.value)
+                          ).props("dense outlined dark").style("min-width:150px;")
+                contador_ref["el"] = ui.label(f"{total} de {total} vocações").classes(
+                    "bestiario-body").style("font-style:italic;font-size:13px;margin-left:auto;")
+
+            grade_ref["el"] = ui.html(_grade_vocacoes_html(desta)).classes("w-full")
 
 
 # ====================================================================
