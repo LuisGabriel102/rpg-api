@@ -576,8 +576,7 @@ def _render_statblock_html(row, dados_json):
     rule = '<div style="height:4px;background:#922610;margin:10px 0;clip-path:polygon(0 50%,1.5% 0,98.5% 0,100% 50%,98.5% 100%,1.5% 100%);"></div>'
 
     return (
-        '<div style="padding:22px 16px;">'
-        '<div style="max-width:900px;margin:0 auto;background:#fdf1dc;border:1px solid #d9c9a8;'
+        '<div style="width:100%;background:#fdf1dc;border:1px solid #d9c9a8;'
         'border-top:3px solid #58180d;border-bottom:3px solid #58180d;border-radius:3px;'
         "padding:18px 22px;color:#1d1107;font-family:'Crimson Text',Georgia,serif;box-sizing:border-box;\">"
         '<div style="display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:start;">'
@@ -596,7 +595,7 @@ def _render_statblock_html(row, dados_json):
         f'<div style="font-size:12.5px;line-height:1.6;">{meta_html}</div>'
         f'{rule}'
         f'{bloco_tracos}{bloco_acoes}{bloco_bonus}{bloco_reacoes}'
-        '</div></div></div></div>'
+        '</div></div></div>'
     )
 
 
@@ -642,64 +641,65 @@ async def pagina_criatura_detalhe(criatura_id: int):
             ui.button(icon="arrow_back",
                       on_click=lambda: ui.navigate.to("/oficina/bestiario"),
                       ).props("flat round dense color=red-10")
-        ui.html(_render_statblock_html(row, dados_json))
+        with ui.column().classes("w-full max-w-4xl mx-auto px-6 gap-6").style("box-sizing:border-box;"):
+            ui.html(_render_statblock_html(row, dados_json))
 
-        # CONTENT
-        with ui.column().classes("w-full p-8 gap-6 max-w-4xl mx-auto"):
-            with ui.row().classes("gap-2 flex-wrap"):
-                for t in [tipo, row.get("tamanho",""), origem, row.get("pilar_associado",""),
-                           row.get("behavior_archetype","")]:
-                    if t and t != "Nenhum":
-                        ui.html(f'<span class="tag-pill">{html.escape(t)}</span>')
-            if descricao: _render_section("Aparencia", descricao)
-            if habitat: _render_section("Habitat", habitat)
-            if organizacao: _render_section("Organizacao", organizacao)
-            if supersticao: _render_section("Supersticao Popular", supersticao)
-            if sinais: _render_section("Sinais de Presenca", sinais)
-            if fraq_conhecida or fraq_real:
-                ui.html('<div class="section-header">Fraquezas</div>')
-                with ui.row().classes("w-full gap-4"):
-                    if fraq_conhecida:
-                        with ui.column().classes("flex-1"):
-                            ui.html(f'''<div class="weakness-box">
+            # CONTENT (sem max-w/mx-auto proprios; herda do wrapper)
+            with ui.column().classes("w-full gap-6 pt-2"):
+                with ui.row().classes("gap-2 flex-wrap"):
+                    for t in [tipo, row.get("tamanho",""), origem, row.get("pilar_associado",""),
+                               row.get("behavior_archetype","")]:
+                        if t and t != "Nenhum":
+                            ui.html(f'<span class="tag-pill">{html.escape(t)}</span>')
+                if descricao: _render_section("Aparencia", descricao)
+                if habitat: _render_section("Habitat", habitat)
+                if organizacao: _render_section("Organizacao", organizacao)
+                if supersticao: _render_section("Supersticao Popular", supersticao)
+                if sinais: _render_section("Sinais de Presenca", sinais)
+                if fraq_conhecida or fraq_real:
+                    ui.html('<div class="section-header">Fraquezas</div>')
+                    with ui.row().classes("w-full gap-4"):
+                        if fraq_conhecida:
+                            with ui.column().classes("flex-1"):
+                                ui.html(f'''<div class="weakness-box">
                                 <div style="font-family:Cinzel,serif;font-size:11px;color:#58180d;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Conhecida (povo)</div>
                                 <div class="bestiario-body" style="font-size:14px;color:#2a1c0e;">{html.escape(fraq_conhecida)}</div></div>''')
-                    if fraq_real:
-                        with ui.column().classes("flex-1"):
-                            ui.html(f'''<div class="weakness-box">
+                        if fraq_real:
+                            with ui.column().classes("flex-1"):
+                                ui.html(f'''<div class="weakness-box">
                                 <div style="font-family:Cinzel,serif;font-size:11px;color:#58180d;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Real (cacador)</div>
                                 <div class="bestiario-body" style="font-size:14px;color:#2a1c0e;">{html.escape(fraq_real)}</div></div>''')
-            if ecologia:
-                ui.html('<div class="section-header">Cadeia Ecologica</div>')
-                for chave in ["presa","predador","competidor","simbionte","indicador"]:
-                    items = ecologia.get(chave, [])
-                    if items:
-                        for item in (items if isinstance(items, list) else [items]):
-                            ui.html(f'<div class="eco-row"><span class="eco-label">{chave}</span><span style="font-size:14px;color:#2a1c0e;">{html.escape(str(item))}</span></div>')
-            if loot:
-                ui.html('<div class="section-header">Materiais Coletaveis</div>')
-                for item in loot:
-                    with ui.card().classes("w-full p-3").style(
-                        "background:#f6ead0;border:1px solid rgba(88,24,13,0.18);border-radius:3px;").props("flat"):
-                        with ui.row().classes("items-center gap-2"):
-                            ui.label(item.get("material","?")).classes("text-sm font-bold bestiario-title").style("color:#58180d")
-                            ui.badge(item.get("raridade","?"), color="red-10").props("rounded outline")
-                        if item.get("uso"):
-                            ui.label(item["uso"]).classes("text-sm mt-1 bestiario-body").style("color:#5a4632")
-            if desc_sensorial: _render_section("Encontro - Descricao Sensorial", desc_sensorial)
-            if camada_nar:
-                ui.html('<div class="section-header">Camada Narrativa (IA)</div>')
-                for k, lab in [("cheiro","Cheiro"),("som","Som"),("descoberta_fazendo","Descoberta Fazendo"),
-                               ("quer","Quer")]:
-                    if camada_nar.get(k): _render_subsection(lab, camada_nar[k])
-                falas = camada_nar.get("falas_exemplo")
-                if falas:
-                    if isinstance(falas, list): _render_subsection("Falas", " / ".join(falas))
-                    elif isinstance(falas, str) and falas.lower() not in ("null","n/a"):
-                        _render_subsection("Falas", falas)
-                desf = camada_nar.get("desfechos_nao_combate", [])
-                if desf and isinstance(desf, list):
-                    _render_subsection("Desfechos Nao-Combate", "\n".join(f"* {d}" for d in desf))
+                if ecologia:
+                    ui.html('<div class="section-header">Cadeia Ecologica</div>')
+                    for chave in ["presa","predador","competidor","simbionte","indicador"]:
+                        items = ecologia.get(chave, [])
+                        if items:
+                            for item in (items if isinstance(items, list) else [items]):
+                                ui.html(f'<div class="eco-row"><span class="eco-label">{chave}</span><span style="font-size:14px;color:#2a1c0e;">{html.escape(str(item))}</span></div>')
+                if loot:
+                    ui.html('<div class="section-header">Materiais Coletaveis</div>')
+                    for item in loot:
+                        with ui.card().classes("w-full p-3").style(
+                            "background:#f6ead0;border:1px solid rgba(88,24,13,0.18);border-radius:3px;").props("flat"):
+                            with ui.row().classes("items-center gap-2"):
+                                ui.label(item.get("material","?")).classes("text-sm font-bold bestiario-title").style("color:#58180d")
+                                ui.badge(item.get("raridade","?"), color="red-10").props("rounded outline")
+                            if item.get("uso"):
+                                ui.label(item["uso"]).classes("text-sm mt-1 bestiario-body").style("color:#5a4632")
+                if desc_sensorial: _render_section("Encontro - Descricao Sensorial", desc_sensorial)
+                if camada_nar:
+                    ui.html('<div class="section-header">Camada Narrativa (IA)</div>')
+                    for k, lab in [("cheiro","Cheiro"),("som","Som"),("descoberta_fazendo","Descoberta Fazendo"),
+                                   ("quer","Quer")]:
+                        if camada_nar.get(k): _render_subsection(lab, camada_nar[k])
+                    falas = camada_nar.get("falas_exemplo")
+                    if falas:
+                        if isinstance(falas, list): _render_subsection("Falas", " / ".join(falas))
+                        elif isinstance(falas, str) and falas.lower() not in ("null","n/a"):
+                            _render_subsection("Falas", falas)
+                    desf = camada_nar.get("desfechos_nao_combate", [])
+                    if desf and isinstance(desf, list):
+                        _render_subsection("Desfechos Nao-Combate", "\n".join(f"* {d}" for d in desf))
         with ui.row().classes("w-full px-8 py-4 items-center justify-between").style(
             "background:#e6d8ba;border-top:1px solid rgba(88,24,13,0.2);"):
             ui.label("Bestiario de Alderyn").classes("text-xs bestiario-title").style("letter-spacing:2px;color:#58180d;")
