@@ -1017,6 +1017,30 @@ def _cabecalho_pilar_html(cor, nome, essencia, epiteto, filosofia, glifo):
         '</div></div></div>'
     )
 
+_ORDEM_PILARES = ["corpo", "sombra", "arcano", "espirito", "engenho"]
+
+def _card_pilar_html(slug, cor, nome, essencia, epiteto, n):
+    glifo = _GLIFO_PILAR.get(slug, "")
+    plural = "vocação" if n == 1 else "vocações"
+    return (
+        f'<a href="/oficina/vocacoes/pilar/{slug}" class="portal-pilar" '
+        'style="position:relative;display:block;text-decoration:none;overflow:hidden;'
+        f'border:1px solid {cor};border-left:4px solid {cor};border-radius:6px;'
+        'padding:26px 24px 22px;background:rgba(12,14,22,.55);min-height:232px;">'
+        f'<div style="position:absolute;right:-20px;bottom:-20px;width:150px;height:150px;'
+        f'color:{cor};opacity:.06;pointer-events:none;">{glifo}</div>'
+        f'<div style="position:relative;width:54px;height:54px;color:{cor};">{glifo}</div>'
+        f'<div style="position:relative;font-family:\'IM Fell English\',serif;font-size:30px;'
+        f'color:{cor};line-height:1;margin-top:14px;">{html.escape(nome)}</div>'
+        f'<div style="position:relative;font-family:\'IM Fell English SC\',serif;font-size:12px;'
+        f'letter-spacing:.18em;color:#c0a36a;margin-top:6px;">{html.escape(essencia.upper())}</div>'
+        f'<div style="position:relative;font-family:\'Spectral\',Georgia,serif;font-style:italic;'
+        f'font-size:14px;color:#9a8a5a;margin-top:12px;line-height:1.5;">{html.escape(epiteto)}</div>'
+        f'<div style="position:relative;font-family:\'IM Fell English SC\',serif;font-size:11px;'
+        f'letter-spacing:.12em;color:#7a6f55;margin-top:14px;">{n} {plural}</div>'
+        '</a>'
+    )
+
 async def _buscar_todas_vocacoes() -> list[dict]:
     async with get_session() as session:
         result = await session.exec(
@@ -1088,8 +1112,50 @@ def _grade_vocacoes_html(lista: list[dict]) -> str:
 
 
 @ui.page("/oficina/vocacoes")
-async def pagina_vocacoes():
-    """Galeria vitral das vocacoes do Alderyn, com filtros em memoria."""
+async def pagina_vocacoes_hub():
+    """Hub: os 5 pilares como portais, cada um leva ao seu salao."""
+    await aguardar_conexao_websocket("Abrindo a catedral...")
+    ui.add_head_html(CSS_VITRAL)
+    ui.add_head_html(
+        "<style>.portal-pilar{transition:transform .15s ease;}"
+        ".portal-pilar:hover{transform:translateY(-3px);}</style>"
+    )
+    barra_nav("vocacoes")
+
+    todas = await _buscar_todas_vocacoes()
+    contagem = {}
+    for v in todas:
+        contagem[v["pilar"]] = contagem.get(v["pilar"], 0) + 1
+    total = len(todas)
+
+    cards = []
+    for slug in _ORDEM_PILARES:
+        cor = _COR_PILAR.get(slug, "#b8902f")
+        nome = _NOME_PILAR.get(slug, slug)
+        essencia = _ESSENCIA_PILAR.get(slug, "")
+        fil = await _buscar_filosofia_pilar(slug) or {}
+        epiteto = fil.get("epiteto", "") or ""
+        n = contagem.get(slug, 0)
+        cards.append(_card_pilar_html(slug, cor, nome, essencia, epiteto, n))
+
+    grade_html = (
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));'
+        'gap:16px;width:100%;">' + "".join(cards) + "</div>"
+    )
+
+    with ui.column().classes("gp-screen w-full min-h-screen p-0 gap-0"):
+        with ui.column().classes("gp-inner w-full gap-4"):
+            ui.html(
+                '<div style="font-family:\'IM Fell English\',serif;font-size:34px;'
+                'color:#f3e7c4;line-height:1.1;">Vocações do Alderyn</div>'
+                '<div style="font-family:\'IM Fell English SC\',serif;font-size:12px;'
+                f'letter-spacing:.14em;color:#9a8a5a;margin-top:6px;">{total} VOCAÇÕES &middot; CINCO PILARES</div>'
+            )
+            ui.html(grade_html).classes("w-full")
+
+
+async def _galeria_plana_orfa():
+    """Galeria vitral das vocacoes do Alderyn, com filtros em memoria. (orfa - sem rota)"""
     await aguardar_conexao_websocket("Catalogando vocações...")
     ui.add_head_html(CSS_VITRAL)
     barra_nav("vocacoes")
