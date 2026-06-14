@@ -115,39 +115,104 @@ _INTENCOES = [
 # Quanto cada intencao mexe na Pressao (clampada 0-10 no retorno).
 _DELTA = {"agressao": 3, "fuga": -1, "cautela": 1, "dialogo": 2, "avanco": 1, "ambiguo": 0}
 
-# Banco de prosa por intencao. Cada item: (prosa, atmosfera).
-# atmosfera "" no fallback = mantem a pele atual (parser ignora atmosfera ausente).
+# Banco de prosa: intencao -> faixa de pressao -> lista de trechos.
+# A faixa (calma/tensa/critica) modula o TOM; a atmosfera (pele) vem da
+# intencao, em _ATM_POR_INTENCAO. 2 trechos por bucket -> anti-repeticao alterna.
 _BANCO_REACOES = {
-    "agressao": [
-        ("O golpe partiu o silêncio antes de partir qualquer outra coisa. No vão que abriu, algo se mexeu — sem pressa, como quem já esperava ter de aparecer.", "sangue"),
-        ("Por um instante o povoado inteiro pareceu parar para assistir. Depois o movimento voltou, e voltou errado: uma porta que não devia se abrir abriu, devagar, do lado de dentro.", "sangue"),
-        ("O ferro encontrou o ar frio e o ar respondeu mais frio ainda. Adiante, na penumbra, uma respiração se firmou — não a de quem foge.", "sangue"),
-    ],
-    "fuga": [
-        ("A rua que viera curta ficou longa na volta. O povoado deixou ir sem um som, do jeito de quem solta de propósito o que pretende reaver.", "corte"),
-        ("O fôlego encurtou e o beco fechou à frente. Atrás, nenhum passo perseguia — e a ausência de passos pesou mais do que pesaria a perseguição.", "corte"),
-        ("A distância cresceu entre os casebres. O frio, não: esse veio junto, colado na nuca, sem se deixar para trás.", "corte"),
-    ],
-    "cautela": [
-        ("A quietude se estendeu, e o povoado a acompanhou. Mas havia dois silêncios ali, e só um deles esperava; o outro media.", "frio"),
-        ("Atrás de uma fresta, algo ajustou a postura — o gesto curto de quem não quer ser notado notando. Depois a fresta voltou a ser só fresta.", "frio"),
-        ("Primeiro o ouvido: madeira sob um peso, um arrasto breve, e então nada. O nada durou tempo demais para ter sido o vento.", "frio"),
-    ],
-    "avanco": [
-        ("Cada passo afundou um pouco mais no escuro que o povoado guardava. A porta que batia ao vento parou de bater na aproximação — como se, do outro lado, uma mão a tivesse segurado.", "mata"),
-        ("O caminho seguiu entre os casebres, e os casebres seguiram fingindo-se vazios. Num deles o fingimento falhou: uma respiração, contida tarde demais.", "mata"),
-        ("Adiante a ruela se estreitou e a pouca luz acabou de vez. O cheiro de fumaça velha cedeu a outro, mais fundo, que vinha de algo ainda não visto.", "mata"),
-    ],
-    "dialogo": [
-        ("A voz saiu e a rua a engoliu sem eco. Então, de um ponto que não dava para apontar, o escuro se mexeu — e o modo como se mexeu foi toda a resposta.", "ermo"),
-        ("Ninguém devolveu palavra. Mas uma janela fechada deixou de estar fechada, sem ruído, e ficou assim: aberta, negra, à espera do resto.", "ermo"),
-        ("O chamado encontrou ouvidos — isso o ar deixava sentir. Quantos eram, e com que intenção escutavam, o ar não dizia.", "ermo"),
-    ],
-    "ambiguo": [
-        ("O gesto se perdeu no ar parado. O povoado não deu sinal de ter notado — ou fingiu não notar, que ali parecia dar no mesmo.", ""),
-        ("Fosse o que fosse, a rua absorveu sem resposta. O silêncio seguiu inteiro, paciente, à espera do que viria de fato.", ""),
-        ("Nada no escuro reagiu. As casas seguiram caladas, as janelas vazias, e o instante passou como se nada nele tivesse pesado.", ""),
-    ],
+    "agressao": {
+        "calma": [
+            "O golpe saiu inteiro e encontrou menos do que esperava. O ar cedeu, a rua não, e o que quer que estivesse ali recuou um palmo — sem pressa, como quem ainda decide se vale o trabalho de responder.",
+            "Ferro contra o nada, e o nada absorveu. Por um instante pareceu desperdício; depois, ao fundo, uma tábua assentou sob um peso que escolheu não se mostrar.",
+        ],
+        "tensa": [
+            "O golpe partiu o silêncio antes de partir qualquer outra coisa. No vão que abriu, algo se mexeu — devagar, do jeito de quem já contava ter de aparecer.",
+            "O ferro encontrou o ar frio e o ar devolveu mais frio ainda. Adiante, na penumbra, uma respiração se firmou. Não era a de quem foge.",
+        ],
+        "critica": [
+            "O golpe caiu e o povoado respondeu de uma vez: madeira estalando em três casas ao mesmo tempo, passos que largaram o disfarce. O que vinha não vinha sozinho, e não vinha para conversar.",
+            "A lâmina mal completou o arco e o ar já fervia de movimento. Portas que fingiam vazio se abriram do lado de dentro, e o escuro entre elas tinha agora forma, peso, e fome de acabar aquilo.",
+        ],
+    },
+    "fuga": {
+        "calma": [
+            "A rua que viera curta ficou longa na volta. O povoado deixou ir sem um som, do jeito de quem solta de propósito o que pretende reaver.",
+            "Os casebres ficaram para trás um a um, e nenhum se importou. O recuo foi fácil — fácil demais, do tipo que depois cobra o preço de ter sido.",
+        ],
+        "tensa": [
+            "O fôlego encurtou e o beco fechou à frente. Atrás, nenhum passo perseguia — e a ausência de passos pesou mais do que pesaria a perseguição.",
+            "A distância cresceu entre as casas, mas o frio não ficou para trás: veio colado na nuca, e com ele a impressão de que a saída se estreitava a cada passo.",
+        ],
+        "critica": [
+            "Correr já não bastava. O beco despejou em outro, e o outro em muro, e o som atrás — que antes não existia — agora existia e ganhava terreno. O ar faltava na hora errada.",
+            "Cada porta por onde tentou sair estava trancada do lado de fora. O fôlego rasgava, o frio mordia, e a única coisa que se movia rápido naquela noite vinha exatamente na direção dele.",
+        ],
+    },
+    "cautela": {
+        "calma": [
+            "A quietude se estendeu e o povoado a acompanhou. A rua continuou rua, as janelas, janelas. Por ora, nada pedia para ser temido.",
+            "Olhar com calma não revelou ameaça nenhuma — só fumaça assentando, uma porta batendo ao vento, o cão lá no fim que nem ergueu a cabeça desta vez.",
+        ],
+        "tensa": [
+            "Atrás de uma fresta, algo ajustou a postura — o gesto curto de quem não quer ser notado notando. Depois a fresta voltou a ser só fresta.",
+            "Primeiro o ouvido: madeira sob um peso, um arrasto breve, e então nada. O nada durou tempo demais para ter sido o vento.",
+        ],
+        "critica": [
+            "Parar para escutar, naquele ponto, foi como segurar a respiração à beira de um poço. O silêncio não estava vazio: estava cheio, contido, à espera de que ele fizesse o primeiro ruído.",
+            "Os olhos varreram a rua e a rua olhou de volta. De cada sombra vinha a mesma certeza muda — de que esperavam isto, de que o tempo de medir já tinha passado.",
+        ],
+    },
+    "avanco": {
+        "calma": [
+            "Os passos seguiram entre os casebres sem encontrar resistência. O escuro abriu caminho, indiferente, e por enquanto guardava o que guardava sem ainda cobrar nada.",
+            "A ruela aceitou o avanço em silêncio. Nada barrou, nada chamou; só a fumaça velha e a sensação morna de estar entrando onde já o esperavam, sem urgência.",
+        ],
+        "tensa": [
+            "Cada passo afundou um pouco mais no escuro que o povoado guardava. A porta que batia ao vento parou de bater na aproximação — como se, do outro lado, uma mão a tivesse segurado.",
+            "O caminho seguiu entre as casas, e as casas seguiram fingindo-se vazias. Numa delas o fingimento falhou: uma respiração, contida tarde demais.",
+        ],
+        "critica": [
+            "Adiante, o escuro deixou de ser escuro e passou a ser presença. O cheiro mudou — algo por baixo da fumaça, fundo e errado — e cada passo a mais era um passo para dentro do que estava prestes a se decidir.",
+            "A ruela estreitou até caber só ele, e no fim dela a noite se adensava num ponto que não se movia e respirava. Avançar agora era escolher chegar primeiro.",
+        ],
+    },
+    "dialogo": {
+        "calma": [
+            "A voz saiu e a rua a engoliu sem eco. As casas continuaram caladas, e o vazio que respondeu não tinha urgência nenhuma — só a indiferença de quem não precisa responder.",
+            "O chamado se perdeu entre os telhados e nada o devolveu. Por ora, falar ou calar dava no mesmo: o povoado seguia surdo, ou fingia muito bem.",
+        ],
+        "tensa": [
+            "Ninguém devolveu palavra. Mas uma janela fechada deixou de estar fechada, sem ruído, e ficou assim: aberta, negra, à espera do resto.",
+            "A voz encontrou ouvidos — isso o ar deixou sentir. De um ponto que não dava para apontar, algo se ajeitou para escutar melhor, e o silêncio depois foi de propósito.",
+        ],
+        "critica": [
+            "Chamar, ali, foi acender um pavio. O escuro respondeu de uma vez e de muitos lugares: um arrastar de pés que parou junto, combinado, perto demais para ainda se chamar de seguro.",
+            "A palavra mal saiu e a noite inteira pareceu virar-se para ele. Não houve resposta em voz — houve movimento, cerco, a certeza de que tinha sido ouvido por exatamente quem não devia ouvir.",
+        ],
+    },
+    "ambiguo": {
+        "calma": [
+            "O gesto se perdeu no ar parado. O povoado não deu sinal de ter notado — ou fingiu não notar, que ali parecia dar no mesmo.",
+            "Fosse o que fosse, a rua absorveu sem resposta. A fumaça seguiu assentando, a noite seguiu morna, e nada naquele instante pediu para ser temido.",
+        ],
+        "tensa": [
+            "O gesto não encontrou resposta, mas o ar já não era o mesmo: estava carregado, atento, e a falta de reação tinha o peso de uma reação adiada.",
+            "Nada se moveu — e o nada, desta vez, custou. O silêncio que veio depois era do tipo que escuta de volta, e seguia escutando muito depois de o gesto ter passado.",
+        ],
+        "critica": [
+            "Nada reagiu, e foi pior do que se algo tivesse reagido. O silêncio agora era o de quem já decidiu e só espera o momento; cada casa parecia conter a respiração junto com ele.",
+            "O gesto caiu no vazio, mas o vazio estava cheio. À beira daquilo, a indiferença do povoado não era indiferença — era pontaria, paciência, a calma de quem sabe que a noite ainda não acabou.",
+        ],
+    },
+}
+
+# Atmosfera (pele) por intencao. "" = mantem a pele atual (parser ignora ausencia).
+_ATM_POR_INTENCAO = {
+    "agressao": "sangue",
+    "fuga": "corte",
+    "cautela": "frio",
+    "avanco": "mata",
+    "dialogo": "ermo",
+    "ambiguo": "",
 }
 
 
@@ -166,10 +231,19 @@ def _classificar_intencao(texto: str) -> str:
     return "ambiguo"
 
 
+def _faixa_pressao(p: int) -> str:
+    # calma 0-3 | tensa 4-6 | critica 7-10. Robusta fora do range (clampa o sentido).
+    if p <= 3:
+        return "calma"
+    if p <= 6:
+        return "tensa"
+    return "critica"
+
+
 def _cronista_mock(historico: list[dict]) -> str:
-    """Narrador FALSO, REATIVO. Le a Pressao e a intencao do texto do jogador,
-    escolhe um trecho do banco da intencao e devolve prosa + bloco <estado> -
-    no mesmo formato que o Opus produziria."""
+    """Narrador FALSO, REATIVO. Le a Pressao e a intencao do texto do jogador.
+    A intencao define a pele (atmosfera); a faixa da Pressao RESULTANTE define o
+    tom da prosa (calma/tensa/critica). Devolve prosa + bloco <estado>."""
     ultima = historico[-1]["content"] if historico else ""
     m = _RE_PRESSAO.search(ultima)
     pressao_entrada = int(m.group(1)) if m else 0
@@ -177,18 +251,21 @@ def _cronista_mock(historico: list[dict]) -> str:
 
     if turno <= 1:
         prosa, delta, atm = _MOCK_ABERTURA
+        nova = max(0, min(10, pressao_entrada + delta))
     else:
         intencao = _classificar_intencao(_texto_do_jogador(ultima))
-        banco = _BANCO_REACOES[intencao]
+        delta = _DELTA[intencao]
+        nova = max(0, min(10, pressao_entrada + delta))
+        faixa = _faixa_pressao(nova)
+        banco = _BANCO_REACOES[intencao][faixa]
         # anti-repeticao: evita o trecho usado no ultimo turno do assistente
         ultima_assist = next(
             (x["content"] for x in reversed(historico) if x["role"] == "assistant"), ""
         )
-        candidatos = [t for t in banco if t[0] not in ultima_assist] or banco
-        prosa, atm = random.choice(candidatos)
-        delta = _DELTA[intencao]
+        candidatos = [t for t in banco if t not in ultima_assist] or banco
+        prosa = random.choice(candidatos)
+        atm = _ATM_POR_INTENCAO[intencao]
 
-    nova = max(0, min(10, pressao_entrada + delta))
     if atm:
         corpo = f"pressao_emocional: {nova}\natmosfera: {atm}"
     else:
