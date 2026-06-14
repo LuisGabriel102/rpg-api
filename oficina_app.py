@@ -48,7 +48,7 @@ from auth import BasicAuthMiddleware
 from db import engine, get_session
 from models import Npcs, RefEstrelasNascimento, RefHabilidadesEstrela, RefVocacoes, RefCaminhos, RefHabilidadesClasseNivel, RefPilares
 from ui_helpers import aguardar_conexao_websocket, barra_nav
-from tema_oficina import CSS_VITRAL
+from tema_oficina import CSS_VITRAL, CSS_PERGAMINHO
 from oficina_npcs_42 import pagina_lista_npcs_rica, pagina_npc_detalhe
 from pages.atelie import pagina_atelie
 from pages.bestiario import pagina_lista_bestiario, pagina_criatura_detalhe, contar_criaturas_canonizadas
@@ -1392,6 +1392,7 @@ async def _buscar_vocacao_com_tudo(voc_id: int) -> dict | None:
         "descricao": voc.descricao,
         "diferencial": voc.diferencial_mecanico,
         "disponivel": voc.disponivel_escolha,
+        "imagem_url": voc.imagem_url,
         "caminhos": [
             {
                 "id": c.id,
@@ -1417,200 +1418,171 @@ async def _buscar_vocacao_com_tudo(voc_id: int) -> dict | None:
     }
 
 
+def _ficha_vocacao_html(data: dict) -> str:
+    FOLHA = "#fdf1dc"; CAIXA = "#f6ead0"; PAGINA = "#efe3c9"
+    ARTE_BG = "#efe2c4"; TIJOLO = "#58180d"; REGUA = "#922610"
+    PILL = "#6e2410"; TXT = "#2a1c0e"; SEC = "#5a4632"
+    serif = "'Cinzel',serif"
+    body = "'Crimson Text',Georgia,serif"
+    e = lambda s: html.escape(str(s)) if s is not None else ""
+
+    nome = e(data["nome"])
+    nome_en = data.get("nome_en") or ""
+    mostra_en = bool(nome_en) and nome_en != data["nome"]
+    pilar = data["pilar"] or ""
+    conceitual = pilar in ("corpo", "sombra", "arcano", "espirito", "engenho")
+
+    meta = [f'Pilar {e(pilar)}' if conceitual else f'⚠ {e(pilar)}']
+    if data.get("tipo"):
+        meta.append(e(data["tipo"]))
+    if data.get("atributos"):
+        meta.append(e(" / ".join(data["atributos"])))
+    meta_txt = "  ·  ".join(meta)
+
+    bloqueada = ""
+    if data.get("disponivel") is False:
+        bloqueada = (f'<span style="font-family:{serif};font-size:11px;letter-spacing:.1em;'
+                     f'color:#fdf1dc;background:{PILL};border-radius:3px;padding:3px 9px;margin-left:10px;">BLOQUEADA</span>')
+
+    url = (data.get("imagem_url") or "").strip()
+    img = (f'<img src="{html.escape(url, quote=True)}" alt="" '
+           "onerror=\"this.style.display='none'\" "
+           'style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">') if url else ""
+    retrato = (
+        f'<div style="flex:none;width:172px;aspect-ratio:3/4;position:relative;overflow:hidden;'
+        f'border:1px solid {TIJOLO};border-radius:4px;background:{ARTE_BG};">'
+        f'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'
+        f'font-family:{body};font-style:italic;font-size:12px;color:{SEC};text-align:center;padding:12px;">arte a gerar</div>'
+        f'{img}</div>'
+    )
+
+    cabecalho = (
+        f'<div style="display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;background:{CAIXA};'
+        f'border:1px solid {REGUA};border-radius:6px;padding:22px 24px;">'
+        f'{retrato}'
+        '<div style="flex:1;min-width:220px;">'
+        f'<div style="font-family:{serif};font-weight:700;font-size:34px;color:{TIJOLO};line-height:1.05;">{nome}</div>'
+        + (f'<div style="font-family:{body};font-style:italic;font-size:15px;color:{SEC};margin-top:4px;">({e(nome_en)})</div>' if mostra_en else '')
+        + f'<div style="font-family:{serif};font-size:12px;letter-spacing:.08em;color:{PILL};margin-top:12px;">{meta_txt}{bloqueada}</div>'
+        '</div></div>'
+    )
+    blocos = [cabecalho]
+
+    def secao(titulo, corpo_html):
+        return (
+            '<div style="margin-top:18px;">'
+            f'<div style="font-family:{serif};font-size:13px;letter-spacing:.14em;color:{TIJOLO};'
+            f'border-bottom:2px solid {REGUA};padding-bottom:5px;margin-bottom:10px;">{html.escape(titulo).upper()}</div>'
+            f'{corpo_html}</div>'
+        )
+
+    fp = data.get("filosofia_pilar")
+    if fp:
+        blocos.append(
+            f'<div style="margin-top:18px;background:{PAGINA};border-left:3px solid {REGUA};border-radius:4px;padding:14px 18px;">'
+            f'<div style="font-family:{serif};font-size:12px;letter-spacing:.12em;color:{TIJOLO};">{e(fp.get("nome","")).upper()}'
+            f'<span style="font-family:{body};font-style:italic;letter-spacing:0;font-size:13px;color:{SEC};margin-left:10px;">{e(fp.get("epiteto",""))}</span></div>'
+            f'<div style="font-family:{body};font-style:italic;font-size:14px;color:{TXT};line-height:1.6;margin-top:8px;">{e(fp.get("filosofia",""))}</div>'
+            '</div>'
+        )
+
+    if data.get("origem"):
+        chips = f' <span style="color:{SEC};">+</span> '.join(
+            f'<span style="color:{TIJOLO};font-weight:700;">{e(o)}</span>' for o in data["origem"])
+        blocos.append(secao("Derivada de",
+            f'<div style="font-family:{body};font-size:15px;color:{TXT};">{chips}</div>'))
+
+    blocos.append(secao("Descricao".replace("Descricao", "Descrição"),
+        f'<div style="font-family:{body};font-size:15px;color:{TXT};line-height:1.7;white-space:pre-line;">{e(data["descricao"])}</div>'))
+
+    if data.get("diferencial"):
+        blocos.append(secao("Diferencial mecânico",
+            f'<div style="font-family:{body};font-style:italic;font-size:15px;color:{TXT};line-height:1.7;white-space:pre-line;">{e(data["diferencial"])}</div>'))
+
+    caminhos = data.get("caminhos") or []
+    if caminhos:
+        itens = []
+        for c in caminhos:
+            niv = (f' <span style="font-family:{serif};font-size:11px;color:{SEC};">nível {e(c.get("nivel_desbloqueio"))}</span>'
+                   if c.get("nivel_desbloqueio") else "")
+            itens.append(
+                f'<div style="background:{CAIXA};border:1px solid {REGUA};border-radius:4px;padding:12px 14px;margin-bottom:8px;">'
+                f'<div style="font-family:{serif};font-weight:700;font-size:15px;color:{TIJOLO};">{e(c.get("nome",""))}{niv}</div>'
+                f'<div style="font-family:{body};font-size:14px;color:{TXT};line-height:1.6;white-space:pre-line;margin-top:4px;">{e(c.get("descricao",""))}</div>'
+                '</div>')
+        corpo_c = "".join(itens)
+    else:
+        corpo_c = f'<div style="font-family:{body};font-style:italic;color:{SEC};">Esta vocação ainda não tem caminhos definidos.</div>'
+    aberto_c = " open" if caminhos else ""
+    blocos.append(
+        f'<details{aberto_c} style="margin-top:18px;">'
+        f'<summary style="font-family:{serif};font-size:13px;letter-spacing:.14em;color:{TIJOLO};'
+        f'border-bottom:2px solid {REGUA};padding-bottom:5px;margin-bottom:10px;cursor:pointer;">'
+        f'CAMINHOS / SUBCLASSES ({len(caminhos)})</summary>{corpo_c}</details>'
+    )
+
+    habs = data.get("habilidades") or []
+    if habs:
+        partes = []
+        nivel_atual = object()
+        for h in habs:
+            if h.get("nivel") != nivel_atual:
+                nivel_atual = h.get("nivel")
+                partes.append(f'<div style="font-family:{serif};font-size:12px;letter-spacing:.12em;color:{REGUA};margin:14px 0 6px;">NÍVEL {e(nivel_atual)}</div>')
+            pills = []
+            if h.get("tipo"):
+                pills.append(f'<span style="font-family:{serif};font-size:10px;letter-spacing:.06em;color:{SEC};border:1px solid {SEC};border-radius:3px;padding:1px 7px;">{e(h["tipo"])}</span>')
+            if h.get("gera_maestria"):
+                pills.append(f'<span style="font-family:{serif};font-size:10px;letter-spacing:.06em;color:#fdf1dc;background:{PILL};border-radius:3px;padding:1px 7px;">MAESTRIA</span>')
+            if h.get("requer_caminho"):
+                pills.append(f'<span style="font-family:{serif};font-size:10px;letter-spacing:.06em;color:{PILL};border:1px solid {PILL};border-radius:3px;padding:1px 7px;">REQUER CAMINHO</span>')
+            partes.append(
+                f'<div style="background:{CAIXA};border:1px solid {REGUA};border-radius:4px;padding:11px 14px;margin-bottom:8px;">'
+                f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+                f'<span style="font-family:{serif};font-weight:700;font-size:15px;color:{TXT};">{e(h.get("nome",""))}</span>{" ".join(pills)}</div>'
+                f'<div style="font-family:{body};font-size:14px;color:{TXT};line-height:1.6;white-space:pre-line;margin-top:4px;">{e(h.get("descricao",""))}</div>'
+                '</div>')
+        corpo_h = "".join(partes)
+    else:
+        corpo_h = f'<div style="font-family:{body};font-style:italic;color:{SEC};">Esta vocação ainda não tem habilidades mapeadas.</div>'
+    aberto_h = " open" if (0 < len(habs) <= 10) else ""
+    blocos.append(
+        f'<details{aberto_h} style="margin-top:18px;">'
+        f'<summary style="font-family:{serif};font-size:13px;letter-spacing:.14em;color:{TIJOLO};'
+        f'border-bottom:2px solid {REGUA};padding-bottom:5px;margin-bottom:10px;cursor:pointer;">'
+        f'HABILIDADES POR NÍVEL ({len(habs)})</summary>{corpo_h}</details>'
+    )
+
+    return "".join(blocos)
+
+
 @ui.page("/oficina/vocacoes/{voc_id}")
 async def pagina_vocacao_detalhe(voc_id: int):
-    """Pagina de detalhe de uma vocacao."""
-    # FIX TIMEOUT NICEGUI: envia placeholder + aguarda WS antes das queries.
-    await aguardar_conexao_websocket(f"Buscando vocação #{voc_id}...")
+    """Ficha de uma vocacao, em pergaminho."""
+    await aguardar_conexao_websocket(f"Abrindo a ficha #{voc_id}...")
+    ui.add_head_html(CSS_PERGAMINHO)
 
     data = await _buscar_vocacao_com_tudo(voc_id)
-
     if not data:
-        with ui.column().classes(
-            "w-full min-h-screen bg-zinc-900 text-zinc-100 p-8 items-center "
-            "justify-center gap-4"
-        ):
-            ui.label(f"Vocação id={voc_id} não encontrada.").classes(
-                "text-2xl text-zinc-400"
-            )
-            ui.button(
-                "Voltar",
-                on_click=lambda: ui.navigate.to("/oficina/vocacoes"),
-            ).props("color=amber-8")
+        with ui.column().classes("w-full min-h-screen p-8 items-center justify-center gap-4").style("background:#efe3c9;"):
+            ui.html(f'<div style="font-family:\'Cinzel\',serif;font-size:22px;color:#58180d;">Vocação #{voc_id} não encontrada.</div>')
+            ui.button("Voltar", on_click=lambda: ui.navigate.to("/oficina/vocacoes")).props("flat color=brown-8")
         return
 
-    pilares_validos = ("corpo", "sombra", "arcano", "espirito", "engenho", "Fundida")
-    is_anomalia = data["pilar"] not in pilares_validos
+    pilar = data["pilar"] or ""
+    if pilar in ("corpo", "sombra", "arcano", "espirito", "engenho"):
+        data["filosofia_pilar"] = await _buscar_filosofia_pilar(pilar)
+        voltar_href = f"/oficina/vocacoes/pilar/{pilar}"
+        voltar_txt = f"‹ SALÃO DO {pilar.upper()}"
+    else:
+        voltar_href = "/oficina/vocacoes"
+        voltar_txt = "‹ TODOS OS PILARES"
 
-    with ui.column().classes(
-        "w-full min-h-screen bg-zinc-900 text-zinc-100 p-8 gap-4"
-    ):
-        # === Header ===
-        with ui.row().classes("w-full items-start justify-between"):
-            with ui.row().classes("items-center gap-3"):
-                ui.button(
-                    icon="arrow_back",
-                    on_click=lambda: ui.navigate.to("/oficina/vocacoes"),
-                ).props("flat round dense color=amber-2")
-
-                with ui.column().classes("gap-0"):
-                    with ui.row().classes("items-baseline gap-3"):
-                        ui.label(data["nome"]).classes(
-                            "text-4xl font-bold text-amber-200 tracking-wide"
-                        )
-                        if data["nome"] != data["nome_en"]:
-                            ui.label(f"({data['nome_en']})").classes(
-                                "text-base text-zinc-500 italic"
-                            )
-                    with ui.row().classes("items-center gap-3 mt-1"):
-                        pilar_txt = f"⚠ {data['pilar']}" if is_anomalia else f"Pilar {data['pilar']}"
-                        pilar_cls = "text-red-400" if is_anomalia else "text-amber-300"
-                        ui.label(pilar_txt).classes(f"text-sm {pilar_cls} font-mono")
-                        ui.label(f"• {data['tipo']}").classes("text-sm text-zinc-500")
-                        if data["atributos"]:
-                            ui.label(f"• {' / '.join(data['atributos'])}").classes(
-                                "text-sm font-mono text-zinc-400"
-                            )
-                        if data["disponivel"] is False:
-                            ui.label("• 🚫 BLOQUEADA").classes(
-                                "text-sm text-red-400 font-bold"
-                            )
-
-        ui.separator().classes("bg-zinc-700")
-
-        # === Filosofia do pilar ===
-        if data["pilar"] in ("corpo", "sombra", "arcano", "espirito", "engenho"):
-            filosofia_data = await _buscar_filosofia_pilar(data["pilar"])
-            if filosofia_data:
-                with ui.card().classes(
-                    "w-full bg-zinc-800 border border-amber-800 p-4"
-                ).props("flat"):
-                    with ui.row().classes("items-baseline gap-3"):
-                        ui.label(filosofia_data["nome"]).classes(
-                            "text-sm font-bold text-amber-200 uppercase tracking-wider"
-                        )
-                        ui.label(filosofia_data["epiteto"]).classes(
-                            "text-xs text-zinc-400 italic"
-                        )
-                    ui.label(filosofia_data["filosofia"]).classes(
-                        "text-xs text-zinc-400 italic leading-relaxed mt-2"
-                    )
-
-        # === Origem (se fundida) ===
-        if data["origem"]:
-            with ui.card().classes(
-                "w-full bg-zinc-800 border border-zinc-700 p-4"
-            ).props("flat"):
-                ui.label("Derivada de").classes(
-                    "text-xs uppercase tracking-wider text-zinc-500 mb-1"
-                )
-                with ui.row().classes("items-center gap-2 flex-wrap"):
-                    for i, nome_pai in enumerate(data["origem"]):
-                        if i > 0:
-                            ui.icon("add", size="1rem").classes("text-zinc-500")
-                        ui.label(nome_pai).classes(
-                            "text-base text-amber-200 font-semibold"
-                        )
-
-        # === Descricao ===
-        with ui.card().classes(
-            "w-full bg-zinc-800 border border-zinc-700 p-4"
-        ).props("flat"):
-            ui.label("Descrição").classes(
-                "text-xs uppercase tracking-wider text-zinc-500 mb-2"
-            )
-            ui.label(data["descricao"]).classes(
-                "text-sm text-zinc-300 whitespace-pre-line leading-relaxed"
-            )
-
-        # === Diferencial mecanico ===
-        if data["diferencial"]:
-            with ui.card().classes(
-                "w-full bg-zinc-800 border border-amber-800 p-4"
-            ).props("flat"):
-                ui.label("Diferencial mecânico").classes(
-                    "text-xs uppercase tracking-wider text-amber-400 mb-2"
-                )
-                ui.label(data["diferencial"]).classes(
-                    "text-sm text-zinc-200 italic whitespace-pre-line leading-relaxed"
-                )
-
-        # === Caminhos (subclasses) ===
-        n_caminhos = len(data["caminhos"])
-        with ui.expansion(
-            f"Caminhos / Subclasses ({n_caminhos})",
-            icon="fork_right",
-            value=n_caminhos > 0,
-        ).classes("w-full bg-zinc-800 rounded").props("dense"):
-            with ui.column().classes("w-full gap-3 p-2"):
-                if n_caminhos == 0:
-                    ui.label(
-                        "Esta vocação ainda não tem caminhos definidos."
-                    ).classes("text-zinc-500 italic")
-                else:
-                    for c in data["caminhos"]:
-                        with ui.card().classes(
-                            "w-full bg-zinc-900 border border-zinc-700 p-3"
-                        ).props("flat"):
-                            with ui.row().classes("items-center gap-2"):
-                                ui.label(c["nome"]).classes(
-                                    "text-base font-semibold text-amber-200"
-                                )
-                                if c["nivel_desbloqueio"]:
-                                    ui.label(
-                                        f"nível {c['nivel_desbloqueio']}"
-                                    ).classes(
-                                        "text-xs text-zinc-500 font-mono"
-                                    )
-                            ui.label(c["descricao"]).classes(
-                                "text-sm text-zinc-400 mt-1 whitespace-pre-line"
-                            )
-
-        # === Habilidades por nivel ===
-        n_habs = len(data["habilidades"])
-        with ui.expansion(
-            f"Habilidades por nível ({n_habs})",
-            icon="auto_awesome_motion",
-            value=n_habs > 0 and n_habs <= 10,
-        ).classes("w-full bg-zinc-800 rounded").props("dense"):
-            with ui.column().classes("w-full gap-3 p-2"):
-                if n_habs == 0:
-                    ui.label(
-                        "Esta vocação ainda não tem habilidades mapeadas."
-                    ).classes("text-zinc-500 italic")
-                else:
-                    nivel_atual = None
-                    for h in data["habilidades"]:
-                        if h["nivel"] != nivel_atual:
-                            nivel_atual = h["nivel"]
-                            ui.label(f"Nível {nivel_atual}").classes(
-                                "text-sm uppercase tracking-wider "
-                                "text-amber-400 mt-3 mb-1"
-                            )
-                        with ui.card().classes(
-                            "w-full bg-zinc-900 border border-zinc-700 p-3"
-                        ).props("flat"):
-                            with ui.row().classes("items-center gap-2 flex-wrap"):
-                                ui.label(h["nome"]).classes(
-                                    "text-base font-semibold text-zinc-200"
-                                )
-                                ui.badge(h["tipo"], color="zinc-7").props("rounded")
-                                if h["gera_maestria"]:
-                                    ui.icon("military_tech", size="1rem").classes(
-                                        "text-amber-400"
-                                    ).tooltip("Gera maestria")
-                                if h["requer_caminho"]:
-                                    ui.icon("lock", size="1rem").classes(
-                                        "text-zinc-500"
-                                    ).tooltip("Requer caminho escolhido")
-                            ui.label(h["descricao"]).classes(
-                                "text-sm text-zinc-400 mt-1 whitespace-pre-line"
-                            )
-
-        with ui.row().classes("w-full justify-center mt-auto pt-6"):
-            ui.label(
-                f"Módulo 6.3 OK. {n_caminhos} caminhos, {n_habs} habilidades."
-            ).classes("text-xs text-zinc-600 italic")
+    with ui.column().classes("w-full min-h-screen p-0 gap-0").style("background:#efe3c9;color:#2a1c0e;"):
+        with ui.column().classes("w-full max-w-4xl mx-auto px-6 py-8 gap-3").style("box-sizing:border-box;"):
+            ui.html(f'<a href="{voltar_href}" style="text-decoration:none;font-family:\'Cinzel\',serif;'
+                    f'font-size:12px;letter-spacing:.12em;color:#7a6648;">{voltar_txt}</a>')
+            ui.html(_ficha_vocacao_html(data)).classes("w-full")
 
 
 
