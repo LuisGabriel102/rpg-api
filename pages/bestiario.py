@@ -579,7 +579,7 @@ def _render_statblock_html(row, dados_json):
         '<div style="width:100%;background:#fdf1dc;border:1px solid #d9c9a8;'
         'border-top:3px solid #58180d;border-bottom:3px solid #58180d;border-radius:3px;'
         "padding:18px 22px;color:#1d1107;font-family:'Crimson Text',Georgia,serif;box-sizing:border-box;\">"
-        '<div style="display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:start;">'
+        '<div style="display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start;">'
         f'<div>{arte}{epig_html}</div>'
         '<div>'
         f'<div style="font-family:Cinzel,serif;font-size:24px;font-weight:600;color:#58180d;line-height:1.05;">{nome}</div>'
