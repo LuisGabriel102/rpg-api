@@ -250,12 +250,185 @@ async def _criar_npc_no_banco(dados: dict) -> Npcs:
 # UI NICEGUI - Pagina /oficina (home)
 # ====================================================================
 
+# ============================================================
+# PELE VITRAL DA OFICINA — Fatia 1
+# CSS/fonte via add_head_html (não sanitiza); corpo via ui.html.
+# Estilo em classes (robustez anti-sanitizador). SVGs decorativos inline.
+# ============================================================
+
+_VITRAL_HEAD = """
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Spectral:ital@0;1&display=swap" rel="stylesheet">
+<style>
+.nicegui-content{padding:0!important;gap:0!important;}
+body{margin:0;}
+.cat-screen{position:relative;font-family:'Spectral',Georgia,serif;color:#e8dcc0;min-height:100vh;width:100%;overflow:hidden;background:linear-gradient(180deg,#0a0d1a 0%,#10141f 42%,#161b27 72%,#1b2029 100%);}
+.cat-city{position:absolute;left:0;right:0;bottom:0;width:100%;height:46vh;z-index:0;}
+.cat-moon{position:absolute;border-radius:50%;z-index:2;}
+.cat-moon1{top:5vh;left:74%;width:42px;height:42px;background:radial-gradient(circle at 38% 35%,#d8dce4,#aeb4c2 68%,#878fa0);box-shadow:0 0 26px rgba(192,202,222,.2);}
+.cat-moon2{top:9vh;left:60%;width:20px;height:20px;background:radial-gradient(circle at 40% 36%,#e0d2b4,#c2ad8c 70%,#937e60);box-shadow:0 0 16px rgba(200,182,150,.18);}
+.cat-fog{position:absolute;left:0;right:0;bottom:0;height:24vh;background:linear-gradient(0deg,rgba(150,162,184,.18),rgba(150,162,184,.06) 52%,transparent);z-index:1;animation:haze 13s ease-in-out infinite;}
+.cat-veil{position:absolute;inset:0;background:radial-gradient(130% 80% at 50% 16%,rgba(8,9,15,.55),rgba(8,9,15,.12) 50%,transparent 78%);z-index:1;}
+.cat-mote{position:absolute;width:3px;height:3px;border-radius:50%;background:radial-gradient(circle,#f0d98a,transparent 70%);opacity:0;z-index:2;animation:float 9s linear infinite;}
+.cat-mote.m1{left:18%;bottom:34%;animation-delay:0s;}.cat-mote.m2{left:44%;bottom:26%;animation-delay:2.6s;}.cat-mote.m3{left:68%;bottom:38%;animation-delay:4.3s;}.cat-mote.m4{left:82%;bottom:28%;animation-delay:6.2s;}.cat-mote.m5{left:31%;bottom:42%;animation-delay:7.6s;}
+.cat-nav{position:relative;z-index:4;display:flex;align-items:center;gap:2px;padding:14px 30px;background:rgba(10,12,20,.92);border-bottom:1px solid #b8902f;}
+.cat-navicon{margin-right:12px;flex:none;}
+.cat-navlink{font-family:'IM Fell English SC',serif;letter-spacing:.12em;font-size:15px;color:#b3a06f;text-decoration:none;padding:4px 12px;white-space:nowrap;}
+.cat-navlink:hover{color:#e8c66a;}
+.cat-navlink.on{color:#f0d98a;border-bottom:1px solid #e8c66a;padding-bottom:3px;}
+.cat-enter{font-family:'IM Fell English',serif;font-style:italic;letter-spacing:.04em;color:#e8c66a;text-decoration:none;font-size:16px;}
+.cat-enter:hover{color:#f6d98a;}
+.cat-inner{position:relative;z-index:4;max-width:1120px;margin:0 auto;padding:34px 30px 0;}
+.cat-title{font-family:'IM Fell English',serif;font-size:38px;line-height:1.08;color:#f6ecd2;}
+.cat-sub{font-family:'IM Fell English',serif;font-style:italic;font-size:15px;color:#c0a36a;margin-top:5px;}
+.cat-rule{height:2px;background:linear-gradient(90deg,#5c4413,#e8c66a,#c89a22,#5c4413);background-size:220% 100%;animation:shimmer 7s linear infinite;margin:18px 0 0;}
+.cat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;padding:24px 0 0;}
+.cat-card{position:relative;display:block;min-height:190px;border:1px solid #c9a227;border-radius:5px;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,238,190,.18);text-decoration:none;}
+.cat-card.c-pers{--c1:#2f56b8;--c2:#16306e;--c3:#0b1742;}
+.cat-card.c-estr{--c1:#c19022;--c2:#7a5512;--c3:#3f2b06;}
+.cat-card.c-voc{--c1:#c4394a;--c2:#7a1f2b;--c3:#440d15;}
+.cat-card.c-best{--c1:#239070;--c2:#14523f;--c3:#0a2c22;}
+.cat-glass{position:absolute;inset:0;display:block;background:radial-gradient(92% 82% at 50% 8%,var(--c1),var(--c2) 55%,var(--c3));}
+.cat-glow{position:absolute;inset:0;display:block;background:radial-gradient(58% 44% at 50% 5%,rgba(255,242,205,.5),transparent 62%);animation:lumen 7s ease-in-out infinite;}
+.cat-card.c-estr .cat-glow{animation-delay:1.6s;}.cat-card.c-voc .cat-glow{animation-delay:3.2s;}.cat-card.c-best .cat-glow{animation-delay:4.6s;}
+.cat-card:hover .cat-glow{opacity:.9;}
+.cat-lead{position:absolute;inset:0;width:100%;height:100%;opacity:.42;}
+.cat-body{position:relative;z-index:2;display:block;padding:56px 14px 18px;text-align:center;}
+.cat-rot{display:block;font-family:'IM Fell English SC',serif;letter-spacing:.16em;font-size:13px;}
+.cat-num{display:block;font-family:'IM Fell English',serif;font-size:50px;line-height:1;color:#f6ecd2;margin:6px 0 10px;text-shadow:0 0 14px rgba(255,232,180,.25);}
+.cat-dsc{display:block;font-style:italic;font-size:13px;line-height:1.5;}
+.c-pers .cat-rot{color:#c2d4ff;}.c-pers .cat-dsc{color:#aebde8;}
+.c-estr .cat-rot{color:#f6dca0;}.c-estr .cat-dsc{color:#ecd296;}
+.c-voc .cat-rot{color:#f8c4ca;}.c-voc .cat-dsc{color:#edaeb5;}
+.c-best .cat-rot{color:#aeead2;}.c-best .cat-dsc{color:#95dabd;}
+.cat-hist{position:relative;z-index:4;display:flex;align-items:center;gap:18px;margin:18px 0 0;padding:18px 24px;border:1px solid #c9a227;border-radius:6px;background:linear-gradient(100deg,rgba(46,33,82,.9),rgba(26,18,52,.82) 70%,rgba(20,14,40,.76));box-shadow:inset 0 1px 0 rgba(228,196,255,.16);text-decoration:none;}
+.cat-hist:hover{border-color:#f0d98a;}
+.cat-hist-txt{flex:1;}
+.cat-hist-t{display:block;font-family:'IM Fell English',serif;font-size:21px;color:#efe6cf;line-height:1.1;}
+.cat-hist-d{display:block;font-style:italic;font-size:13px;color:#cbb9e8;margin-top:3px;}
+.cat-hist-go{font-family:'IM Fell English',serif;font-style:italic;font-size:14px;color:#e8c66a;white-space:nowrap;}
+.cat-foot{position:relative;z-index:4;text-align:center;font-family:'IM Fell English',serif;font-style:italic;font-size:12px;color:#8a7440;padding:36px 0 20px;}
+.cat-soon{position:relative;z-index:4;font-style:italic;font-size:15px;color:#9a8a6a;padding:28px 0;}
+@keyframes lumen{0%,100%{opacity:.32}50%{opacity:.7}}
+@keyframes shimmer{to{background-position:220% 0}}
+@keyframes float{0%{transform:translateY(10px);opacity:0}25%{opacity:.7}100%{transform:translateY(-26px);opacity:0}}
+@keyframes haze{0%,100%{opacity:.7}50%{opacity:1}}
+@media (prefers-reduced-motion: reduce){.cat-glow,.cat-rule,.cat-mote,.cat-fog{animation:none!important;}}
+</style>
+"""
+
+_VITRAL_ARCO = "M16,74 Q28,20 75,15 Q122,20 134,74 M75,15 L75,188 M16,74 L16,188 M134,74 L134,188 M16,128 L134,128"
+_VITRAL_EMBLEMA = {
+    "pers": '<circle cx="75" cy="42" r="6"/><path d="M62,62 Q75,44 88,62"/>',
+    "estr": '<path d="M75,28 L79,40 L91,42 L79,45 L75,57 L71,45 L59,42 L71,40 Z"/>',
+    "voc":  '<path d="M75,28 L88,33 V45 Q88,56 75,60 Q62,56 62,45 V33 Z"/><path d="M75,31 L75,57"/>',
+    "best": '<path d="M63,52 Q57,30 68,31 M87,52 Q93,30 82,31"/><circle cx="70" cy="46" r="1.6"/><circle cx="80" cy="46" r="1.6"/>',
+}
+_VITRAL_STROKE = {"pers": "#e0bd5a", "estr": "#ffe9a8", "voc": "#ffc2c9", "best": "#a7e6cd"}
+
+
+def _vitral_cena() -> str:
+    """Camada de fundo: catedral + casario, duas luas, bruma, véu, poeira."""
+    city = (
+        '<svg class="cat-city" viewBox="0 0 680 248" preserveAspectRatio="xMidYMax slice" aria-hidden="true">'
+        '<path d="M0,248 L0,202 L34,202 L34,180 L72,180 L72,206 L108,206 L108,186 L150,186 L150,248 Z '
+        'M512,248 L512,190 L548,190 L548,168 L584,168 L584,198 L622,198 L622,180 L680,180 L680,248 Z" fill="#070a12"/>'
+        '<g fill="#070a12"><rect x="300" y="152" width="80" height="96"/><polygon points="300,152 340,120 380,152"/>'
+        '<rect x="286" y="122" width="20" height="126"/><polygon points="286,122 296,94 306,122"/>'
+        '<rect x="374" y="122" width="20" height="126"/><polygon points="374,122 384,94 394,122"/>'
+        '<polygon points="334,152 340,58 346,152"/></g>'
+        '<circle cx="340" cy="180" r="11" fill="none" stroke="#b8902f" stroke-width="1.4" opacity=".65"/>'
+        '<circle cx="340" cy="180" r="4" fill="#c9a227" opacity=".5"/>'
+        '<g fill="#c9a227"><rect x="292" y="150" width="5" height="13" opacity=".5"/><rect x="383" y="150" width="5" height="13" opacity=".5"/>'
+        '<rect x="316" y="200" width="6" height="16" rx="3" opacity=".5"/><rect x="358" y="200" width="6" height="16" rx="3" opacity=".5"/>'
+        '<rect x="46" y="208" width="4" height="6" opacity=".4"/><rect x="86" y="186" width="4" height="6" opacity=".45"/>'
+        '<rect x="120" y="210" width="4" height="6" opacity=".4"/><rect x="560" y="196" width="4" height="6" opacity=".4"/>'
+        '<rect x="596" y="204" width="4" height="6" opacity=".45"/></g></svg>'
+    )
+    return (
+        city
+        + '<div class="cat-moon cat-moon1"></div><div class="cat-moon cat-moon2"></div>'
+        + '<div class="cat-fog"></div><div class="cat-veil"></div>'
+        + '<span class="cat-mote m1"></span><span class="cat-mote m2"></span><span class="cat-mote m3"></span>'
+        + '<span class="cat-mote m4"></span><span class="cat-mote m5"></span>'
+    )
+
+
+def _vitral_barra(ativo: str = "") -> str:
+    """Barra de navegação na pele vitral. Rótulos novos, rotas reais inalteradas."""
+    icone = ('<svg class="cat-navicon" width="16" height="14" viewBox="0 0 24 20" fill="none" '
+             'stroke="#c9a227" stroke-width="1.1" aria-hidden="true">'
+             '<path d="M12 3c3 0 5 2 5 5s-2 7-5 9c-3-2-5-6-5-9s2-5 5-5z"/><path d="M3 10h6M15 10h6"/></svg>')
+    itens = [
+        ("oficina", "oficina", "/oficina"),
+        ("personagens", "personagens", "/oficina/npcs"),
+        ("bestiário", "bestiario", "/oficina/bestiario"),
+        ("estrelas", "estrelas", "/oficina/estrelas"),
+        ("vocações", "vocacoes", "/oficina/vocacoes"),
+        ("histórias", "historias", "/oficina/historias"),
+    ]
+    links = "".join(
+        f'<a class="cat-navlink{" on" if chave == ativo else ""}" href="{destino}">{rotulo}</a>'
+        for rotulo, chave, destino in itens
+    )
+    return (f'<div class="cat-nav">{icone}{links}<span style="flex:1"></span>'
+            f'<a class="cat-enter" href="/jogar">entrar no mundo</a></div>')
+
+
+def _vitral_card(cls: str, rotulo: str, numero, frase: str, href: str) -> str:
+    """Um vitral-contador clicável."""
+    return (
+        f'<a class="cat-card c-{cls}" href="{href}">'
+        f'<span class="cat-glass"></span><span class="cat-glow"></span>'
+        f'<svg class="cat-lead" viewBox="0 0 150 200" fill="none" stroke="{_VITRAL_STROKE[cls]}" '
+        f'stroke-width="1.1" aria-hidden="true"><path d="{_VITRAL_ARCO}"/>{_VITRAL_EMBLEMA[cls]}</svg>'
+        f'<span class="cat-body"><span class="cat-rot">{rotulo}</span>'
+        f'<span class="cat-num">{numero}</span><span class="cat-dsc">{frase}</span></span></a>'
+    )
+
+
+def _vitral_card_historias() -> str:
+    livro = ('<svg width="40" height="40" viewBox="0 0 60 60" fill="none" stroke="#e0bd5a" '
+             'stroke-width="1.4" style="flex:none" aria-hidden="true">'
+             '<path d="M30,16 Q18,9 8,13 L8,46 Q18,42 30,49 Q42,42 52,46 L52,13 Q42,9 30,16 Z"/><path d="M30,16 L30,49"/>'
+             '<path d="M13,21 Q20,18 26,21 M13,29 Q20,26 26,29 M34,21 Q40,18 47,21 M34,29 Q40,26 47,29"/></svg>')
+    return (
+        '<a class="cat-hist" href="/oficina/historias">'
+        + livro
+        + '<span class="cat-hist-txt"><span class="cat-hist-t">Histórias do mundo</span>'
+        '<span class="cat-hist-d">a crônica de Alderyn &mdash; eras, ruínas, e o que sobrou.</span></span>'
+        '<span class="cat-hist-go">abrir a crônica &rsaquo;</span></a>'
+    )
+
+
+def _vitral_dashboard(npcs, estrelas, vocacoes, criaturas) -> str:
+    return (
+        '<div class="cat-screen">'
+        + _vitral_cena()
+        + _vitral_barra("oficina")
+        + '<div class="cat-inner">'
+        '<div class="cat-title">Oficina do Mestre</div>'
+        '<div class="cat-sub">Sistema Nexus &mdash; mundo de Alderyn</div>'
+        '<div class="cat-rule"></div>'
+        '<div class="cat-grid">'
+        + _vitral_card("pers", "personagens", npcs, "os que vivem &mdash; e os que já viveram.", "/oficina/npcs")
+        + _vitral_card("estr", "estrelas", estrelas, "os astros sob os quais se nasce.", "/oficina/estrelas")
+        + _vitral_card("voc", "vocações", vocacoes, "ofícios e caminhos do mundo.", "/oficina/vocacoes")
+        + _vitral_card("best", "bestiário", criaturas, "o que se move na zona cinzenta.", "/oficina/bestiario")
+        + '</div>'
+        + _vitral_card_historias()
+        + '</div>'
+        + '<div class="cat-foot">vigília quebrada &middot; ano 312</div>'
+        + '</div>'
+    )
+
+
 @ui.page("/oficina")
 async def pagina_oficina():
     # FIX TIMEOUT NICEGUI: envia placeholder + aguarda WS antes das queries.
     await aguardar_conexao_websocket("Carregando Oficina...")
 
-    barra_nav("oficina")
+    ui.add_head_html(_VITRAL_HEAD)
 
     try:
         total_npcs, total_estrelas, total_vocacoes, total_criaturas = await asyncio.wait_for(
@@ -271,124 +444,26 @@ async def pagina_oficina():
         print(f"[home] erro ao contar: {e}")
         total_npcs = total_estrelas = total_vocacoes = total_criaturas = 0
 
-    with ui.column().classes(
-        "w-full min-h-screen bg-zinc-900 text-zinc-100 p-8 gap-6"
-    ):
-        with ui.row().classes("w-full items-center justify-between"):
-            with ui.column().classes("gap-0"):
-                ui.label("Oficina do Mestre").classes(
-                    "text-3xl font-bold text-amber-200"
-                )
-                ui.label("Sistema Nexus - Mundo de Alderyn").classes(
-                    "text-sm text-zinc-400 italic"
-                )
-            ui.label("v0.7.1 · Modulo 7.1 — Bestiário").classes("text-xs text-zinc-500")
+    ui.html(_vitral_dashboard(total_npcs, total_estrelas, total_vocacoes, total_criaturas))
 
-        ui.separator().classes("bg-zinc-700")
 
-        # Grid de cards das secoes da Catedral
-        with ui.row().classes("w-full gap-4 flex-wrap"):
-
-            # --- Card: NPCs ---
-            with ui.card().classes(
-                "flex-1 min-w-[280px] bg-zinc-800 border border-zinc-700 p-6 "
-                "cursor-pointer hover:border-amber-700 transition-colors"
-            ).on("click", lambda: ui.navigate.to("/oficina/npcs")):
-                with ui.row().classes("w-full items-center justify-between"):
-                    with ui.column().classes("gap-1"):
-                        ui.label("NPCs cadastrados").classes(
-                            "text-sm uppercase tracking-wider text-zinc-400"
-                        )
-                        ui.label(str(total_npcs)).classes(
-                            "text-6xl font-bold text-amber-200"
-                        )
-                    ui.icon("person", size="2rem").classes("text-zinc-500")
-
-                if total_npcs == 0:
-                    ui.label("O Alderyn ainda não tem rostos.").classes(
-                        "text-zinc-500 italic mt-4"
-                    )
-                    ui.label("Clique aqui pra forjar a primeira alma.").classes(
-                        "text-zinc-600 text-sm"
-                    )
-                else:
-                    ui.label(f"{total_npcs} alma(s) caminham pelo mundo.").classes(
-                        "text-zinc-400 mt-4"
-                    )
-
-            # --- Card: Estrelas do Véu ---
-            with ui.card().classes(
-                "flex-1 min-w-[280px] bg-zinc-800 border border-zinc-700 p-6 "
-                "cursor-pointer hover:border-amber-700 transition-colors"
-            ).on("click", lambda: ui.navigate.to("/oficina/estrelas")):
-                with ui.row().classes("w-full items-center justify-between"):
-                    with ui.column().classes("gap-1"):
-                        ui.label("Estrelas do Véu").classes(
-                            "text-sm uppercase tracking-wider text-zinc-400"
-                        )
-                        ui.label(str(total_estrelas)).classes(
-                            "text-6xl font-bold text-amber-200"
-                        )
-                    ui.icon("auto_awesome", size="2rem").classes("text-zinc-500")
-
-                ui.label("Astros sob os quais as almas nascem.").classes(
-                    "text-zinc-400 mt-4"
-                )
-                ui.label(
-                    "Clique aqui pra ver os 12 astros, da Forja ao Trono."
-                ).classes("text-zinc-600 text-sm")
-
-            # --- Card: Vocacoes ---
-            with ui.card().classes(
-                "flex-1 min-w-[280px] bg-zinc-800 border border-zinc-700 p-6 "
-                "cursor-pointer hover:border-amber-700 transition-colors"
-            ).on("click", lambda: ui.navigate.to("/oficina/vocacoes")):
-                with ui.row().classes("w-full items-center justify-between"):
-                    with ui.column().classes("gap-1"):
-                        ui.label("Vocações").classes(
-                            "text-sm uppercase tracking-wider text-zinc-400"
-                        )
-                        ui.label(str(total_vocacoes)).classes(
-                            "text-6xl font-bold text-amber-200"
-                        )
-                    ui.icon("shield", size="2rem").classes("text-zinc-500")
-
-                ui.label("Vocações e multiclasses narradas.").classes(
-                    "text-zinc-400 mt-4"
-                )
-                ui.label(
-                    "40 bases, 86 fundidas, 5 pilares — e anomalias a descobrir."
-                ).classes("text-zinc-600 text-sm")
-
-            # --- Card: Bestiario ---
-            with ui.card().classes(
-                "flex-1 min-w-[280px] bg-zinc-800 border border-zinc-700 p-6 "
-                "cursor-pointer hover:border-amber-700 transition-colors"
-            ).on("click", lambda: ui.navigate.to("/oficina/bestiario")):
-                with ui.row().classes("w-full items-center justify-between"):
-                    with ui.column().classes("gap-1"):
-                        ui.label("Bestiário").classes(
-                            "text-sm uppercase tracking-wider text-zinc-400"
-                        )
-                        ui.label(str(total_criaturas)).classes(
-                            "text-6xl font-bold text-amber-200"
-                        )
-                    ui.icon("pets", size="2rem").classes("text-zinc-500")
-
-                if total_criaturas == 0:
-                    ui.label("O mundo ainda respira em silêncio.").classes(
-                        "text-zinc-500 italic mt-4"
-                    )
-                else:
-                    ui.label(
-                        f"{total_criaturas} criatura(s) canonizada(s) — "
-                        "lore, ecologia, e zona cinzenta."
-                    ).classes("text-zinc-400 mt-4")
-
-        with ui.row().classes("w-full justify-center mt-auto pt-8"):
-            ui.label(
-                "Oficina do Mestre · NPCs, Estrelas, Vocações, Bestiário online."
-            ).classes("text-xs text-zinc-600 italic")
+@ui.page("/oficina/historias")
+async def pagina_historias():
+    await aguardar_conexao_websocket("Carregando...")
+    ui.add_head_html(_VITRAL_HEAD)
+    ui.html(
+        '<div class="cat-screen">'
+        + _vitral_cena()
+        + _vitral_barra("historias")
+        + '<div class="cat-inner">'
+        '<div class="cat-title">Histórias do mundo</div>'
+        '<div class="cat-sub">a crônica de Alderyn &mdash; eras, ruínas, e o que sobrou.</div>'
+        '<div class="cat-rule"></div>'
+        '<div class="cat-soon">A crônica está sendo escrita. Volte em breve.</div>'
+        '</div>'
+        + '<div class="cat-foot">vigília quebrada &middot; ano 312</div>'
+        + '</div>'
+    )
 
 
 # ====================================================================
