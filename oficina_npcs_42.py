@@ -47,7 +47,7 @@ body{margin:0;}
 .gp-title{font-family:'IM Fell English',serif;font-size:32px;color:#f6ecd2;}
 .gp-count{font-style:italic;font-size:13px;color:#9a8a5a;}
 .gp-rule{height:1px;background:linear-gradient(90deg,#5c4413,#c9a227 40%,transparent);margin:16px 0 22px;}
-.gp-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;}
+.gp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;}
 .gp-card{position:relative;border:1px solid #b8902f;border-radius:5px;overflow:hidden;background:#0c0e16;box-shadow:inset 0 1px 0 rgba(255,238,190,.14);text-decoration:none;display:block;}
 .gp-card:hover{border-color:#f0d98a;}
 .gp-portrait{position:relative;width:100%;aspect-ratio:3/4;overflow:hidden;background:linear-gradient(160deg,#1a1d2a,#0e1018);}
@@ -62,6 +62,18 @@ body{margin:0;}
 .gp-initials{font-family:'IM Fell English',serif;font-size:46px;color:#b8902f;opacity:.85;}
 .gp-dead .gp-name{color:#cfc7b4;}.gp-dead .gp-epi{color:#9a9078;}
 .gp-vazio{text-align:center;font-style:italic;color:#7a6f55;padding:50px 0;}
+.gp-filtros{background:rgba(12,14,22,.72)!important;border:1px solid #5c4413!important;border-radius:5px!important;box-shadow:inset 0 1px 0 rgba(255,238,190,.10)!important;}
+.gp-filtros .q-field__control{background:rgba(10,11,17,.55)!important;border-radius:4px;font-family:'Spectral',Georgia,serif;}
+.gp-filtros .q-field--outlined .q-field__control:before{border:1px solid #6e561f!important;}
+.gp-filtros .q-field--outlined .q-field__control:hover:before{border-color:#b8902f!important;}
+.gp-filtros .q-field--outlined .q-field__control:after{border-color:#c9a227!important;}
+.gp-filtros .q-field__native,.gp-filtros .q-field__input,.gp-filtros .q-field__native span{color:#e8dcc0!important;font-family:'Spectral',Georgia,serif;}
+.gp-filtros .q-field__label{color:#9a8a5a!important;font-family:'Spectral',Georgia,serif;}
+.gp-filtros .q-icon,.gp-filtros .q-select__dropdown-icon{color:#b8902f!important;}
+.gp-filtros .q-field__native::placeholder{color:#7a6f55!important;}
+.q-menu{background:#0c0e16!important;border:1px solid #6e561f!important;color:#e8dcc0!important;}
+.q-menu .q-item{color:#d8cba8!important;font-family:'Spectral',Georgia,serif;}
+.q-menu .q-item:hover,.q-menu .q-item--active,.q-menu .q-item.q-manual-focusable--focused{background:rgba(184,144,47,.18)!important;color:#f3e7c4!important;}
 </style>
 """
 
@@ -496,7 +508,7 @@ async def pagina_lista_npcs_rica() -> None:
                     ui.label("Personagens").classes("text-3xl font-bold text-amber-200")
                     counter_ref["w"] = ui.label("").classes("text-sm text-zinc-400 italic")
 
-            with ui.card().classes("w-full bg-zinc-800 border border-zinc-700 p-4"):
+            with ui.card().classes("gp-filtros w-full p-4"):
                 with ui.row().classes("w-full gap-3 flex-wrap items-end"):
                     ui.input(
                         label="Busca (nome, nome_curto, epíteto)",
