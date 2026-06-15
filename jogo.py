@@ -38,6 +38,26 @@ from cronista_prompt import CRONISTA_SYSTEM_PROMPT
 from ui_helpers import aguardar_conexao_websocket
 
 # ---------------------------------------------------------------------------
+# Tier 4 - memoria do narrador. O /jogar deixa de ser stateless: cada turno e
+# gravado em sessao_turnos e o contexto (5 tiers) e lido de volta pro prompt do
+# Cronista. Import GUARDADO de proposito: se DATABASE_URL faltar (ex.: rodar a
+# casca em mock, sem credencial), o modulo db.py levanta no import - aqui isso
+# vira so _MEMORIA_OK=False e o /jogar segue funcionando SEM memoria (degrada
+# sem quebrar, como o resto do monolito). SESSAO_ID fixo: Tier 4 binda o /jogar
+# a sessao 2 / personagem 3 (a sessao ja carrega o personagem_id no banco).
+# ---------------------------------------------------------------------------
+SESSAO_ID = 2
+try:
+    from narrador.memoria.contexto import carregar_contexto
+    from narrador.memoria.escrita import gravar_turno
+    _MEMORIA_OK = True
+    _MEMORIA_ERR = None
+except Exception as _e:  # noqa: BLE001 - qualquer falha de import desliga a memoria
+    _MEMORIA_OK = False
+    _MEMORIA_ERR = _e
+    print(f"[memoria] desligada (import falhou): {type(_e).__name__}: {_e}")
+
+# ---------------------------------------------------------------------------
 # Static: serve a camada cliente (jogar.js) e a estampa. Montado AQUI (no proprio
 # modulo, importado pelo server.py DEPOIS de app.main) pra nao precisar tocar no
 # server.py - o enxerto fica contido no /jogar. Usamos o mount do FastAPI direto
@@ -216,12 +236,19 @@ _ATM_POR_INTENCAO = {
 }
 
 
+_RE_CONTEXTO_BLOCO = re.compile(r"<contexto>.*?</contexto>", re.S | re.I)
+
+
 def _texto_do_jogador(conteudo: str) -> str:
-    # O narrar prefixa "[ESTADO] pressao_emocional: N\n\n{texto}". Isola o texto.
-    if conteudo.startswith("[ESTADO]"):
-        partes = conteudo.split("\n\n", 1)
-        return partes[1].strip() if len(partes) > 1 else ""
-    return conteudo.strip()
+    # O narrar monta "[ESTADO] ...\n\n<contexto>...</contexto>\n\n{texto}". Isola o
+    # texto: tira o bloco <contexto> (Tier 4) e depois a linha [ESTADO]. O que sobra
+    # e a fala do jogador - o mock classifica a intencao em cima dela, nao da
+    # maquinaria. Robusto se o bloco <contexto> estiver ausente (turno sem memoria).
+    texto = _RE_CONTEXTO_BLOCO.sub("", conteudo)
+    if texto.startswith("[ESTADO]"):
+        partes = texto.split("\n\n", 1)
+        texto = partes[1] if len(partes) > 1 else ""
+    return texto.strip()
 
 
 def _classificar_intencao(texto: str) -> str:
@@ -304,6 +331,34 @@ def _chamar_cronista(historico: list[dict]) -> str:
         messages=historico,
     )
     return resp.content[0].text
+
+
+# ---------------------------------------------------------------------------
+# Memoria (Tier 4): gravar turno + carregar contexto. Ambos sao "safe": se a
+# memoria estiver desligada (import falhou) ou o banco vacilar, logam e seguem
+# sem derrubar o turno. O jogo nunca quebra por causa da memoria.
+# ---------------------------------------------------------------------------
+async def _gravar_turno_safe(papel: str, conteudo: str) -> None:
+    if not _MEMORIA_OK:
+        return
+    try:
+        numero = await gravar_turno(SESSAO_ID, papel, conteudo)
+        print(f"[memoria] turno gravado: sessao={SESSAO_ID} papel={papel} numero_turno={numero}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[memoria] FALHA ao gravar turno ({papel}): {type(exc).__name__}: {exc}")
+
+
+async def _carregar_contexto_safe(query_text: str | None) -> str:
+    if not _MEMORIA_OK:
+        return ""
+    try:
+        # query_vec=None de proposito (decisao ii do Tier 4): sem torch/modelo no
+        # container, a busca cai pras 3 vias (full-text + trigram + entidade), como
+        # a SPEC preve. O vetorial ao vivo entra depois, sem mexer aqui.
+        return await carregar_contexto(SESSAO_ID, query_text=query_text, query_vec=None)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[memoria] FALHA ao carregar contexto: {type(exc).__name__}: {exc}")
+        return ""
 
 
 _RE_ESTADO = re.compile(r"<estado>(.*?)</estado>", re.S | re.I)
@@ -717,12 +772,34 @@ async def pagina_jogar():
         if mostrar_acao:
             _arrive(msg_usuario, eco=True)
 
-        # canal duplo - ENTRADA: informa o estado atual ao Cronista, prefixado SO
-        # na ultima mensagem desta chamada (o historico guardado fica limpo).
+        # Tier 4 - memoria (1): grava o turno de entrada em sessao_turnos. A acao do
+        # jogador vai como papel='jogador'; a abertura (mostrar_acao=False) e uma
+        # diretiva de cena, nao fala do jogador, entao vai como papel='sistema'.
+        # Conteudo limpo (msg_usuario), sem maquinaria de prompt.
+        papel_entrada = "jogador" if mostrar_acao else "sistema"
+        await _gravar_turno_safe(papel_entrada, msg_usuario)
+
+        # Tier 4 - memoria (2): carrega o contexto da cronica (5 tiers) pra sessao.
+        # query_text = a fala do jogador (ajuda full-text/trigram); na abertura, None.
+        query_text = msg_usuario if mostrar_acao else None
+        ctx_md = await _carregar_contexto_safe(query_text)
+
+        # canal duplo - ENTRADA + Tier 4 - memoria (3): monta a ultima mensagem com
+        # [ESTADO], depois a secao de contexto (ANTES da fala; omitida se vazia) e por
+        # fim a fala atual. So a ultima mensagem desta chamada e enriquecida - o
+        # historico guardado fica limpo.
         msgs = [m.copy() for m in historico]
-        msgs[-1]["content"] = (
-            f"[ESTADO] pressao_emocional: {pressao_atual}\n\n{msgs[-1]['content']}"
-        )
+        fala = msgs[-1]["content"]
+        partes = [f"[ESTADO] pressao_emocional: {pressao_atual}"]
+        if ctx_md:
+            partes.append(f"<contexto>\n{ctx_md}\n</contexto>")
+        partes.append(fala)
+        msgs[-1]["content"] = "\n\n".join(partes)
+
+        # loga e mostra o que vai pro Cronista (criterio de validacao do Tier 4).
+        print("[memoria] === prompt do Cronista (ultima mensagem) ===")
+        print(msgs[-1]["content"])
+        print("[memoria] === fim (contexto " + ("PRESENTE" if ctx_md else "vazio") + ") ===")
 
         _pondera(True)
         try:
@@ -736,6 +813,9 @@ async def pagina_jogar():
             historico.append({"role": "assistant", "content": resposta})
             # canal duplo - SAIDA: separa a prosa do bloco <estado> (oculto).
             prosa, pressao_atual, atmosfera = _separar_estado(resposta, pressao_atual)
+            # Tier 4 - memoria (5): grava o turno do narrador. Conteudo = a prosa
+            # limpa (sem o bloco <estado>, que e maquinaria e nao vira contexto).
+            await _gravar_turno_safe("narrador", prosa)
             _arrive(prosa)
             _js(f"window.Jogar && window.Jogar.setPressao({pressao_atual})")
             # a cena so troca de pele se o Cronista pediu uma atmosfera valida;

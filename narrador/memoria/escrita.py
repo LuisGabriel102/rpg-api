@@ -25,7 +25,13 @@ from db import get_session
 from resolver_fatos_alderyn import PREDICATES_VALIDOS, parse_haiku_output  # noqa: F401
 
 # re-exporta parse_haiku_output pra quem importar deste módulo (conveniência)
-__all__ = ["parse_haiku_output", "processar_fatos_haiku", "commit_canon", "gravar_recap"]
+__all__ = [
+    "parse_haiku_output",
+    "processar_fatos_haiku",
+    "commit_canon",
+    "gravar_recap",
+    "gravar_turno",
+]
 
 
 _SQL_NOME_EXATO = text("SELECT id FROM entities WHERE lower(name) = lower(:n)")
@@ -42,6 +48,18 @@ _SQL_COMMIT_CANON = text(
     "SELECT * FROM canon_validation.commit_canon(CAST(:ids AS bigint[]), :force)"
 )
 _SQL_GRAVAR_RECAP = text("SELECT gravar_recap_sessao(:sid, CAST(:r AS jsonb))")
+
+# Insere um turno e calcula numero_turno = MAX+1 na MESMA instrução (atômico dentro
+# da transação: o SELECT do subquery e o INSERT correm no mesmo statement, então
+# não há janela entre ler o máximo e gravar). UNIQUE(sessao_id, numero_turno) é a
+# rede de segurança final contra colisão.
+_SQL_GRAVAR_TURNO = text(
+    "INSERT INTO sessao_turnos (sessao_id, numero_turno, papel, conteudo) "
+    "VALUES (:sid, "
+    "(SELECT COALESCE(MAX(numero_turno), 0) + 1 FROM sessao_turnos WHERE sessao_id = :sid), "
+    ":papel, :conteudo) "
+    "RETURNING numero_turno"
+)
 
 
 async def _resolver_nome(session, nome: str) -> Optional[str]:
@@ -133,6 +151,30 @@ async def commit_canon(fact_ids, force: bool = False) -> list[dict]:
         linhas = res.all()
         await session.commit()
     return [dict(r._mapping) for r in linhas]
+
+
+_PAPEIS_VALIDOS = ("jogador", "narrador", "sistema")
+
+
+async def gravar_turno(sessao_id: int, papel: str, conteudo: str) -> int:
+    """
+    Grava um turno em sessao_turnos com numero_turno crescente (MAX+1, atômico no
+    statement). `papel` ∈ {'jogador', 'narrador', 'sistema'} — o mesmo CHECK do
+    banco. Devolve o numero_turno gravado.
+
+    O conteúdo deve ser o texto limpo do turno: a fala do jogador ou a prosa do
+    narrador, SEM a maquinaria de prompt ([ESTADO], <contexto>, bloco <estado>).
+    """
+    if papel not in _PAPEIS_VALIDOS:
+        raise ValueError(f"papel inválido: {papel!r} (use um de {_PAPEIS_VALIDOS})")
+    async with get_session() as session:
+        res = await session.execute(
+            _SQL_GRAVAR_TURNO,
+            {"sid": sessao_id, "papel": papel, "conteudo": conteudo},
+        )
+        numero = res.scalar()
+        await session.commit()
+    return int(numero)
 
 
 async def gravar_recap(sessao_id: int, recap: dict) -> str:
