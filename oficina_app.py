@@ -383,9 +383,9 @@ _CATEDRAL_TPL = Template("""
 .ct-se{font-family:'IM Fell English',serif}
 .ct-bo{font-family:'Spectral',serif}
 .ct-wrap{max-width:680px;margin:0 auto}
-.ct-n{position:relative;height:182px;text-decoration:none;display:block}
-.ct-n .body{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;padding:18px 14px 15px;box-sizing:border-box;transition:transform .15s}
-.ct-n svg.frame{position:absolute;inset:0;width:100%;height:100%}
+.ct-n{position:relative !important;height:182px !important;text-decoration:none;display:block !important;overflow:hidden}
+.ct-n .body{position:relative !important;z-index:1;height:100% !important;display:flex !important;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 15px;box-sizing:border-box;transition:transform .15s}
+.ct-n svg.frame{position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;display:block}
 .ct-n:hover .body{transform:translateY(-2px)}
 .ct-cta{display:inline-flex;align-items:center;gap:9px;background:linear-gradient(180deg,#1f2742,#171d33);border:1.5px solid #caa23a;color:#f0d987;font-size:16px;padding:11px 22px;border-radius:10px;text-decoration:none;transition:transform .15s}
 .ct-cta:hover{transform:translateY(-2px)}
@@ -443,10 +443,10 @@ _CATEDRAL_TPL = Template("""
     <span style="height:1px;width:64px;background:linear-gradient(90deg,#b8902f,transparent)"></span>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:14px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:14px;align-items:start">
 
     <a class="ct-n" href="$vocacoes_href">
-      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#1a2039" stroke="#caa23a" stroke-width="2.4" vector-effect="non-scaling-stroke"/></svg>
+      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;display:block"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#1a2039" stroke="#caa23a" stroke-width="2.4" vector-effect="non-scaling-stroke"/></svg>
       <div class="body">
         <div style="height:40px;display:flex;align-items:center">
           <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true">
@@ -461,7 +461,7 @@ _CATEDRAL_TPL = Template("""
     </a>
 
     <a class="ct-n" href="$estrelas_href">
-      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#181d34" stroke="#c9a23a" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
+      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;display:block"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#181d34" stroke="#c9a23a" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
       <div class="body">
         <div style="height:40px;display:flex;align-items:center">
           <svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true">
@@ -477,7 +477,7 @@ _CATEDRAL_TPL = Template("""
     </a>
 
     <a class="ct-n" href="$npcs_href">
-      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#181d34" stroke="#c9a23a" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
+      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;display:block"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#181d34" stroke="#c9a23a" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
       <div class="body">
         <div style="height:40px;display:flex;align-items:center">
           <svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true">
@@ -492,7 +492,7 @@ _CATEDRAL_TPL = Template("""
     </a>
 
     <a class="ct-n" href="$bestiario_href">
-      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#181d34" stroke="#c9a23a" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
+      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;display:block"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#181d34" stroke="#c9a23a" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
       <div class="body">
         <div style="height:40px;display:flex;align-items:center">
           <svg viewBox="0 0 44 40" width="38" height="35" aria-hidden="true">
@@ -507,7 +507,7 @@ _CATEDRAL_TPL = Template("""
     </a>
 
     <a class="ct-n" href="$magias_href" style="opacity:.58">
-      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#101320" stroke="#5a5340" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/></svg>
+      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;display:block"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#101320" stroke="#5a5340" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/></svg>
       <div class="body">
         <div style="height:40px;display:flex;align-items:center">
           <svg viewBox="0 0 36 36" width="34" height="34" aria-hidden="true">
@@ -521,7 +521,7 @@ _CATEDRAL_TPL = Template("""
     </a>
 
     <a class="ct-n" href="$itens_href" style="opacity:.58">
-      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#101320" stroke="#5a5340" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/></svg>
+      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;display:block"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#101320" stroke="#5a5340" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/></svg>
       <div class="body">
         <div style="height:40px;display:flex;align-items:center">
           <svg viewBox="0 0 24 40" width="22" height="36" aria-hidden="true">
