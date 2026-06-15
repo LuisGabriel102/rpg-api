@@ -40,7 +40,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Query, status
 from nicegui import ui
 from nicegui.events import GenericEventArguments
 from pydantic import BaseModel, Field as PydanticField, field_validator
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
@@ -437,7 +437,7 @@ _CATEDRAL_TPL = Template(r"""<style>
   </div>
 
   <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:16px;align-items:start">
-<a href="$vocacoes_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%231a2039%27%20stroke%3D%27%23caa23a%27%20stroke-width%3D%272.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true"><circle cx="24" cy="24" r="16" fill="none" stroke="#b8902f" stroke-width="1.2" opacity=".7"/><circle cx="24" cy="10" r="4.4" fill="#9a4e30"/><circle cx="37.3" cy="19.7" r="4.4" fill="#6f5a96"/><circle cx="32.2" cy="35.3" r="4.4" fill="#3f6a9e"/><circle cx="15.8" cy="35.3" r="4.4" fill="#468268"/><circle cx="10.7" cy="19.7" r="4.4" fill="#a07e2a"/><circle cx="24" cy="24" r="2.4" fill="#e6c45c"/></svg></div><div class="ct-se" style="font-size:19px;color:#f6ecd2;margin-top:3px">Vocações</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#ab9e82;line-height:1.35;text-align:center;margin-top:3px">O que se escolhe ser &#8212; e o que isso custa.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.16);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$vocacoes_count vocações</span></div></a><a href="$estrelas_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true"><line x1="20" y1="15" x2="34" y2="9" stroke="#b8902f" stroke-width=".8" opacity=".5"/><line x1="20" y1="15" x2="8" y2="25" stroke="#b8902f" stroke-width=".8" opacity=".5"/><path d="M20 4 L23.2 12 L31 15 L23.2 18 L20 26 L16.8 18 L9 15 L16.8 12 Z" fill="#f3e7c4" stroke="#c9a23a" stroke-width=".8"/><circle cx="34" cy="9" r="2" fill="#f3e7c4"/><circle cx="8" cy="25" r="1.6" fill="#f3e7c4"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Estrelas</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">Os astros sob os quais se nasce.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$estrelas_count signos</span></div></a><a href="$npcs_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true"><circle cx="29" cy="12" r="4" fill="#463618" stroke="#c9a23a" stroke-width="1"/><path d="M21 30 Q21 22 29 22 Q37 22 37 30 Z" fill="#463618" stroke="#c9a23a" stroke-width="1"/><circle cx="16" cy="12" r="5" fill="#5a4420" stroke="#c9a23a" stroke-width="1.1"/><path d="M6 30 Q6 21 16 21 Q26 21 26 30 Z" fill="#5a4420" stroke="#c9a23a" stroke-width="1.1"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">NPCs</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">Os vivos &#8212; e o que cada um esconde.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$npcs_count figuras</span></div></a><a href="$bestiario_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 44 40" width="38" height="35" aria-hidden="true"><ellipse cx="12" cy="15" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="18.5" cy="10" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="25.5" cy="10" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="32" cy="15" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="22" cy="29" rx="9" ry="7" fill="#3a2620" stroke="#c9a23a" stroke-width="1.1"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Bestiário</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">O que caça nas margens.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$bestiario_count criaturas</span></div></a><a href="$magias_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23101320%27%20stroke%3D%27%235a5340%27%20stroke-width%3D%271.2%27%20stroke-dasharray%3D%274%203%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box;opacity:.58"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 36 36" width="34" height="34" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="#6a6450" stroke-width="1.2"/><path d="M18 32 L6 11 L30 11 Z" fill="#1f1e30" stroke="#6a6450" stroke-width="1"/><circle cx="18" cy="17" r="2.6" fill="#14131f" stroke="#6a6450" stroke-width=".9"/></svg></div><div class="ct-se" style="font-size:17px;color:#8a8270;margin-top:3px">Magias</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#6f6a58;line-height:1.35;text-align:center;margin-top:3px">O preço de dobrar o mundo.</div><span class="ct-bo" style="margin-top:auto;background:#1c1b2a;color:#8a8270;font-size:11px;padding:3px 10px;border-radius:8px">em obras</span></div></a><a href="$itens_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23101320%27%20stroke%3D%27%235a5340%27%20stroke-width%3D%271.2%27%20stroke-dasharray%3D%274%203%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box;opacity:.58"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 24 40" width="22" height="36" aria-hidden="true"><path d="M12 3 L15 9 L15 26 L12 30 L9 26 L9 9 Z" fill="#1f1e30" stroke="#6a6450" stroke-width="1.1"/><line x1="5" y1="28" x2="19" y2="28" stroke="#6a6450" stroke-width="2"/><line x1="12" y1="28" x2="12" y2="36" stroke="#6a6450" stroke-width="2"/><circle cx="12" cy="37.5" r="2" fill="none" stroke="#6a6450" stroke-width="1.2"/></svg></div><div class="ct-se" style="font-size:17px;color:#8a8270;margin-top:3px">Itens</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#6f6a58;line-height:1.35;text-align:center;margin-top:3px">O que se carrega, e o que pesa.</div><span class="ct-bo" style="margin-top:auto;background:#1c1b2a;color:#8a8270;font-size:11px;padding:3px 10px;border-radius:8px">em obras</span></div></a>
+<a href="$vocacoes_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%231a2039%27%20stroke%3D%27%23caa23a%27%20stroke-width%3D%272.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true"><circle cx="24" cy="24" r="16" fill="none" stroke="#b8902f" stroke-width="1.2" opacity=".7"/><circle cx="24" cy="10" r="4.4" fill="#9a4e30"/><circle cx="37.3" cy="19.7" r="4.4" fill="#6f5a96"/><circle cx="32.2" cy="35.3" r="4.4" fill="#3f6a9e"/><circle cx="15.8" cy="35.3" r="4.4" fill="#468268"/><circle cx="10.7" cy="19.7" r="4.4" fill="#a07e2a"/><circle cx="24" cy="24" r="2.4" fill="#e6c45c"/></svg></div><div class="ct-se" style="font-size:19px;color:#f6ecd2;margin-top:3px">Vocações</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#ab9e82;line-height:1.35;text-align:center;margin-top:3px">O que se escolhe ser &#8212; e o que isso custa.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.16);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$vocacoes_count vocações</span></div></a><a href="$estrelas_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true"><line x1="20" y1="15" x2="34" y2="9" stroke="#b8902f" stroke-width=".8" opacity=".5"/><line x1="20" y1="15" x2="8" y2="25" stroke="#b8902f" stroke-width=".8" opacity=".5"/><path d="M20 4 L23.2 12 L31 15 L23.2 18 L20 26 L16.8 18 L9 15 L16.8 12 Z" fill="#f3e7c4" stroke="#c9a23a" stroke-width=".8"/><circle cx="34" cy="9" r="2" fill="#f3e7c4"/><circle cx="8" cy="25" r="1.6" fill="#f3e7c4"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Estrelas</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">Os astros sob os quais se nasce.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$estrelas_count signos</span></div></a><a href="$npcs_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true"><circle cx="29" cy="12" r="4" fill="#463618" stroke="#c9a23a" stroke-width="1"/><path d="M21 30 Q21 22 29 22 Q37 22 37 30 Z" fill="#463618" stroke="#c9a23a" stroke-width="1"/><circle cx="16" cy="12" r="5" fill="#5a4420" stroke="#c9a23a" stroke-width="1.1"/><path d="M6 30 Q6 21 16 21 Q26 21 26 30 Z" fill="#5a4420" stroke="#c9a23a" stroke-width="1.1"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">NPCs</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">Os vivos &#8212; e o que cada um esconde.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$npcs_count figuras</span></div></a><a href="$bestiario_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 44 40" width="38" height="35" aria-hidden="true"><ellipse cx="12" cy="15" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="18.5" cy="10" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="25.5" cy="10" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="32" cy="15" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="22" cy="29" rx="9" ry="7" fill="#3a2620" stroke="#c9a23a" stroke-width="1.1"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Bestiário</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">O que caça nas margens.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$bestiario_count criaturas</span></div></a><a href="$magias_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 36 36" width="34" height="34" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="#c9a23a" stroke-width="1.2"/><path d="M18 32 L6 11 L30 11 Z" fill="#1f1e30" stroke="#c9a23a" stroke-width="1"/><circle cx="18" cy="17" r="2.6" fill="#14131f" stroke="#c9a23a" stroke-width=".9"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Magias</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">O preço de dobrar o mundo.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$magias_count magias</span></div></a><a href="$itens_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23101320%27%20stroke%3D%27%235a5340%27%20stroke-width%3D%271.2%27%20stroke-dasharray%3D%274%203%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box;opacity:.58"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 24 40" width="22" height="36" aria-hidden="true"><path d="M12 3 L15 9 L15 26 L12 30 L9 26 L9 9 Z" fill="#1f1e30" stroke="#6a6450" stroke-width="1.1"/><line x1="5" y1="28" x2="19" y2="28" stroke="#6a6450" stroke-width="2"/><line x1="12" y1="28" x2="12" y2="36" stroke="#6a6450" stroke-width="2"/><circle cx="12" cy="37.5" r="2" fill="none" stroke="#6a6450" stroke-width="1.2"/></svg></div><div class="ct-se" style="font-size:17px;color:#8a8270;margin-top:3px">Itens</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#6f6a58;line-height:1.35;text-align:center;margin-top:3px">O que se carrega, e o que pesa.</div><span class="ct-bo" style="margin-top:auto;background:#1c1b2a;color:#8a8270;font-size:11px;padding:3px 10px;border-radius:8px">em obras</span></div></a>
   </div>
 
   <div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-top:1.5rem;flex-wrap:wrap">
@@ -477,6 +477,7 @@ def render_catedral_html(counts: dict, hrefs: dict) -> str:
         estrelas_count=counts.get('estrelas', '-'),
         npcs_count=counts.get('npcs', '-'),
         bestiario_count=counts.get('bestiario', '-'),
+        magias_count=counts.get('magias', '-'),
         vocacoes_href=hrefs.get('vocacoes', '#'),
         estrelas_href=hrefs.get('estrelas', '#'),
         npcs_href=hrefs.get('npcs', '#'),
@@ -499,37 +500,243 @@ async def pagina_oficina_catedral():
     # Reuso dos 4 helpers de contagem que a home ja usava (PC-4),
     # com gather+timeout+fallback pra resiliencia (mesmo padrao da home antiga).
     try:
-        total_npcs, total_estrelas, total_vocacoes, total_criaturas = await asyncio.wait_for(
+        total_npcs, total_estrelas, total_vocacoes, total_criaturas, total_magias = await asyncio.wait_for(
             asyncio.gather(
                 _contar_npcs_total(),
                 _contar_estrelas_total(),
                 _contar_vocacoes_total(),
                 contar_criaturas_canonizadas(),
+                _contar_magias_exibiveis(),
             ),
             timeout=10.0,
         )
     except Exception as e:
         print(f"[catedral] erro ao contar: {e}")
-        total_npcs = total_estrelas = total_vocacoes = total_criaturas = 0
+        total_npcs = total_estrelas = total_vocacoes = total_criaturas = total_magias = 0
 
     counts = {
         "vocacoes": total_vocacoes,
         "estrelas": total_estrelas,
         "npcs": total_npcs,
         "bestiario": total_criaturas,
+        "magias": total_magias,
     }
     hrefs = {
         "vocacoes": "/oficina/vocacoes",
         "estrelas": "/oficina/estrelas",
         "npcs": "/oficina/npcs",
         "bestiario": "/oficina/bestiario",
-        "magias": "#",
+        "magias": "/oficina/magias",
         "itens": "#",
         "jogar": "/jogar",
         "historias": "/oficina/historias",
     }
 
     ui.html(render_catedral_html(counts, hrefs)).classes("w-full")
+
+
+# ============================================================
+# MAGIAS — portal ativo (v1). So magias nativas Nexus: fonte LIKE 'NEXUS%'
+# (1.666 de 2.252; o resto e lixo D&D, fica no banco mas nao e exibido).
+# Sem DELETE/UPDATE. Espelha o molde da galeria de vocacoes.
+# ============================================================
+
+_SQL_CONTAR_MAGIAS = text(
+    "SELECT count(*) FROM public.magias WHERE fonte LIKE 'NEXUS%'"
+)
+
+_SQL_LISTAR_MAGIAS = text("""
+    SELECT id, nome, nivel_original, mp_custo, escola, descricao,
+           requer_concentracao, componentes, alcance, tipo_dano, familia_magica
+    FROM public.magias
+    WHERE fonte LIKE 'NEXUS%'
+    ORDER BY escola, nivel_original, nome
+""")
+
+# escola no banco vem sem acento; normaliza so na exibicao (nao mexe no banco).
+_ESCOLA_EXIBICAO = {
+    "Transmutacao": "Transmutação",
+    "Evocacao": "Evocação",
+    "Ilusao": "Ilusão",
+    "Abjuracao": "Abjuração",
+    "Divinacao": "Divinação",
+    "Conjuracao": "Conjuração",
+    "Encantamento": "Encantamento",
+    "Necromancia": "Necromancia",
+}
+_COR_ESCOLA = {
+    "Transmutacao": "#3f6a9e",
+    "Encantamento": "#6f5a96",
+    "Conjuracao": "#468268",
+    "Evocacao": "#9a4e30",
+    "Necromancia": "#8a5a8c",
+    "Abjuracao": "#a07e2a",
+    "Divinacao": "#c19022",
+    "Ilusao": "#5a7aa0",
+}
+
+
+async def _contar_magias_exibiveis() -> int:
+    """Conta so as magias nativas Nexus (fonte LIKE 'NEXUS%'). Filtrado, nao total."""
+    async with get_session() as session:
+        result = await session.execute(_SQL_CONTAR_MAGIAS)
+        return result.scalar() or 0
+
+
+async def _buscar_magias_exibiveis() -> list[dict]:
+    """Lista as magias nativas Nexus, ja ordenadas por escola/nivel/nome."""
+    async with get_session() as session:
+        result = await session.execute(_SQL_LISTAR_MAGIAS)
+        linhas = result.all()
+    out = []
+    for r in linhas:
+        m = r._mapping
+        out.append({
+            "id": m["id"],
+            "nome": m["nome"] or "?",
+            "nivel": m["nivel_original"] if m["nivel_original"] is not None else 0,
+            "mp": m["mp_custo"],
+            "escola": m["escola"] or "",
+            "descricao": m["descricao"] or "",
+            "concentracao": bool(m["requer_concentracao"]),
+            "componentes": list(m["componentes"]) if m["componentes"] else [],
+            "alcance": m["alcance"] or "",
+            "tipo_dano": list(m["tipo_dano"]) if m["tipo_dano"] else [],
+            "familia": m["familia_magica"] or "",
+        })
+    return out
+
+
+def _card_magia_html(m: dict) -> str:
+    escola_raw = m["escola"]
+    cor = _COR_ESCOLA.get(escola_raw, "#b8902f")
+    escola_txt = html.escape(_ESCOLA_EXIBICAO.get(escola_raw, escola_raw) or "—")
+    nome = html.escape(m["nome"])
+    nivel = m["nivel"]
+    nivel_txt = "Truque" if nivel == 0 else f"Nível {nivel}"
+    mp = m["mp"]
+    dano = " · ".join(m["tipo_dano"]) if m["tipo_dano"] else ""
+    familia = html.escape(m["familia"]) if m["familia"] else ""
+    desc = html.escape((m["descricao"] or "").strip())
+
+    meta = [nivel_txt]
+    if mp is not None:
+        meta.append(f"{mp} MP")
+    if m["componentes"]:
+        meta.append(" ".join(m["componentes"]))
+    if m["alcance"]:
+        meta.append(html.escape(m["alcance"]))
+    if m["concentracao"]:
+        meta.append("Concentração")
+    meta_txt = " · ".join(meta)
+
+    selos = (
+        f'<span style="font-family:\'IM Fell English SC\',serif;font-size:10px;'
+        f'letter-spacing:.1em;color:{cor};">{escola_txt.upper()}</span>'
+    )
+    if dano:
+        selos += (
+            '<span style="font-family:\'IM Fell English SC\',serif;font-size:10px;'
+            f'letter-spacing:.1em;color:#9a8a5a;margin-left:10px;">{html.escape(dano).upper()}</span>'
+        )
+    familia_html = (
+        f'<div style="font-family:\'Spectral\',Georgia,serif;font-style:italic;font-size:11px;'
+        f'color:#7a6f55;margin-top:6px;">{familia}</div>' if familia else ""
+    )
+    return (
+        '<div style="position:relative;display:block;overflow:hidden;'
+        f'border:1px solid {cor};border-left:4px solid {cor};border-radius:6px;'
+        'padding:14px 16px 15px;background:rgba(12,14,22,.55);">'
+        f'<div style="font-family:\'IM Fell English\',serif;font-size:18px;color:#f3e7c4;line-height:1.15;">{nome}</div>'
+        f'<div style="margin-top:4px;">{selos}</div>'
+        f'<div style="font-family:\'Spectral\',Georgia,serif;font-size:12px;color:#c0a36a;margin-top:6px;">{meta_txt}</div>'
+        f'<div style="font-family:\'Spectral\',Georgia,serif;font-size:12.5px;color:#a99a78;line-height:1.5;margin-top:8px;">{desc}</div>'
+        f'{familia_html}'
+        '</div>'
+    )
+
+
+def _grade_magias_html(lista: list[dict]) -> str:
+    if not lista:
+        return ('<div style="text-align:center;font-style:italic;color:#7a6f55;'
+                'padding:50px 0;">Nenhuma magia encontrada.</div>')
+    return '<div class="gp-grid">' + "".join(_card_magia_html(m) for m in lista) + '</div>'
+
+
+@ui.page("/oficina/magias")
+async def pagina_magias():
+    """Catalogo das magias nativas Nexus, agrupado por escola + filtro por nivel."""
+    await aguardar_conexao_websocket("Abrindo o grimório...")
+    ui.add_head_html(CSS_VITRAL)
+    barra_nav("magias")
+
+    todas = await _buscar_magias_exibiveis()
+    total = len(todas)
+    estado = {"escola": "todas", "nivel": "todos", "busca": ""}
+    grade_ref = {"el": None}
+    contador_ref = {"el": None}
+
+    def filtrar() -> list[dict]:
+        out = todas
+        if estado["escola"] != "todas":
+            out = [m for m in out if m["escola"] == estado["escola"]]
+        if estado["nivel"] != "todos":
+            nv = int(estado["nivel"])
+            out = [m for m in out if m["nivel"] == nv]
+        if estado["busca"]:
+            q = estado["busca"].lower()
+            out = [m for m in out if q in m["nome"].lower()]
+        return out
+
+    def re_render():
+        filtrados = filtrar()
+        if grade_ref["el"]:
+            grade_ref["el"].set_content(_grade_magias_html(filtrados))
+        if contador_ref["el"]:
+            contador_ref["el"].set_text(f"{len(filtrados)} de {total} magias")
+
+    def set_escola(v):
+        estado["escola"] = v
+        re_render()
+
+    def set_nivel(v):
+        estado["nivel"] = v
+        re_render()
+
+    def set_busca(e):
+        estado["busca"] = (e.value or "").strip()
+        re_render()
+
+    # escolas na ordem por contagem (igual a SPEC); label com acento via _ESCOLA_EXIBICAO.
+    escolas_opts = {"todas": "Todas as escolas"}
+    for esc in ["Transmutacao", "Encantamento", "Conjuracao", "Evocacao",
+                "Necromancia", "Abjuracao", "Divinacao", "Ilusao"]:
+        escolas_opts[esc] = _ESCOLA_EXIBICAO.get(esc, esc)
+    niveis_opts = {"todos": "Todos os níveis", "0": "Truques"}
+    for n in range(1, 10):
+        niveis_opts[str(n)] = f"Nível {n}"
+
+    with ui.column().classes("gp-screen w-full min-h-screen p-0 gap-0"):
+        with ui.column().classes("gp-inner w-full gap-4"):
+            with ui.row().classes("w-full items-center gap-3"):
+                ui.button(icon="arrow_back",
+                          on_click=lambda: ui.navigate.to("/oficina")
+                          ).props("flat round dense color=amber-2")
+                with ui.column().classes("gap-0"):
+                    ui.label("Magias do Alderyn").classes("bestiario-title").style("font-size:30px;")
+                    contador_ref["el"] = ui.label(f"{total} de {total} magias").classes(
+                        "bestiario-body").style("font-style:italic;font-size:13px;")
+            ui.html('<div class="gp-rule"></div>')
+
+            with ui.row().classes("gp-filtros w-full items-center gap-3 flex-wrap").style("padding:12px 14px;"):
+                ui.input(placeholder="Buscar por nome...", on_change=set_busca
+                         ).props("dense outlined dark clearable").style("min-width:240px;")
+                ui.select(escolas_opts, value="todas", on_change=lambda e: set_escola(e.value)
+                          ).props("dense outlined dark").style("min-width:190px;")
+                ui.select(niveis_opts, value="todos", on_change=lambda e: set_nivel(e.value)
+                          ).props("dense outlined dark").style("min-width:160px;")
+
+            grade_ref["el"] = ui.html(_grade_magias_html(todas)).classes("w-full")
 
 
 @ui.page("/oficina/historias")
