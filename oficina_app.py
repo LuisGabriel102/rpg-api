@@ -371,8 +371,10 @@ def _vitral_barra(ativo: str = "") -> str:
 
 
 # ============================================================
-# A CATEDRAL DO ALDERYN (v6) — landing in-place de /oficina
+# A CATEDRAL DO ALDERYN (v6.2) — landing in-place de /oficina
 # Bloco A: funcao pura (template + render), sem I/O.
+# Card = <div class="ct-card"> (robusto contra reset de <a> do Quasar);
+# arco = background-image (data-URI URL-encoded), altura natural (min-height).
 # Fontes (IM Fell English / SC / Spectral) ja vem da pele vitral
 # (_VITRAL_HEAD), por isso o template NAO tem @import.
 # ============================================================
@@ -383,10 +385,9 @@ _CATEDRAL_TPL = Template("""
 .ct-se{font-family:'IM Fell English',serif}
 .ct-bo{font-family:'Spectral',serif}
 .ct-wrap{max-width:680px;margin:0 auto}
-.ct-n{position:relative !important;height:182px !important;text-decoration:none;display:block !important;overflow:hidden}
-.ct-n .body{position:relative !important;z-index:1;height:100% !important;display:flex !important;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 15px;box-sizing:border-box;transition:transform .15s}
-.ct-n svg.frame{position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;display:block}
-.ct-n:hover .body{transform:translateY(-2px)}
+.ct-a{display:block;text-decoration:none}
+.ct-card{min-height:182px;background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box;transition:transform .15s}
+.ct-a:hover .ct-card{transform:translateY(-2px)}
 .ct-cta{display:inline-flex;align-items:center;gap:9px;background:linear-gradient(180deg,#1f2742,#171d33);border:1.5px solid #caa23a;color:#f0d987;font-size:16px;padding:11px 22px;border-radius:10px;text-decoration:none;transition:transform .15s}
 .ct-cta:hover{transform:translateY(-2px)}
 .ct-link{display:inline-flex;align-items:center;gap:7px;color:#b6a684;font-size:13.5px;text-decoration:none;border-bottom:1px solid rgba(182,166,132,.35);padding-bottom:2px}
@@ -444,96 +445,7 @@ _CATEDRAL_TPL = Template("""
   </div>
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:14px;align-items:start">
-
-    <a class="ct-n" href="$vocacoes_href">
-      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;display:block"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#1a2039" stroke="#caa23a" stroke-width="2.4" vector-effect="non-scaling-stroke"/></svg>
-      <div class="body">
-        <div style="height:40px;display:flex;align-items:center">
-          <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true">
-            <circle cx="24" cy="24" r="16" fill="none" stroke="#b8902f" stroke-width="1.2" opacity=".7"/>
-            <circle cx="24" cy="10" r="4.4" fill="#9a4e30"/><circle cx="37.3" cy="19.7" r="4.4" fill="#6f5a96"/><circle cx="32.2" cy="35.3" r="4.4" fill="#3f6a9e"/><circle cx="15.8" cy="35.3" r="4.4" fill="#468268"/><circle cx="10.7" cy="19.7" r="4.4" fill="#a07e2a"/><circle cx="24" cy="24" r="2.4" fill="#e6c45c"/>
-          </svg>
-        </div>
-        <div class="ct-se" style="font-size:19px;color:#f6ecd2;margin-top:3px">Vocações</div>
-        <div class="ct-bo" style="font-style:italic;font-size:12px;color:#ab9e82;line-height:1.35;text-align:center;margin-top:3px">O que se escolhe ser &#8212; e o que isso custa.</div>
-        <span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.16);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$vocacoes_count vocações</span>
-      </div>
-    </a>
-
-    <a class="ct-n" href="$estrelas_href">
-      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;display:block"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#181d34" stroke="#c9a23a" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
-      <div class="body">
-        <div style="height:40px;display:flex;align-items:center">
-          <svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true">
-            <line x1="20" y1="15" x2="34" y2="9" stroke="#b8902f" stroke-width=".8" opacity=".5"/><line x1="20" y1="15" x2="8" y2="25" stroke="#b8902f" stroke-width=".8" opacity=".5"/>
-            <path d="M20 4 L23.2 12 L31 15 L23.2 18 L20 26 L16.8 18 L9 15 L16.8 12 Z" fill="#f3e7c4" stroke="#c9a23a" stroke-width=".8"/>
-            <circle cx="34" cy="9" r="2" fill="#f3e7c4"/><circle cx="8" cy="25" r="1.6" fill="#f3e7c4"/>
-          </svg>
-        </div>
-        <div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Estrelas</div>
-        <div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">Os astros sob os quais se nasce.</div>
-        <span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$estrelas_count signos</span>
-      </div>
-    </a>
-
-    <a class="ct-n" href="$npcs_href">
-      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;display:block"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#181d34" stroke="#c9a23a" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
-      <div class="body">
-        <div style="height:40px;display:flex;align-items:center">
-          <svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true">
-            <circle cx="29" cy="12" r="4" fill="#463618" stroke="#c9a23a" stroke-width="1"/><path d="M21 30 Q21 22 29 22 Q37 22 37 30 Z" fill="#463618" stroke="#c9a23a" stroke-width="1"/>
-            <circle cx="16" cy="12" r="5" fill="#5a4420" stroke="#c9a23a" stroke-width="1.1"/><path d="M6 30 Q6 21 16 21 Q26 21 26 30 Z" fill="#5a4420" stroke="#c9a23a" stroke-width="1.1"/>
-          </svg>
-        </div>
-        <div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">NPCs</div>
-        <div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">Os vivos &#8212; e o que cada um esconde.</div>
-        <span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$npcs_count figuras</span>
-      </div>
-    </a>
-
-    <a class="ct-n" href="$bestiario_href">
-      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;display:block"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#181d34" stroke="#c9a23a" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
-      <div class="body">
-        <div style="height:40px;display:flex;align-items:center">
-          <svg viewBox="0 0 44 40" width="38" height="35" aria-hidden="true">
-            <ellipse cx="12" cy="15" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="18.5" cy="10" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="25.5" cy="10" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="32" cy="15" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/>
-            <ellipse cx="22" cy="29" rx="9" ry="7" fill="#3a2620" stroke="#c9a23a" stroke-width="1.1"/>
-          </svg>
-        </div>
-        <div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Bestiário</div>
-        <div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">O que caça nas margens.</div>
-        <span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$bestiario_count criaturas</span>
-      </div>
-    </a>
-
-    <a class="ct-n" href="$magias_href" style="opacity:.58">
-      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;display:block"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#101320" stroke="#5a5340" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/></svg>
-      <div class="body">
-        <div style="height:40px;display:flex;align-items:center">
-          <svg viewBox="0 0 36 36" width="34" height="34" aria-hidden="true">
-            <circle cx="18" cy="18" r="15" fill="none" stroke="#6a6450" stroke-width="1.2"/><path d="M18 32 L6 11 L30 11 Z" fill="#1f1e30" stroke="#6a6450" stroke-width="1"/><circle cx="18" cy="17" r="2.6" fill="#14131f" stroke="#6a6450" stroke-width=".9"/>
-          </svg>
-        </div>
-        <div class="ct-se" style="font-size:17px;color:#8a8270;margin-top:3px">Magias</div>
-        <div class="ct-bo" style="font-style:italic;font-size:12px;color:#6f6a58;line-height:1.35;text-align:center;margin-top:3px">O preço de dobrar o mundo.</div>
-        <span class="ct-bo" style="margin-top:auto;background:#1c1b2a;color:#8a8270;font-size:11px;padding:3px 10px;border-radius:8px">em obras</span>
-      </div>
-    </a>
-
-    <a class="ct-n" href="$itens_href" style="opacity:.58">
-      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;display:block"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#101320" stroke="#5a5340" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/></svg>
-      <div class="body">
-        <div style="height:40px;display:flex;align-items:center">
-          <svg viewBox="0 0 24 40" width="22" height="36" aria-hidden="true">
-            <path d="M12 3 L15 9 L15 26 L12 30 L9 26 L9 9 Z" fill="#1f1e30" stroke="#6a6450" stroke-width="1.1"/><line x1="5" y1="28" x2="19" y2="28" stroke="#6a6450" stroke-width="2"/><line x1="12" y1="28" x2="12" y2="36" stroke="#6a6450" stroke-width="2"/><circle cx="12" cy="37.5" r="2" fill="none" stroke="#6a6450" stroke-width="1.2"/>
-          </svg>
-        </div>
-        <div class="ct-se" style="font-size:17px;color:#8a8270;margin-top:3px">Itens</div>
-        <div class="ct-bo" style="font-style:italic;font-size:12px;color:#6f6a58;line-height:1.35;text-align:center;margin-top:3px">O que se carrega, e o que pesa.</div>
-        <span class="ct-bo" style="margin-top:auto;background:#1c1b2a;color:#8a8270;font-size:11px;padding:3px 10px;border-radius:8px">em obras</span>
-      </div>
-    </a>
-
+<a class="ct-a" href="$vocacoes_href"><div class="ct-card" style="background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%231a2039%27%20stroke%3D%27%23caa23a%27%20stroke-width%3D%272.4%27%2F%3E%3C%2Fsvg%3E')"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true"><circle cx="24" cy="24" r="16" fill="none" stroke="#b8902f" stroke-width="1.2" opacity=".7"/><circle cx="24" cy="10" r="4.4" fill="#9a4e30"/><circle cx="37.3" cy="19.7" r="4.4" fill="#6f5a96"/><circle cx="32.2" cy="35.3" r="4.4" fill="#3f6a9e"/><circle cx="15.8" cy="35.3" r="4.4" fill="#468268"/><circle cx="10.7" cy="19.7" r="4.4" fill="#a07e2a"/><circle cx="24" cy="24" r="2.4" fill="#e6c45c"/></svg></div><div class="ct-se" style="font-size:19px;color:#f6ecd2;margin-top:3px">Vocações</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#ab9e82;line-height:1.35;text-align:center;margin-top:3px">O que se escolhe ser &#8212; e o que isso custa.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.16);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$vocacoes_count vocações</span></div></a><a class="ct-a" href="$estrelas_href"><div class="ct-card" style="background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E')"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true"><line x1="20" y1="15" x2="34" y2="9" stroke="#b8902f" stroke-width=".8" opacity=".5"/><line x1="20" y1="15" x2="8" y2="25" stroke="#b8902f" stroke-width=".8" opacity=".5"/><path d="M20 4 L23.2 12 L31 15 L23.2 18 L20 26 L16.8 18 L9 15 L16.8 12 Z" fill="#f3e7c4" stroke="#c9a23a" stroke-width=".8"/><circle cx="34" cy="9" r="2" fill="#f3e7c4"/><circle cx="8" cy="25" r="1.6" fill="#f3e7c4"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Estrelas</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">Os astros sob os quais se nasce.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$estrelas_count signos</span></div></a><a class="ct-a" href="$npcs_href"><div class="ct-card" style="background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E')"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true"><circle cx="29" cy="12" r="4" fill="#463618" stroke="#c9a23a" stroke-width="1"/><path d="M21 30 Q21 22 29 22 Q37 22 37 30 Z" fill="#463618" stroke="#c9a23a" stroke-width="1"/><circle cx="16" cy="12" r="5" fill="#5a4420" stroke="#c9a23a" stroke-width="1.1"/><path d="M6 30 Q6 21 16 21 Q26 21 26 30 Z" fill="#5a4420" stroke="#c9a23a" stroke-width="1.1"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">NPCs</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">Os vivos &#8212; e o que cada um esconde.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$npcs_count figuras</span></div></a><a class="ct-a" href="$bestiario_href"><div class="ct-card" style="background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E')"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 44 40" width="38" height="35" aria-hidden="true"><ellipse cx="12" cy="15" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="18.5" cy="10" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="25.5" cy="10" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="32" cy="15" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="22" cy="29" rx="9" ry="7" fill="#3a2620" stroke="#c9a23a" stroke-width="1.1"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Bestiário</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">O que caça nas margens.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$bestiario_count criaturas</span></div></a><a class="ct-a" href="$magias_href"><div class="ct-card" style="background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23101320%27%20stroke%3D%27%235a5340%27%20stroke-width%3D%271.2%27%20stroke-dasharray%3D%274%203%27%2F%3E%3C%2Fsvg%3E');opacity:.58"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 36 36" width="34" height="34" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="#6a6450" stroke-width="1.2"/><path d="M18 32 L6 11 L30 11 Z" fill="#1f1e30" stroke="#6a6450" stroke-width="1"/><circle cx="18" cy="17" r="2.6" fill="#14131f" stroke="#6a6450" stroke-width=".9"/></svg></div><div class="ct-se" style="font-size:17px;color:#8a8270;margin-top:3px">Magias</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#6f6a58;line-height:1.35;text-align:center;margin-top:3px">O preço de dobrar o mundo.</div><span class="ct-bo" style="margin-top:auto;background:#1c1b2a;color:#8a8270;font-size:11px;padding:3px 10px;border-radius:8px">em obras</span></div></a><a class="ct-a" href="$itens_href"><div class="ct-card" style="background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23101320%27%20stroke%3D%27%235a5340%27%20stroke-width%3D%271.2%27%20stroke-dasharray%3D%274%203%27%2F%3E%3C%2Fsvg%3E');opacity:.58"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 24 40" width="22" height="36" aria-hidden="true"><path d="M12 3 L15 9 L15 26 L12 30 L9 26 L9 9 Z" fill="#1f1e30" stroke="#6a6450" stroke-width="1.1"/><line x1="5" y1="28" x2="19" y2="28" stroke="#6a6450" stroke-width="2"/><line x1="12" y1="28" x2="12" y2="36" stroke="#6a6450" stroke-width="2"/><circle cx="12" cy="37.5" r="2" fill="none" stroke="#6a6450" stroke-width="1.2"/></svg></div><div class="ct-se" style="font-size:17px;color:#8a8270;margin-top:3px">Itens</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#6f6a58;line-height:1.35;text-align:center;margin-top:3px">O que se carrega, e o que pesa.</div><span class="ct-bo" style="margin-top:auto;background:#1c1b2a;color:#8a8270;font-size:11px;padding:3px 10px;border-radius:8px">em obras</span></div></a>
   </div>
 
   <div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-top:1.5rem;flex-wrap:wrap">
