@@ -33,6 +33,7 @@ import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="sqlmodel")
 
 from contextlib import asynccontextmanager
+from string import Template
 from typing import Any, AsyncIterator, Optional
 
 from fastapi import APIRouter, FastAPI, HTTPException, Query, status
@@ -321,16 +322,6 @@ body{margin:0;}
 </style>
 """
 
-_VITRAL_ARCO = "M16,74 Q28,20 75,15 Q122,20 134,74 M75,15 L75,188 M16,74 L16,188 M134,74 L134,188 M16,128 L134,128"
-_VITRAL_EMBLEMA = {
-    "pers": '<circle cx="75" cy="42" r="6"/><path d="M62,62 Q75,44 88,62"/>',
-    "estr": '<path d="M75,28 L79,40 L91,42 L79,45 L75,57 L71,45 L59,42 L71,40 Z"/>',
-    "voc":  '<path d="M75,28 L88,33 V45 Q88,56 75,60 Q62,56 62,45 V33 Z"/><path d="M75,31 L75,57"/>',
-    "best": '<path d="M63,52 Q57,30 68,31 M87,52 Q93,30 82,31"/><circle cx="70" cy="46" r="1.6"/><circle cx="80" cy="46" r="1.6"/>',
-}
-_VITRAL_STROKE = {"pers": "#e0bd5a", "estr": "#ffe9a8", "voc": "#ffc2c9", "best": "#a7e6cd"}
-
-
 def _vitral_cena() -> str:
     """Camada de fundo: catedral + casario, duas luas, bruma, véu, poeira."""
     city = (
@@ -379,61 +370,229 @@ def _vitral_barra(ativo: str = "") -> str:
             f'<a class="cat-enter" href="/jogar">entrar no mundo</a></div>')
 
 
-def _vitral_card(cls: str, rotulo: str, numero, frase: str, href: str) -> str:
-    """Um vitral-contador clicável."""
-    return (
-        f'<a class="cat-card c-{cls}" href="{href}">'
-        f'<span class="cat-glass"></span><span class="cat-glow"></span>'
-        f'<svg class="cat-lead" viewBox="0 0 150 200" fill="none" stroke="{_VITRAL_STROKE[cls]}" '
-        f'stroke-width="1.1" aria-hidden="true"><path d="{_VITRAL_ARCO}"/>{_VITRAL_EMBLEMA[cls]}</svg>'
-        f'<span class="cat-body"><span class="cat-rot">{rotulo}</span>'
-        f'<span class="cat-num">{numero}</span><span class="cat-dsc">{frase}</span></span></a>'
-    )
+# ============================================================
+# A CATEDRAL DO ALDERYN (v6) — landing in-place de /oficina
+# Bloco A: funcao pura (template + render), sem I/O.
+# Fontes (IM Fell English / SC / Spectral) ja vem da pele vitral
+# (_VITRAL_HEAD), por isso o template NAO tem @import.
+# ============================================================
+
+_CATEDRAL_TPL = Template("""
+<style>
+.ct-sc{font-family:'IM Fell English SC',serif}
+.ct-se{font-family:'IM Fell English',serif}
+.ct-bo{font-family:'Spectral',serif}
+.ct-wrap{max-width:680px;margin:0 auto}
+.ct-n{position:relative;height:182px;text-decoration:none;display:block}
+.ct-n .body{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;padding:18px 14px 15px;box-sizing:border-box;transition:transform .15s}
+.ct-n svg.frame{position:absolute;inset:0;width:100%;height:100%}
+.ct-n:hover .body{transform:translateY(-2px)}
+.ct-cta{display:inline-flex;align-items:center;gap:9px;background:linear-gradient(180deg,#1f2742,#171d33);border:1.5px solid #caa23a;color:#f0d987;font-size:16px;padding:11px 22px;border-radius:10px;text-decoration:none;transition:transform .15s}
+.ct-cta:hover{transform:translateY(-2px)}
+.ct-link{display:inline-flex;align-items:center;gap:7px;color:#b6a684;font-size:13.5px;text-decoration:none;border-bottom:1px solid rgba(182,166,132,.35);padding-bottom:2px}
+.ct-link:hover{color:#e6c45c;border-bottom-color:#e6c45c}
+</style>
+<div class="ct-wrap" aria-label="A Catedral do Alderyn" style="background:#13172a;border:1px solid rgba(202,162,58,.34);border-radius:12px;padding:1.4rem 1.3rem 1.5rem">
+
+  <div style="max-width:330px;margin:0 auto;position:relative;height:264px">
+    <svg viewBox="0 0 320 262" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%">
+      <path d="M12 258 L12 96 Q70 26 160 16 Q250 26 308 96 L308 258 Z" fill="#10131f" stroke="#c9a23a" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+      <path d="M18 258 L18 98 Q74 34 160 24 Q246 34 302 98 L302 258" fill="none" stroke="#7e6420" stroke-width="1" opacity=".7" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <div style="position:relative;height:100%;display:flex;flex-direction:column;align-items:center;padding-top:20px;box-sizing:border-box">
+      <svg viewBox="0 0 200 200" width="126" height="126" role="img" aria-label="Rosácea de vitral da Catedral">
+        <title>Rosácea de vitral</title>
+        <circle cx="100" cy="100" r="84" fill="#10131f"/>
+        <line x1="100" y1="100" x2="100" y2="18"  stroke="#5a4a22" stroke-width="1.4" opacity=".5"/>
+        <line x1="100" y1="100" x2="171" y2="59"  stroke="#5a4a22" stroke-width="1.4" opacity=".5"/>
+        <line x1="100" y1="100" x2="171" y2="141" stroke="#5a4a22" stroke-width="1.4" opacity=".5"/>
+        <line x1="100" y1="100" x2="100" y2="182" stroke="#5a4a22" stroke-width="1.4" opacity=".5"/>
+        <line x1="100" y1="100" x2="29"  y2="141" stroke="#5a4a22" stroke-width="1.4" opacity=".5"/>
+        <line x1="100" y1="100" x2="29"  y2="59"  stroke="#5a4a22" stroke-width="1.4" opacity=".5"/>
+        <circle cx="100"    cy="30"     r="9" fill="#233452" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="135"    cy="39.38"  r="9" fill="#2c2748" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="160.62" cy="65"     r="9" fill="#1f3a4e" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="170"    cy="100"    r="9" fill="#2a4636" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="160.62" cy="135"    r="9" fill="#463618" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="135"    cy="160.62" r="9" fill="#3e2228" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="100"    cy="170"    r="9" fill="#233452" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="65"     cy="160.62" r="9" fill="#2c2748" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="39.38"  cy="135"    r="9" fill="#1f3a4e" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="30"     cy="100"    r="9" fill="#2a4636" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="39.38"  cy="65"     r="9" fill="#463618" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="65"     cy="39.38"  r="9" fill="#3e2228" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="100" cy="100" r="84" fill="none" stroke="#b8902f" stroke-width="2.4"/>
+        <circle cx="100" cy="100" r="87" fill="none" stroke="#7e6420" stroke-width="1"/>
+        <circle cx="100" cy="100" r="50" fill="#10131f" stroke="#b8902f" stroke-width="1.6"/>
+        <circle cx="100"    cy="64"     r="11" fill="#9a4e30" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="134.24" cy="88.88"  r="11" fill="#6f5a96" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="121.16" cy="129.12" r="11" fill="#3f6a9e" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="78.84"  cy="129.12" r="11" fill="#468268" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="65.76"  cy="88.88"  r="11" fill="#a07e2a" stroke="#0d1018" stroke-width="1.2"/>
+        <circle cx="100" cy="100" r="15"  fill="#c9a23a" stroke="#0d1018" stroke-width="1.4"/>
+        <circle cx="100" cy="100" r="6.5" fill="#f3e7c4"/>
+      </svg>
+      <div class="ct-sc" style="font-size:21px;letter-spacing:.04em;color:#e6c45c;margin-top:8px">A Catedral do Alderyn</div>
+      <div class="ct-bo" style="font-style:italic;font-size:12.5px;color:#b6a684;margin-top:3px">Tudo aqui tem um preço. Inclusive saber.</div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:.9rem 0 1.3rem">
+    <span style="height:1px;width:64px;background:linear-gradient(90deg,transparent,#b8902f)"></span>
+    <span style="color:#caa23a;font-size:12px">&#9670;</span>
+    <span style="height:1px;width:64px;background:linear-gradient(90deg,#b8902f,transparent)"></span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:14px">
+
+    <a class="ct-n" href="$vocacoes_href">
+      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#1a2039" stroke="#caa23a" stroke-width="2.4" vector-effect="non-scaling-stroke"/></svg>
+      <div class="body">
+        <div style="height:40px;display:flex;align-items:center">
+          <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true">
+            <circle cx="24" cy="24" r="16" fill="none" stroke="#b8902f" stroke-width="1.2" opacity=".7"/>
+            <circle cx="24" cy="10" r="4.4" fill="#9a4e30"/><circle cx="37.3" cy="19.7" r="4.4" fill="#6f5a96"/><circle cx="32.2" cy="35.3" r="4.4" fill="#3f6a9e"/><circle cx="15.8" cy="35.3" r="4.4" fill="#468268"/><circle cx="10.7" cy="19.7" r="4.4" fill="#a07e2a"/><circle cx="24" cy="24" r="2.4" fill="#e6c45c"/>
+          </svg>
+        </div>
+        <div class="ct-se" style="font-size:19px;color:#f6ecd2;margin-top:3px">Vocações</div>
+        <div class="ct-bo" style="font-style:italic;font-size:12px;color:#ab9e82;line-height:1.35;text-align:center;margin-top:3px">O que se escolhe ser &#8212; e o que isso custa.</div>
+        <span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.16);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$vocacoes_count vocações</span>
+      </div>
+    </a>
+
+    <a class="ct-n" href="$estrelas_href">
+      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#181d34" stroke="#c9a23a" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
+      <div class="body">
+        <div style="height:40px;display:flex;align-items:center">
+          <svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true">
+            <line x1="20" y1="15" x2="34" y2="9" stroke="#b8902f" stroke-width=".8" opacity=".5"/><line x1="20" y1="15" x2="8" y2="25" stroke="#b8902f" stroke-width=".8" opacity=".5"/>
+            <path d="M20 4 L23.2 12 L31 15 L23.2 18 L20 26 L16.8 18 L9 15 L16.8 12 Z" fill="#f3e7c4" stroke="#c9a23a" stroke-width=".8"/>
+            <circle cx="34" cy="9" r="2" fill="#f3e7c4"/><circle cx="8" cy="25" r="1.6" fill="#f3e7c4"/>
+          </svg>
+        </div>
+        <div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Estrelas</div>
+        <div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">Os astros sob os quais se nasce.</div>
+        <span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$estrelas_count signos</span>
+      </div>
+    </a>
+
+    <a class="ct-n" href="$npcs_href">
+      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#181d34" stroke="#c9a23a" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
+      <div class="body">
+        <div style="height:40px;display:flex;align-items:center">
+          <svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true">
+            <circle cx="29" cy="12" r="4" fill="#463618" stroke="#c9a23a" stroke-width="1"/><path d="M21 30 Q21 22 29 22 Q37 22 37 30 Z" fill="#463618" stroke="#c9a23a" stroke-width="1"/>
+            <circle cx="16" cy="12" r="5" fill="#5a4420" stroke="#c9a23a" stroke-width="1.1"/><path d="M6 30 Q6 21 16 21 Q26 21 26 30 Z" fill="#5a4420" stroke="#c9a23a" stroke-width="1.1"/>
+          </svg>
+        </div>
+        <div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">NPCs</div>
+        <div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">Os vivos &#8212; e o que cada um esconde.</div>
+        <span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$npcs_count figuras</span>
+      </div>
+    </a>
+
+    <a class="ct-n" href="$bestiario_href">
+      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#181d34" stroke="#c9a23a" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>
+      <div class="body">
+        <div style="height:40px;display:flex;align-items:center">
+          <svg viewBox="0 0 44 40" width="38" height="35" aria-hidden="true">
+            <ellipse cx="12" cy="15" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="18.5" cy="10" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="25.5" cy="10" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="32" cy="15" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/>
+            <ellipse cx="22" cy="29" rx="9" ry="7" fill="#3a2620" stroke="#c9a23a" stroke-width="1.1"/>
+          </svg>
+        </div>
+        <div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Bestiário</div>
+        <div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">O que caça nas margens.</div>
+        <span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$bestiario_count criaturas</span>
+      </div>
+    </a>
+
+    <a class="ct-n" href="$magias_href" style="opacity:.58">
+      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#101320" stroke="#5a5340" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/></svg>
+      <div class="body">
+        <div style="height:40px;display:flex;align-items:center">
+          <svg viewBox="0 0 36 36" width="34" height="34" aria-hidden="true">
+            <circle cx="18" cy="18" r="15" fill="none" stroke="#6a6450" stroke-width="1.2"/><path d="M18 32 L6 11 L30 11 Z" fill="#1f1e30" stroke="#6a6450" stroke-width="1"/><circle cx="18" cy="17" r="2.6" fill="#14131f" stroke="#6a6450" stroke-width=".9"/>
+          </svg>
+        </div>
+        <div class="ct-se" style="font-size:17px;color:#8a8270;margin-top:3px">Magias</div>
+        <div class="ct-bo" style="font-style:italic;font-size:12px;color:#6f6a58;line-height:1.35;text-align:center;margin-top:3px">O preço de dobrar o mundo.</div>
+        <span class="ct-bo" style="margin-top:auto;background:#1c1b2a;color:#8a8270;font-size:11px;padding:3px 10px;border-radius:8px">em obras</span>
+      </div>
+    </a>
+
+    <a class="ct-n" href="$itens_href" style="opacity:.58">
+      <svg class="frame" viewBox="0 0 200 182" preserveAspectRatio="none" aria-hidden="true"><path d="M6 178 L6 64 Q42 14 100 8 Q158 14 194 64 L194 178 Z" fill="#101320" stroke="#5a5340" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/></svg>
+      <div class="body">
+        <div style="height:40px;display:flex;align-items:center">
+          <svg viewBox="0 0 24 40" width="22" height="36" aria-hidden="true">
+            <path d="M12 3 L15 9 L15 26 L12 30 L9 26 L9 9 Z" fill="#1f1e30" stroke="#6a6450" stroke-width="1.1"/><line x1="5" y1="28" x2="19" y2="28" stroke="#6a6450" stroke-width="2"/><line x1="12" y1="28" x2="12" y2="36" stroke="#6a6450" stroke-width="2"/><circle cx="12" cy="37.5" r="2" fill="none" stroke="#6a6450" stroke-width="1.2"/>
+          </svg>
+        </div>
+        <div class="ct-se" style="font-size:17px;color:#8a8270;margin-top:3px">Itens</div>
+        <div class="ct-bo" style="font-style:italic;font-size:12px;color:#6f6a58;line-height:1.35;text-align:center;margin-top:3px">O que se carrega, e o que pesa.</div>
+        <span class="ct-bo" style="margin-top:auto;background:#1c1b2a;color:#8a8270;font-size:11px;padding:3px 10px;border-radius:8px">em obras</span>
+      </div>
+    </a>
+
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-top:1.5rem;flex-wrap:wrap">
+    <a href="$jogar_href" class="ct-cta ct-se">
+      <svg viewBox="0 0 24 28" width="18" height="21" aria-hidden="true">
+        <path d="M4 26 L4 9 Q12 1 20 9 L20 26 Z" fill="none" stroke="#e6c45c" stroke-width="1.6"/>
+        <line x1="12" y1="3.4" x2="12" y2="26" stroke="#e6c45c" stroke-width="1.1"/>
+        <line x1="4" y1="14" x2="20" y2="14" stroke="#e6c45c" stroke-width=".9"/>
+      </svg>
+      Entrar no Mundo
+    </a>
+    <a href="$historias_href" class="ct-link ct-bo">
+      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+        <path d="M6 3 L16 3 Q19 3 19 6 L19 21 L8 21 Q6 21 6 19 Z" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <line x1="9" y1="8"  x2="16" y2="8"  stroke="currentColor" stroke-width="1"/>
+        <line x1="9" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="1"/>
+        <line x1="9" y1="16" x2="13" y2="16" stroke="currentColor" stroke-width="1"/>
+      </svg>
+      Histórias
+    </a>
+  </div>
+
+  <div style="text-align:center;margin-top:1.25rem">
+    <span class="ct-bo" style="font-style:italic;font-size:12px;color:#7e7158;letter-spacing:.03em">Tudo tem nome. Todo nome tem preço.</span>
+  </div>
+
+</div>
+""")
 
 
-def _vitral_card_historias() -> str:
-    livro = ('<svg width="40" height="40" viewBox="0 0 60 60" fill="none" stroke="#e0bd5a" '
-             'stroke-width="1.4" style="flex:none" aria-hidden="true">'
-             '<path d="M30,16 Q18,9 8,13 L8,46 Q18,42 30,49 Q42,42 52,46 L52,13 Q42,9 30,16 Z"/><path d="M30,16 L30,49"/>'
-             '<path d="M13,21 Q20,18 26,21 M13,29 Q20,26 26,29 M34,21 Q40,18 47,21 M34,29 Q40,26 47,29"/></svg>')
-    return (
-        '<a class="cat-hist" href="/oficina/historias">'
-        + livro
-        + '<span class="cat-hist-txt"><span class="cat-hist-t">Histórias do mundo</span>'
-        '<span class="cat-hist-d">a crônica de Alderyn &mdash; eras, ruínas, e o que sobrou.</span></span>'
-        '<span class="cat-hist-go">abrir a crônica &rsaquo;</span></a>'
-    )
-
-
-def _vitral_dashboard(npcs, estrelas, vocacoes, criaturas) -> str:
-    return (
-        '<div class="cat-screen">'
-        + _vitral_cena()
-        + _vitral_barra("oficina")
-        + '<div class="cat-inner">'
-        '<div class="cat-title">Oficina do Mestre</div>'
-        '<div class="cat-sub">Sistema Nexus &mdash; mundo de Alderyn</div>'
-        '<div class="cat-rule"></div>'
-        '<div class="cat-grid">'
-        + _vitral_card("pers", "personagens", npcs, "os que vivem &mdash; e os que já viveram.", "/oficina/npcs")
-        + _vitral_card("estr", "estrelas", estrelas, "os astros sob os quais se nasce.", "/oficina/estrelas")
-        + _vitral_card("voc", "vocações", vocacoes, "ofícios e caminhos do mundo.", "/oficina/vocacoes")
-        + _vitral_card("best", "bestiário", criaturas, "o que se move na zona cinzenta.", "/oficina/bestiario")
-        + '</div>'
-        + _vitral_card_historias()
-        + '</div>'
-        + '<div class="cat-foot">vigília quebrada &middot; ano 312</div>'
-        + '</div>'
+def render_catedral_html(counts: dict, hrefs: dict) -> str:
+    # counts: {'vocacoes','estrelas','npcs','bestiario'} -> int
+    # hrefs:  portais + 'jogar' + 'historias' -> str
+    return _CATEDRAL_TPL.safe_substitute(
+        vocacoes_count=counts.get('vocacoes', '-'),
+        estrelas_count=counts.get('estrelas', '-'),
+        npcs_count=counts.get('npcs', '-'),
+        bestiario_count=counts.get('bestiario', '-'),
+        vocacoes_href=hrefs.get('vocacoes', '#'),
+        estrelas_href=hrefs.get('estrelas', '#'),
+        npcs_href=hrefs.get('npcs', '#'),
+        bestiario_href=hrefs.get('bestiario', '#'),
+        magias_href=hrefs.get('magias', '#'),
+        itens_href=hrefs.get('itens', '#'),
+        jogar_href=hrefs.get('jogar', '/jogar'),
+        historias_href=hrefs.get('historias', '#'),
     )
 
 
 @ui.page("/oficina")
-async def pagina_oficina():
+async def pagina_oficina_catedral():
+    # A Catedral do Alderyn (v6) — landing in-place de /oficina.
     # FIX TIMEOUT NICEGUI: envia placeholder + aguarda WS antes das queries.
-    await aguardar_conexao_websocket("Carregando Oficina...")
+    await aguardar_conexao_websocket("Abrindo a Catedral...")
 
     ui.add_head_html(_VITRAL_HEAD)
 
+    # Reuso dos 4 helpers de contagem que a home ja usava (PC-4),
+    # com gather+timeout+fallback pra resiliencia (mesmo padrao da home antiga).
     try:
         total_npcs, total_estrelas, total_vocacoes, total_criaturas = await asyncio.wait_for(
             asyncio.gather(
@@ -445,10 +604,27 @@ async def pagina_oficina():
             timeout=10.0,
         )
     except Exception as e:
-        print(f"[home] erro ao contar: {e}")
+        print(f"[catedral] erro ao contar: {e}")
         total_npcs = total_estrelas = total_vocacoes = total_criaturas = 0
 
-    ui.html(_vitral_dashboard(total_npcs, total_estrelas, total_vocacoes, total_criaturas)).classes("w-full")
+    counts = {
+        "vocacoes": total_vocacoes,
+        "estrelas": total_estrelas,
+        "npcs": total_npcs,
+        "bestiario": total_criaturas,
+    }
+    hrefs = {
+        "vocacoes": "/oficina/vocacoes",
+        "estrelas": "/oficina/estrelas",
+        "npcs": "/oficina/npcs",
+        "bestiario": "/oficina/bestiario",
+        "magias": "#",
+        "itens": "#",
+        "jogar": "/jogar",
+        "historias": "/oficina/historias",
+    }
+
+    ui.html(render_catedral_html(counts, hrefs)).classes("w-full")
 
 
 @ui.page("/oficina/historias")
