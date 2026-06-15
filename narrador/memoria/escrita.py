@@ -145,9 +145,11 @@ async def commit_canon(fact_ids, force: bool = False) -> list[dict]:
     """Promove os fatos provisional (>=0.6 canonical, <0.6 pending_review; force=true força)."""
     if not fact_ids:
         return []
-    ids_literal = "{" + ",".join(str(int(i)) for i in fact_ids) + "}"
+    # asyncpg tipa :ids como bigint[] (via o CAST no SQL) e exige uma LISTA Python,
+    # não a string-literal '{1,2}' do Postgres — passar a string levanta DataError.
+    ids = [int(i) for i in fact_ids]
     async with get_session() as session:
-        res = await session.execute(_SQL_COMMIT_CANON, {"ids": ids_literal, "force": force})
+        res = await session.execute(_SQL_COMMIT_CANON, {"ids": ids, "force": force})
         linhas = res.all()
         await session.commit()
     return [dict(r._mapping) for r in linhas]
