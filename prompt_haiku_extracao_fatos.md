@@ -112,6 +112,14 @@ entidades, então foi marcado `object_novo`.
 
 ---
 
+## Encerramento (crítico)
+
+A sua resposta inteira é o objeto JSON, e nada mais. O primeiro caractere é `{` e o
+último caractere é `}`. Não escreva cercas de código (```), não escreva preâmbulo,
+não escreva nenhuma palavra de explicação depois do `}`. A resposta TERMINA no `}`.
+
+---
+
 ## Entrada
 
 ENTIDADES CONHECIDAS (nome — tipo):

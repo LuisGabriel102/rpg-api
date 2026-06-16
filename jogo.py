@@ -95,7 +95,7 @@ ABERTURA_MSG = (
 #                     (layout da Gravura, canal duplo, Pressao) sem chamar a IA.
 # MODO_MOCK = False -> Opus 4.8 de verdade (paga). Valida o tom do Cronista.
 # ============================================================================
-MODO_MOCK = True
+MODO_MOCK = False  # marco final: Opus 4.8 + Haiku reais (paga). Validado 1 turno+selar.
 
 
 # Prosa falsa do modo mock - witcher-grey, ambigua (serve pra qualquer acao),
@@ -832,6 +832,10 @@ async def pagina_jogar():
             # tocar o historico (que o recomecar ja zerou).
             if minha_geracao != geracao:
                 return
+            # loga o que o Cronista devolveu (criterio #3 do flip MODO_MOCK=False).
+            print("[memoria] === resposta do Cronista (Opus) ===")
+            print(resposta)
+            print("[memoria] === fim da resposta ===")
             # guarda a resposta COMPLETA (com <estado>): reforca o formato nos
             # turnos seguintes e preserva o historico de evolucao da Pressao.
             historico.append({"role": "assistant", "content": resposta})

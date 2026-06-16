@@ -32,16 +32,47 @@ PREDICATES_VALIDOS = {
 def parse_haiku_output(texto: str) -> dict:
     """
     Limpa e parseia o texto bruto do Haiku.
-    Extrai do primeiro '{' ao último '}', então ignora cercas ``` e qualquer
-    preâmbulo/posfácio que o modelo tenha deixado escapar.
-    Levanta ValueError se não houver JSON parseável.
+
+    Acha o primeiro '{' e varre contando chaves BALANCEADAS até o '}' que zera o
+    contador — o fim real do objeto. Tudo depois disso (cercas ```, parágrafo de
+    explicação, um '}' solto na prosa) é ignorado. A varredura ignora chaves dentro
+    de strings JSON (respeita aspas e escape '\\'), então um object_text com '{' ou
+    '}' não confunde a contagem.
+
+    Levanta ValueError se não houver objeto, ou se ele não fechar / não parsear.
     """
-    t = (texto or "").strip()
-    i, j = t.find("{"), t.rfind("}")
-    if i == -1 or j == -1 or j < i:
+    t = texto or ""
+    start = t.find("{")
+    if start == -1:
         raise ValueError("Haiku não devolveu um objeto JSON.")
+
+    depth = 0
+    in_string = False
+    escape = False
+    end = -1
+    for i in range(start, len(t)):
+        c = t[i]
+        if in_string:
+            if escape:
+                escape = False
+            elif c == "\\":
+                escape = True
+            elif c == '"':
+                in_string = False
+        elif c == '"':
+            in_string = True
+        elif c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                end = i
+                break
+
+    if end == -1:
+        raise ValueError("Haiku não devolveu JSON válido: objeto não fechado.")
     try:
-        return json.loads(t[i:j + 1])
+        return json.loads(t[start:end + 1])
     except json.JSONDecodeError as e:
         raise ValueError(f"Haiku não devolveu JSON válido: {e}")
 

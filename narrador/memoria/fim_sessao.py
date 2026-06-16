@@ -189,6 +189,10 @@ async def encerrar_sessao(
 
     # Haiku (real ou mock) em thread — não trava o event loop.
     raw = await asyncio.to_thread(haiku_fn, narracao, lista)
+    # loga o JSON cru que o Haiku devolveu (criterio #3 do flip MODO_MOCK=False).
+    print("[fim_sessao] === Haiku raw (JSON de fatos) ===")
+    print(raw)
+    print("[fim_sessao] === fim Haiku raw ===")
     haiku_json = parse_haiku_output(raw)
     n_fatos = len(haiku_json.get("fatos", []))
     print(f"[fim_sessao] Haiku devolveu {n_fatos} fato(s)")
