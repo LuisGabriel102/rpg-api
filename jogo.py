@@ -50,6 +50,7 @@ SESSAO_ID = 2
 try:
     from narrador.memoria.contexto import carregar_contexto
     from narrador.memoria.escrita import gravar_turno
+    from narrador.memoria.fim_sessao import encerrar_sessao
     _MEMORIA_OK = True
     _MEMORIA_ERR = None
 except Exception as _e:  # noqa: BLE001 - qualquer falha de import desliga a memoria
@@ -338,27 +339,35 @@ def _chamar_cronista(historico: list[dict]) -> str:
 # memoria estiver desligada (import falhou) ou o banco vacilar, logam e seguem
 # sem derrubar o turno. O jogo nunca quebra por causa da memoria.
 # ---------------------------------------------------------------------------
-async def _gravar_turno_safe(papel: str, conteudo: str) -> None:
+async def _gravar_turno_safe(sessao_id: int, papel: str, conteudo: str) -> None:
     if not _MEMORIA_OK:
         return
     try:
-        numero = await gravar_turno(SESSAO_ID, papel, conteudo)
-        print(f"[memoria] turno gravado: sessao={SESSAO_ID} papel={papel} numero_turno={numero}")
+        numero = await gravar_turno(sessao_id, papel, conteudo)
+        print(f"[memoria] turno gravado: sessao={sessao_id} papel={papel} numero_turno={numero}")
     except Exception as exc:  # noqa: BLE001
         print(f"[memoria] FALHA ao gravar turno ({papel}): {type(exc).__name__}: {exc}")
 
 
-async def _carregar_contexto_safe(query_text: str | None) -> str:
+async def _carregar_contexto_safe(sessao_id: int, query_text: str | None) -> str:
     if not _MEMORIA_OK:
         return ""
     try:
         # query_vec=None de proposito (decisao ii do Tier 4): sem torch/modelo no
         # container, a busca cai pras 3 vias (full-text + trigram + entidade), como
         # a SPEC preve. O vetorial ao vivo entra depois, sem mexer aqui.
-        return await carregar_contexto(SESSAO_ID, query_text=query_text, query_vec=None)
+        return await carregar_contexto(sessao_id, query_text=query_text, query_vec=None)
     except Exception as exc:  # noqa: BLE001
         print(f"[memoria] FALHA ao carregar contexto: {type(exc).__name__}: {exc}")
         return ""
+
+
+# Haiku mockado pro fim de sessao enquanto MODO_MOCK=True: zero token. Devolve
+# "nenhum fato duravel" - a extracao em si ja foi provada no Tier 5; aqui o foco e
+# o WIRING (encerrar -> recap -> nova sessao -> rebind). Com MODO_MOCK=False, o
+# encerrar_sessao usa o Haiku real (default).
+def _haiku_mock_jogar(narracao: str, lista_entidades: str) -> str:
+    return '{"fatos": []}'
 
 
 _RE_ESTADO = re.compile(r"<estado>(.*?)</estado>", re.S | re.I)
@@ -499,6 +508,11 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
   color:var(--osso2); text-decoration:none; white-space:nowrap; opacity:.65;
   transition:opacity .3s ease; }
 .head .sair:hover{ opacity:1; }
+.head .selar{ font-family:"IM Fell English",serif; font-style:italic; font-size:12px;
+  color:var(--osso2); background:none; border:none; padding:0; cursor:pointer;
+  white-space:nowrap; opacity:.65; transition:opacity .3s ease, color .3s ease; }
+.head .selar:hover{ opacity:1; color:var(--brasa); }
+.head .sep{ color:var(--regua2); font-size:11px; opacity:.6; }
 
 /* marginalia: HOJE so a Pressao Emocional (0-10). Stats/Tensao ficam pro combate. */
 .marg{ display:flex; align-items:center; justify-content:flex-end; gap:14px; flex-wrap:wrap;
@@ -616,6 +630,8 @@ _BODY = """
       </svg>
       <span class="ttl">vig&iacute;lia&nbsp;quebrada</span>
       <span class="ln"></span>
+      <button type="button" class="selar" id="encerrar-sessao" title="Selar a sess&atilde;o e abrir a pr&oacute;xima">selar&nbsp;sess&atilde;o</button>
+      <span class="sep">&middot;</span>
       <a class="sair" href="/oficina" title="Voltar a Oficina">&larr;&nbsp;oficina</a>
     </div>
 
@@ -729,6 +745,7 @@ async def pagina_jogar():
     ocupado = False   # trava de turno: barra acao concorrente durante o await do Cronista
     geracao = 0       # token de geracao: recomecar incrementa e invalida narrar em voo
     pressao_atual = 0
+    sessao_atual = SESSAO_ID   # Tier 6: rebinda quando o lifecycle abre a proxima sessao
 
     ui.add_head_html(_FONTS + _CSS)
     ui.html(_BODY)
@@ -745,6 +762,13 @@ async def pagina_jogar():
         "document.body.appendChild(s);}"
     )
     ui.run_javascript(_ATMOSFERA_JS.replace("<script>", "").replace("</script>", ""))
+    # Tier 6: liga o botao "selar sessao" ao evento NiceGUI (mesmo emitEvent que o
+    # bundle usa). NAO mexe no jogar.js minificado - o handler vive aqui.
+    ui.run_javascript(
+        "var b=document.getElementById('encerrar-sessao');"
+        "if(b && !b.dataset.wired){b.dataset.wired='1';"
+        "b.addEventListener('click',function(){emitEvent('jogar_encerrar',{});});}"
+    )
 
     def _js(code: str) -> None:
         """Dispara JS no cliente (fire-and-forget, como o resto do monolito)."""
@@ -760,7 +784,7 @@ async def pagina_jogar():
         _js(f"document.getElementById('pondera') && document.getElementById('pondera').classList.{acao}('oculto')")
 
     async def narrar(msg_usuario: str, mostrar_acao: bool = True):
-        nonlocal pressao_atual, ocupado, geracao
+        nonlocal pressao_atual, ocupado, geracao, sessao_atual
         # trava de turno: se ja ha um turno em voo, ignora a nova acao ANTES de
         # tocar o historico - senao dois "user" seguidos quebram a alternancia.
         if ocupado:
@@ -777,12 +801,12 @@ async def pagina_jogar():
         # diretiva de cena, nao fala do jogador, entao vai como papel='sistema'.
         # Conteudo limpo (msg_usuario), sem maquinaria de prompt.
         papel_entrada = "jogador" if mostrar_acao else "sistema"
-        await _gravar_turno_safe(papel_entrada, msg_usuario)
+        await _gravar_turno_safe(sessao_atual, papel_entrada, msg_usuario)
 
         # Tier 4 - memoria (2): carrega o contexto da cronica (5 tiers) pra sessao.
         # query_text = a fala do jogador (ajuda full-text/trigram); na abertura, None.
         query_text = msg_usuario if mostrar_acao else None
-        ctx_md = await _carregar_contexto_safe(query_text)
+        ctx_md = await _carregar_contexto_safe(sessao_atual, query_text)
 
         # canal duplo - ENTRADA + Tier 4 - memoria (3): monta a ultima mensagem com
         # [ESTADO], depois a secao de contexto (ANTES da fala; omitida se vazia) e por
@@ -815,7 +839,7 @@ async def pagina_jogar():
             prosa, pressao_atual, atmosfera = _separar_estado(resposta, pressao_atual)
             # Tier 4 - memoria (5): grava o turno do narrador. Conteudo = a prosa
             # limpa (sem o bloco <estado>, que e maquinaria e nao vira contexto).
-            await _gravar_turno_safe("narrador", prosa)
+            await _gravar_turno_safe(sessao_atual, "narrador", prosa)
             _arrive(prosa)
             _js(f"window.Jogar && window.Jogar.setPressao({pressao_atual})")
             # a cena so troca de pele se o Cronista pediu uma atmosfera valida;
@@ -869,6 +893,43 @@ async def pagina_jogar():
         _js("window.Jogar && window.Jogar.setPressao(0)")
         _js("window.setAtmosfera && window.setAtmosfera('ermo', {forcar:true})")
 
+    async def ao_encerrar(_=None):
+        # Tier 6: sela a sessao atual (extrai fatos -> canon -> recap) e ABRE a
+        # proxima; o /jogar rebinda pra ela. O recap desta sessao vira o
+        # recap_anterior da proxima (montar_contexto_narrador), entao o primeiro
+        # turno da sessao nova ja chega com "o que veio antes".
+        nonlocal pressao_atual, ocupado, geracao, sessao_atual
+        if ocupado:
+            return  # turno em voo: nao sela no meio de uma narracao
+        if not _MEMORIA_OK:
+            _arrive("a cronica nao pode ser selada agora - a memoria esta indisponivel.")
+            return
+        ocupado = True
+        geracao += 1  # invalida qualquer narrar em voo, como o recomecar
+        _pondera(True)
+        try:
+            # MODO_MOCK: Haiku mockado (zero token). Com MODO_MOCK=False, Haiku real.
+            haiku_fn = _haiku_mock_jogar if MODO_MOCK else None
+            res = await encerrar_sessao(sessao_atual, haiku_fn=haiku_fn)
+            nova = res.get("nova_sessao_id")
+            print(f"[memoria] sessao {sessao_atual} encerrada; rebind -> {nova} "
+                  f"(fatos={res.get('fatos_enfileirados')}, nao_resolvidos={len(res.get('nao_resolvidos') or [])})")
+            if nova:
+                sessao_atual = nova  # REBIND: a proxima abertura de turno usa a nova
+        except Exception as exc:  # noqa: BLE001
+            print(f"[memoria] FALHA ao encerrar sessao: {type(exc).__name__}: {exc}")
+            _arrive(f"a cronica resistiu a ser selada - {type(exc).__name__}. Tente de novo.")
+        finally:
+            _pondera(False)
+            ocupado = False
+        # zera a cena pro recomeco na sessao nova (o contexto dela ja tras o recap).
+        historico.clear()
+        pressao_atual = 0
+        _js("window.Jogar && window.Jogar.recomecar()")
+        _js("window.Jogar && window.Jogar.setPressao(0)")
+        _js("window.setAtmosfera && window.setAtmosfera('ermo', {forcar:true})")
+
     ui.on("jogar_action", ao_agir)
     ui.on("jogar_comecar", ao_comecar)
     ui.on("jogar_recomecar", ao_recomecar)
+    ui.on("jogar_encerrar", ao_encerrar)
