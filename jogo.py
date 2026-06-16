@@ -30,6 +30,7 @@ import html
 import json
 import random
 import re
+import traceback
 from pathlib import Path
 
 from nicegui import ui, run
@@ -860,6 +861,9 @@ async def pagina_jogar():
             # e a API rejeita (mensagens precisam alternar) - travaria o jogo.
             if historico and historico[-1]["role"] == "user":
                 historico.pop()
+            print("[ERRO CRONISTA] === traceback completo ===")
+            print(traceback.format_exc())
+            print("[ERRO CRONISTA] === fim ===")
             aviso = f"o Cronista vacila - {type(exc).__name__}. Tente de novo."
             _js(f"window.Jogar && window.Jogar.arrive({json.dumps(html.escape(aviso))})")
         finally:
