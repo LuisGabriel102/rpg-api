@@ -27,6 +27,8 @@ quando queries demoram, causando loop infinito de WebSocket. Ver ui_helpers.py.
 
 import asyncio
 import html
+import json
+import unicodedata
 import warnings
 
 # Silencia warnings cosmeticos do SQLModel
@@ -48,7 +50,7 @@ import config
 from auth import BasicAuthMiddleware
 from db import engine, get_session
 from models import Npcs, RefEstrelasNascimento, RefHabilidadesEstrela, RefVocacoes, RefCaminhos, RefHabilidadesClasseNivel, RefPilares
-from ui_helpers import aguardar_conexao_websocket, barra_nav
+from ui_helpers import aguardar_conexao_websocket, barra_nav, barra_nav_alderyn
 from tema_oficina import CSS_VITRAL, CSS_PERGAMINHO
 from oficina_npcs_42 import pagina_lista_npcs_rica, pagina_npc_detalhe
 from pages.atelie import pagina_atelie
@@ -495,6 +497,8 @@ async def pagina_oficina_catedral():
     # FIX TIMEOUT NICEGUI: envia placeholder + aguarda WS antes das queries.
     await aguardar_conexao_websocket("Abrindo a Catedral...")
 
+    barra_nav_alderyn("oficina")
+
     ui.add_head_html(_VITRAL_HEAD)
 
     # Reuso dos 4 helpers de contagem que a home ja usava (PC-4),
@@ -536,22 +540,121 @@ async def pagina_oficina_catedral():
 
 
 # ============================================================
-# MAGIAS — portal ativo (v1). So magias nativas Nexus: fonte LIKE 'NEXUS%'
-# (1.666 de 2.252; o resto e lixo D&D, fica no banco mas nao e exibido).
-# Sem DELETE/UPDATE. Espelha o molde da galeria de vocacoes.
+# GRIMÓRIO DAS MAGIAS (v3) — hub de 8 dominios -> disciplina + Marca da Sombra + Folio.
+# So magias nativas Nexus: fonte LIKE 'NEXUS%' (1.666 de 2.252; resto e lixo D&D,
+# fica no banco escondido). Sem DELETE/UPDATE. Tudo leitura.
+# Hub nao carrega magias (so contagem agregada) -> leve. Disciplina carrega ~40.
 # ============================================================
 
-_SQL_CONTAR_MAGIAS = text(
-    "SELECT count(*) FROM public.magias WHERE fonte LIKE 'NEXUS%'"
-)
+# --- dominios (ordem fixa de exibicao + cor) ---
+DOMINIOS = [
+    ("Os Elementos", "#6f93b0"),
+    ("A Carne",      "#b56a62"),
+    ("A Mente",      "#9a82ad"),
+    ("O Véu",        "#6d6f9e"),
+    ("O Curso",      "#4fa89c"),
+    ("Os Pactos",    "#c2a043"),
+    ("A Ordem",      "#97a0a8"),
+    ("O Estranho",   "#8f9c5e"),
+]
+_COR_DOMINIO = dict(DOMINIOS)
 
-_SQL_LISTAR_MAGIAS = text("""
-    SELECT id, nome, nivel_original, mp_custo, escola, descricao,
-           requer_concentracao, componentes, alcance, tipo_dano, familia_magica
-    FROM public.magias
-    WHERE fonte LIKE 'NEXUS%'
-    ORDER BY escola, nivel_original, nome
-""")
+EPIGRAFE_DOMINIO = {
+    "Os Elementos": "A matéria não tem lado. Só obedece a quem insiste mais.",
+    "A Carne":      "O corpo é o primeiro material. E o que menos perdoa.",
+    "A Mente":      "Toda porta para dentro de alguém abre nos dois sentidos.",
+    "O Véu":        "Há o que se vê, e há o resto. Trabalhamos no resto.",
+    "O Curso":      "Tempo, peso, destino: empurre qualquer um e ele empurra de volta.",
+    "Os Pactos":    "Toda força maior atende. Nenhuma atende de graça.",
+    "A Ordem":      "Regra, runa e máquina: obedecem até a letra. Inclusive a errada.",
+    "O Estranho":   "Saberes que não deviam funcionar. E funcionam.",
+}
+
+# familia (nome CRU do banco) -> dominio. Auditado em runtime: 42/42, soma 1.666.
+FAMILIA_DOMINIO = {
+    "Piromancia": "Os Elementos", "Criomancia": "Os Elementos", "Hidromancia": "Os Elementos",
+    "Aeromancia": "Os Elementos", "Geomancia": "Os Elementos", "Electromancia": "Os Elementos",
+    "Acidomancia": "Os Elementos", "Toxicomancia": "Os Elementos", "Fotomancia": "Os Elementos",
+    "Sonomancia": "Os Elementos",
+    "Hemomancia": "A Carne", "Biomancia": "A Carne", "Fitomancia": "A Carne",
+    "Zoomancia": "A Carne", "Metamorfomancia": "A Carne",
+    "Mnemomancia": "A Mente", "Psicomancia": "A Mente", "Emociomancia": "A Mente",
+    "Oniromancia": "A Mente", "Encantomancia": "A Mente",
+    "Umbramancia": "O Véu", "Ilusionismo": "O Véu", "Magia do Veu": "O Véu",
+    "Cronomancia": "O Curso", "Fatomancia": "O Curso", "Gravitomancia": "O Curso",
+    "Dimensiomancia": "O Curso", "Entropiomancia": "O Curso",
+    "Teomancia": "Os Pactos", "Sacromancia": "Os Pactos", "Pactomancia": "Os Pactos",
+    "Magia Ancestral": "Os Pactos", "Necromancia": "Os Pactos", "Divinomancia": "Os Pactos",
+    "Nomomancia": "A Ordem", "Runomancia": "A Ordem", "Artificiomancia": "A Ordem",
+    "Combatomancia": "A Ordem", "Aegimancia": "A Ordem",
+    "Magia Aberrante": "O Estranho", "Magia Feerica": "O Estranho", "Magia Musical": "O Estranho",
+}
+
+# nomes de familia sem acento no banco -> exibicao com acento (WHERE usa o cru).
+EXIBICAO_FAMILIA = {
+    "Magia do Veu": "Magia do Véu",
+    "Magia Feerica": "Magia Feérica",
+}
+
+EPIGRAFES = {
+    "Piromancia": "O fogo não conhece dono. Só combustível.",
+    "Criomancia": "O gelo não mata. Só espera você parar de se mexer.",
+    "Hidromancia": "A água sempre acha o caminho mais baixo. Como tudo que dura.",
+    "Aeromancia": "O vento não toma partido. Só apaga os rastros.",
+    "Geomancia": "A pedra tem paciência. Enterra todo mundo no fim.",
+    "Electromancia": "O raio escolhe o caminho mais curto. Raramente é o seu.",
+    "Acidomancia": "Não corrói o que toca. Corrói o tempo que levaria a apodrecer.",
+    "Toxicomancia": "A dose certa cura. A mesma dose, mais tarde, enterra.",
+    "Fotomancia": "A luz revela tudo. Inclusive o que era melhor não ter visto.",
+    "Sonomancia": "Todo som chega antes de você ver de onde veio.",
+    "Hemomancia": "O sangue paga adiantado. Sempre.",
+    "Biomancia": "Consertar um corpo é decidir o que ele vai ser depois.",
+    "Fitomancia": "A raiz não tem pressa. Vai chegar onde você dorme.",
+    "Zoomancia": "O bicho não mente sobre o que quer. Inveje isso.",
+    "Metamorfomancia": "Mudar de forma é fácil. Lembrar a sua é que custa.",
+    "Mnemomancia": "Apagar uma lembrança deixa a forma do buraco.",
+    "Psicomancia": "Entrar numa mente é simples. A porta tranca por dentro na saída.",
+    "Emociomancia": "Toda emoção plantada cresce com a raiz de outra pessoa.",
+    "Oniromancia": "No sonho não há testemunhas. Por isso ele é honesto.",
+    "Encantomancia": "A ordem mais obedecida é a que parece ideia própria.",
+    "Umbramancia": "Nenhuma luz é inteira. Nós trabalhamos no resto.",
+    "Ilusionismo": "A mentira que todos veem vale mais que a verdade que ninguém olha.",
+    "Magia do Veu": "Há um outro lado. Ele também olha de volta.",
+    "Cronomancia": "O tempo cede quando empurrado. E cobra os juros depois.",
+    "Fatomancia": "Saber o que vem não te livra. Só te deixa esperando.",
+    "Gravitomancia": "Tudo que sobe já combinou a queda. Resta saber sobre quem.",
+    "Dimensiomancia": "A distância mais curta entre dois pontos passa por lugar nenhum.",
+    "Entropiomancia": "Nada se conserta de graça. Algo, em algum lugar, piora.",
+    "Teomancia": "Rezar é pedir. Isto aqui é assinar.",
+    "Sacromancia": "O sagrado não protege. Cobra fidelidade.",
+    "Pactomancia": "Todo pacto é justo. Você é que lê a cláusula tarde demais.",
+    "Magia Ancestral": "Os que vieram antes não se foram. Eles cobram aluguel.",
+    "Necromancia": "Os mortos não voltam. Mas escutam, e obedecem.",
+    "Divinomancia": "Os presságios nunca mentem. Só não explicam.",
+    "Nomomancia": "Uma regra dita com força vira lei. Até alguém gritar mais alto.",
+    "Runomancia": "A palavra gravada não esquece, não dorme e não perdoa.",
+    "Artificiomancia": "A máquina não cansa de obedecer. Nem de errar exatamente igual.",
+    "Combatomancia": "A técnica perfeita ainda precisa de alguém disposto a sangrar.",
+    "Aegimancia": "Todo escudo ensina ao inimigo onde bater mais forte.",
+    "Magia Aberrante": "Algumas portas abrem para dentro de quem bate.",
+    "Magia Feerica": "O favor delas é real. O preço também — e nunca é o combinado.",
+    "Magia Musical": "A canção entra sem bater. E reorganiza os móveis.",
+}
+
+# 8 sigilos (um por dominio), SVG inline witcher-grey, stroke = cor do dominio.
+SIGILOS = {
+"Os Elementos": '<svg viewBox="0 0 40 40"><rect x="11" y="11" width="18" height="18" transform="rotate(45 20 20)" fill="none" stroke="#6f93b0" stroke-width="1.4"/><line x1="20" y1="6" x2="20" y2="34" stroke="#6f93b0" stroke-width="1"/><line x1="6" y1="20" x2="34" y2="20" stroke="#6f93b0" stroke-width="1"/></svg>',
+"A Carne": '<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="12" fill="none" stroke="#b56a62" stroke-width="1.4"/><path d="M20 9 Q26 20 20 31 Q14 20 20 9" fill="none" stroke="#b56a62" stroke-width="1"/></svg>',
+"A Mente": '<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="13" fill="none" stroke="#9a82ad" stroke-width="1"/><circle cx="20" cy="20" r="8" fill="none" stroke="#9a82ad" stroke-width="1"/><circle cx="20" cy="20" r="3" fill="#9a82ad"/></svg>',
+"O Véu": '<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="12" fill="none" stroke="#6d6f9e" stroke-width="1.4"/><path d="M20 8 A12 12 0 0 1 20 32 Z" fill="#6d6f9e" opacity="0.32"/><line x1="20" y1="8" x2="20" y2="32" stroke="#6d6f9e" stroke-width="1"/></svg>',
+"O Curso": '<svg viewBox="0 0 40 40"><path d="M12 9 L28 9 L20 20 L28 31 L12 31 L20 20 Z" fill="none" stroke="#4fa89c" stroke-width="1.4"/><line x1="12" y1="9" x2="28" y2="9" stroke="#4fa89c" stroke-width="1.3"/><line x1="12" y1="31" x2="28" y2="31" stroke="#4fa89c" stroke-width="1.3"/></svg>',
+"Os Pactos": '<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="12" fill="none" stroke="#c2a043" stroke-width="1.4"/><circle cx="20" cy="20" r="6" fill="none" stroke="#c2a043" stroke-width="1"/><line x1="11" y1="29" x2="29" y2="11" stroke="#c2a043" stroke-width="1.2"/></svg>',
+"A Ordem": '<svg viewBox="0 0 40 40"><rect x="9" y="9" width="22" height="22" fill="none" stroke="#97a0a8" stroke-width="1.4"/><line x1="20" y1="9" x2="20" y2="31" stroke="#97a0a8" stroke-width="1"/><line x1="9" y1="20" x2="31" y2="20" stroke="#97a0a8" stroke-width="1"/></svg>',
+"O Estranho": '<svg viewBox="0 0 40 40"><path d="M7 20 Q20 9 33 20 Q20 31 7 20 Z" fill="none" stroke="#8f9c5e" stroke-width="1.4"/><ellipse cx="20" cy="20" rx="2.6" ry="6" fill="#8f9c5e"/></svg>',
+}
+
+# Marca da Sombra: escala propria, FORA das 8 cores de dominio (destoa de proposito).
+COR_CORRUPCAO = {1: "#7e4a48", 2: "#9c3b3b", 3: "#8a1f1f"}  # doente -> coagulo -> sangue
 
 # escola no banco vem sem acento; normaliza so na exibicao (nao mexe no banco).
 _ESCOLA_EXIBICAO = {
@@ -576,6 +679,49 @@ _COR_ESCOLA = {
 }
 
 
+def _slugify(s: str) -> str:
+    base = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+    return base.lower().replace(" ", "-")
+
+
+_FAMILIA_SLUG = {fam: _slugify(fam) for fam in FAMILIA_DOMINIO}
+_SLUG_FAMILIA = {slug: fam for fam, slug in _FAMILIA_SLUG.items()}
+if len(_SLUG_FAMILIA) != len(_FAMILIA_SLUG):  # colisao de slug -> aviso (nao quebra)
+    print("[magias] AVISO: colisao de slug entre familias")
+
+
+def _familia_exibicao(fam: str) -> str:
+    return EXIBICAO_FAMILIA.get(fam, fam)
+
+
+def _romano(n) -> str:
+    return {1: "I", 2: "II", 3: "III"}.get(n, str(n))
+
+
+_SQL_CONTAR_MAGIAS = text(
+    "SELECT count(*) FROM public.magias WHERE fonte LIKE 'NEXUS%'"
+)
+
+# Hub: contagem agregada por familia (n + sombrias). NAO carrega magias.
+_SQL_HUB = text("""
+    SELECT familia_magica AS familia, count(*) AS n,
+           count(*) FILTER (WHERE enhancements->>'anima_sombria' = 'true') AS sombrias
+    FROM public.magias
+    WHERE fonte LIKE 'NEXUS%'
+    GROUP BY familia_magica
+""")
+
+# Disciplina: carrega uma familia so, com os campos do folio + enhancements.
+_SQL_FAMILIA = text("""
+    SELECT id, nome, nivel_original, mp_custo, escola, descricao,
+           requer_concentracao, componentes, alcance, tipo_dano, familia_magica,
+           tempo_conjuracao, duracao, tem_material, material_desc, enhancements
+    FROM public.magias
+    WHERE fonte LIKE 'NEXUS%' AND familia_magica = :familia
+    ORDER BY escola, nivel_original, nome
+""")
+
+
 async def _contar_magias_exibiveis() -> int:
     """Conta so as magias nativas Nexus (fonte LIKE 'NEXUS%'). Filtrado, nao total."""
     async with get_session() as session:
@@ -583,14 +729,48 @@ async def _contar_magias_exibiveis() -> int:
         return result.scalar() or 0
 
 
-async def _buscar_magias_exibiveis() -> list[dict]:
-    """Lista as magias nativas Nexus, ja ordenadas por escola/nivel/nome."""
+async def _buscar_hub_contagens() -> dict:
+    """familia -> {'n', 'sombrias'}. Leve: so agregacao, nenhuma magia carregada."""
     async with get_session() as session:
-        result = await session.execute(_SQL_LISTAR_MAGIAS)
+        result = await session.execute(_SQL_HUB)
+        linhas = result.all()
+    out = {}
+    for r in linhas:
+        mm = r._mapping
+        out[mm["familia"]] = {"n": mm["n"], "sombrias": mm["sombrias"]}
+    return out
+
+
+def _parse_enhancements(raw):
+    """enhancements (jsonb) ja vem dict via SQLAlchemy; guarda contra str/None."""
+    if raw is None:
+        return {}
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+async def _buscar_magias_familia(familia: str) -> list[dict]:
+    """Magias de uma familia (~15-51), com folio + marca da sombra parseados."""
+    async with get_session() as session:
+        result = await session.execute(_SQL_FAMILIA, {"familia": familia})
         linhas = result.all()
     out = []
     for r in linhas:
         m = r._mapping
+        enh = _parse_enhancements(m["enhancements"])
+        sombria = str(enh.get("anima_sombria")).lower() == "true"
+        grau = None
+        if sombria:
+            try:
+                grau = int(enh.get("corrupcao_anima"))
+            except (TypeError, ValueError):
+                grau = 1
+            if grau not in (1, 2, 3):
+                grau = 1
         out.append({
             "id": m["id"],
             "nome": m["nome"] or "?",
@@ -603,6 +783,14 @@ async def _buscar_magias_exibiveis() -> list[dict]:
             "alcance": m["alcance"] or "",
             "tipo_dano": list(m["tipo_dano"]) if m["tipo_dano"] else [],
             "familia": m["familia_magica"] or "",
+            "tempo_conjuracao": m["tempo_conjuracao"] or "",
+            "duracao": m["duracao"] or "",
+            "tem_material": bool(m["tem_material"]),
+            "material_desc": m["material_desc"] or "",
+            "sombria": sombria,
+            "grau": grau,
+            "motivo": (enh.get("motivo_narrativo") or "").strip(),
+            "pot": enh.get("potencializacao"),
         })
     return out
 
@@ -616,7 +804,7 @@ def _card_magia_html(m: dict) -> str:
     nivel_txt = "Truque" if nivel == 0 else f"Nível {nivel}"
     mp = m["mp"]
     dano = " · ".join(m["tipo_dano"]) if m["tipo_dano"] else ""
-    familia = html.escape(m["familia"]) if m["familia"] else ""
+    familia = html.escape(_familia_exibicao(m["familia"])) if m["familia"] else ""
     desc = html.escape((m["descricao"] or "").strip())
 
     meta = [nivel_txt]
@@ -639,75 +827,278 @@ def _card_magia_html(m: dict) -> str:
             '<span style="font-family:\'IM Fell English SC\',serif;font-size:10px;'
             f'letter-spacing:.1em;color:#9a8a5a;margin-left:10px;">{html.escape(dano).upper()}</span>'
         )
+
+    # Marca da Sombra: selo vermelho + custo em prosa (so se anima_sombria).
+    selo_sombra = ""
+    custo_html = ""
+    nome_pr = ""
+    if m.get("sombria"):
+        grau = m.get("grau") or 1
+        ccor = COR_CORRUPCAO.get(grau, COR_CORRUPCAO[1])
+        nome_pr = "padding-right:72px;"
+        selo_sombra = (
+            f'<span style="position:absolute;top:10px;right:12px;font-family:\'IM Fell English SC\',serif;'
+            f'font-size:9px;letter-spacing:.12em;color:{ccor};background:{ccor}1f;'
+            f'border:1px solid {ccor};border-radius:3px;padding:2px 7px;">SOMBRIA {_romano(grau)}</span>'
+        )
+        motivo = m.get("motivo") or ""
+        if motivo:
+            mot = motivo if len(motivo) <= 90 else motivo[:90].rstrip() + "…"
+            custo_html = (
+                f'<div style="font-family:\'Spectral\',Georgia,serif;font-style:italic;font-size:11.5px;'
+                f'color:{ccor};margin-top:8px;line-height:1.4;">{html.escape(mot)}</div>'
+            )
     familia_html = (
         f'<div style="font-family:\'Spectral\',Georgia,serif;font-style:italic;font-size:11px;'
         f'color:#7a6f55;margin-top:6px;">{familia}</div>' if familia else ""
     )
     return (
-        '<div style="position:relative;display:block;overflow:hidden;'
+        '<div style="position:relative;display:block;overflow:hidden;height:100%;'
         f'border:1px solid {cor};border-left:4px solid {cor};border-radius:6px;'
-        'padding:14px 16px 15px;background:rgba(12,14,22,.55);">'
-        f'<div style="font-family:\'IM Fell English\',serif;font-size:18px;color:#f3e7c4;line-height:1.15;">{nome}</div>'
+        'padding:14px 16px 15px;background:rgba(12,14,22,.55);box-sizing:border-box;">'
+        f'{selo_sombra}'
+        f'<div style="font-family:\'IM Fell English\',serif;font-size:18px;color:#f3e7c4;line-height:1.15;{nome_pr}">{nome}</div>'
         f'<div style="margin-top:4px;">{selos}</div>'
         f'<div style="font-family:\'Spectral\',Georgia,serif;font-size:12px;color:#c0a36a;margin-top:6px;">{meta_txt}</div>'
         f'<div style="font-family:\'Spectral\',Georgia,serif;font-size:12.5px;color:#a99a78;line-height:1.5;margin-top:8px;">{desc}</div>'
+        f'{custo_html}'
         f'{familia_html}'
         '</div>'
     )
 
 
-def _grade_magias_html(lista: list[dict]) -> str:
-    if not lista:
-        return ('<div style="text-align:center;font-style:italic;color:#7a6f55;'
-                'padding:50px 0;">Nenhuma magia encontrada.</div>')
-    return '<div class="gp-grid">' + "".join(_card_magia_html(m) for m in lista) + '</div>'
+def _folio_html(m: dict) -> str:
+    """Ficha completa de uma magia (o folio). Reusa a pele vitral (inline)."""
+    escola_raw = m["escola"]
+    cor = _COR_ESCOLA.get(escola_raw, "#b8902f")
+    escola_txt = html.escape(_ESCOLA_EXIBICAO.get(escola_raw, escola_raw) or "—")
+    fam_raw = m["familia"]
+    fam_txt = html.escape(_familia_exibicao(fam_raw))
+    epig = EPIGRAFES.get(fam_raw, "")
+    nome = html.escape(m["nome"])
+    p = []
+    # 1) nome + disciplina + epigrafe
+    p.append(f'<div style="font-family:\'IM Fell English\',serif;font-size:24px;color:#f3e7c4;line-height:1.1;">{nome}</div>')
+    p.append(f'<div style="font-family:\'IM Fell English SC\',serif;font-size:11px;letter-spacing:.14em;color:{cor};margin-top:4px;">{fam_txt.upper()}</div>')
+    if epig:
+        p.append(f'<div style="font-family:\'Spectral\',Georgia,serif;font-style:italic;font-size:12.5px;color:#8a7f68;margin-top:6px;">{html.escape(epig)}</div>')
+    # 2) marca da sombra (completa)
+    if m.get("sombria"):
+        grau = m.get("grau") or 1
+        ccor = COR_CORRUPCAO.get(grau, COR_CORRUPCAO[1])
+        motivo = html.escape(m.get("motivo") or "")
+        p.append(
+            f'<div style="margin-top:12px;padding:10px 12px;border:1px solid {ccor};border-radius:5px;background:{ccor}1f;">'
+            f'<span style="font-family:\'IM Fell English SC\',serif;font-size:10px;letter-spacing:.12em;color:{ccor};">SOMBRIA {_romano(grau)}</span>'
+            + (f'<div style="font-family:\'Spectral\',Georgia,serif;font-style:italic;font-size:13px;color:{ccor};margin-top:6px;line-height:1.5;">{motivo}</div>' if motivo else "")
+            + '</div>'
+        )
+    # 3) linha tecnica
+    nivel = m["nivel"]
+    tec = [escola_txt, "Truque" if nivel == 0 else f"Nível {nivel}"]
+    if m["mp"] is not None:
+        tec.append(f"{m['mp']} MP")
+    if m["componentes"]:
+        tec.append(" · ".join(m["componentes"]))
+    if m["concentracao"]:
+        tec.append("Concentração")
+    p.append(f'<div style="font-family:\'Spectral\',Georgia,serif;font-size:12.5px;color:#c0a36a;margin-top:12px;">{html.escape(" · ".join(tec))}</div>')
+    # 4) conjuracao
+    conj = []
+    if m["tempo_conjuracao"]:
+        conj.append("Conjuração: " + m["tempo_conjuracao"])
+    if m["alcance"]:
+        conj.append("Alcance: " + m["alcance"])
+    if m["duracao"]:
+        conj.append("Duração: " + m["duracao"])
+    if conj:
+        p.append(f'<div style="font-family:\'Spectral\',Georgia,serif;font-size:12px;color:#9a8a5a;margin-top:6px;">{html.escape(" · ".join(conj))}</div>')
+    # 5) componente material (so se houver)
+    if m["tem_material"] and m["material_desc"]:
+        p.append(f'<div style="font-family:\'Spectral\',Georgia,serif;font-size:12px;color:#9a8a5a;margin-top:6px;"><b>Material:</b> {html.escape(m["material_desc"])}</div>')
+    # 6) descricao completa
+    p.append(f'<div style="font-family:\'Spectral\',Georgia,serif;font-size:13px;color:#cdbfa6;line-height:1.6;margin-top:12px;">{html.escape(m["descricao"] or "")}</div>')
+    # 7) potencializacao (3 formatos: objeto / texto / ausente)
+    pot = m.get("pot")
+    pot_txt = ""
+    if isinstance(pot, dict):
+        efeito = pot.get("efeito")
+        custo = pot.get("custo_extra_mp")
+        partes = []
+        if efeito:
+            partes.append(html.escape(str(efeito)))
+        if custo is not None:
+            partes.append(f"(+{html.escape(str(custo))} MP)")
+        pot_txt = " ".join(partes)
+    elif isinstance(pot, str) and pot.strip():
+        pot_txt = html.escape(pot.strip())
+    if pot_txt:
+        p.append(
+            '<div style="margin-top:12px;border-top:1px solid rgba(201,162,58,.3);padding-top:10px;">'
+            '<div style="font-family:\'IM Fell English SC\',serif;font-size:10px;letter-spacing:.12em;color:#c9a23a;">EM NÍVEL SUPERIOR</div>'
+            f'<div style="font-family:\'Spectral\',Georgia,serif;font-size:12.5px;color:#a99a78;line-height:1.5;margin-top:4px;">{pot_txt}</div>'
+            '</div>'
+        )
+    return '<div style="width:100%;">' + "".join(p) + '</div>'
+
+
+def _hub_html(contagens: dict) -> str:
+    """A parede do grimorio: 8 dominios, cada um com seus selos de disciplina."""
+    blocos = []
+    for dom, cor in DOMINIOS:
+        familias = sorted(
+            [f for f in FAMILIA_DOMINIO if FAMILIA_DOMINIO[f] == dom],
+            key=lambda f: _familia_exibicao(f),
+        )
+        sig = SIGILOS.get(dom, "").replace("<svg ", '<svg width="30" height="30" ', 1)
+        selos = []
+        for fam in familias:
+            c = contagens.get(fam, {"n": 0, "sombrias": 0})
+            slug = _FAMILIA_SLUG[fam]
+            nome = html.escape(_familia_exibicao(fam))
+            sig_selo = SIGILOS.get(dom, "").replace("<svg ", '<svg width="32" height="32" ', 1)
+            somb = c["sombrias"]
+            somb_html = (
+                f'<div style="font-family:\'IM Fell English SC\',serif;font-size:10px;letter-spacing:.06em;'
+                f'color:{COR_CORRUPCAO[3]};margin-top:6px;">&#9670; {somb} sombrias</div>'
+                if somb > 0 else ""
+            )
+            selos.append(
+                f'<a href="/oficina/magias/{slug}" style="display:block;text-decoration:none;'
+                f'border:1px solid {cor};border-left:4px solid {cor};border-radius:6px;'
+                f'padding:14px 16px;background:rgba(12,14,22,.55);">'
+                f'<div style="color:{cor};">{sig_selo}</div>'
+                f'<div style="font-family:\'IM Fell English\',serif;font-size:18px;color:#f3e7c4;margin-top:8px;line-height:1.1;">{nome}</div>'
+                f'<div style="font-family:\'IM Fell English SC\',serif;font-size:11px;letter-spacing:.1em;color:{cor};margin-top:4px;">{c["n"]} magias</div>'
+                f'{somb_html}'
+                '</a>'
+            )
+        grade = (
+            '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;">'
+            + "".join(selos) + '</div>'
+        )
+        epig = html.escape(EPIGRAFE_DOMINIO.get(dom, ""))
+        blocos.append(
+            '<div style="margin-top:28px;">'
+            '<div style="display:flex;align-items:center;gap:12px;">'
+            f'<div style="color:{cor};">{sig}</div>'
+            f'<div style="font-family:\'IM Fell English\',serif;font-size:22px;color:{cor};">{html.escape(dom)}</div>'
+            '</div>'
+            f'<div style="font-family:\'Spectral\',Georgia,serif;font-style:italic;font-size:12.5px;color:#8a7f68;margin:4px 0 12px 42px;">{epig}</div>'
+            f'{grade}'
+            '</div>'
+        )
+    return "".join(blocos)
 
 
 @ui.page("/oficina/magias")
 async def pagina_magias():
-    """Catalogo das magias nativas Nexus, agrupado por escola + filtro por nivel."""
+    """Hub do grimorio: 8 dominios -> selos de disciplina. Nao carrega magias."""
     await aguardar_conexao_websocket("Abrindo o grimório...")
     ui.add_head_html(CSS_VITRAL)
     barra_nav("magias")
 
-    todas = await _buscar_magias_exibiveis()
-    total = len(todas)
-    estado = {"escola": "todas", "nivel": "todos", "busca": ""}
-    grade_ref = {"el": None}
+    contagens = await _buscar_hub_contagens()
+    faltando = sorted(set(contagens) - set(FAMILIA_DOMINIO))
+    if faltando:
+        print(f"[magias] AVISO: familias sem dominio (somem do hub): {faltando}")
+    total = sum(c["n"] for c in contagens.values())
+
+    with ui.column().classes("gp-screen w-full min-h-screen p-0 gap-0"):
+        with ui.column().classes("gp-inner w-full gap-4"):
+            with ui.row().classes("w-full items-center gap-3"):
+                ui.button(icon="arrow_back",
+                          on_click=lambda: ui.navigate.to("/oficina")
+                          ).props("flat round dense color=amber-2")
+                with ui.column().classes("gap-0"):
+                    ui.label("Grimório do Alderyn").classes("bestiario-title").style("font-size:30px;")
+                    ui.label(f"{total} magias · 8 domínios · 42 disciplinas").classes(
+                        "bestiario-body").style("font-style:italic;font-size:13px;")
+            ui.html('<div class="gp-rule"></div>')
+            ui.html(_hub_html(contagens)).classes("w-full")
+
+
+@ui.page("/oficina/magias/{slug}")
+async def pagina_magias_disciplina(slug: str):
+    """Disciplina: as magias de uma familia. Reusa grid + filtros; abre folio no clique."""
+    await aguardar_conexao_websocket("Folheando o grimório...")
+    ui.add_head_html(CSS_VITRAL)
+    barra_nav("magias")
+
+    familia = _SLUG_FAMILIA.get(slug)
+    if not familia:
+        ui.navigate.to("/oficina/magias")
+        return
+
+    dom = FAMILIA_DOMINIO.get(familia, "")
+    cor = _COR_DOMINIO.get(dom, "#b8902f")
+    fam_txt = _familia_exibicao(familia)
+    epig = EPIGRAFES.get(familia, "")
+
+    magias = await _buscar_magias_familia(familia)
+    total = len(magias)
+    estado = {"escola": "todas", "nivel": "todos", "busca": "", "sombra": False}
+    grid_ref = {"el": None}
     contador_ref = {"el": None}
 
+    folio = ui.dialog()
+
+    def abrir_folio(m):
+        folio.clear()
+        with folio, ui.card().style(
+            "background:#10131f;border:1px solid #c9a23a;border-radius:8px;"
+            "max-width:600px;width:92vw;padding:20px 22px;"
+        ):
+            ui.html(_folio_html(m)).classes("w-full")
+            ui.button("Fechar", on_click=folio.close).props("flat color=amber-2").classes("self-end")
+        folio.open()
+
     def filtrar() -> list[dict]:
-        out = todas
+        out = magias
         if estado["escola"] != "todas":
             out = [m for m in out if m["escola"] == estado["escola"]]
         if estado["nivel"] != "todos":
             nv = int(estado["nivel"])
             out = [m for m in out if m["nivel"] == nv]
+        if estado["sombra"]:
+            out = [m for m in out if m.get("sombria")]
         if estado["busca"]:
             q = estado["busca"].lower()
             out = [m for m in out if q in m["nome"].lower()]
         return out
 
-    def re_render():
+    def render_grid():
+        el = grid_ref["el"]
+        if el is None:
+            return
+        el.clear()
         filtrados = filtrar()
-        if grade_ref["el"]:
-            grade_ref["el"].set_content(_grade_magias_html(filtrados))
+        with el:
+            if not filtrados:
+                ui.html('<div style="text-align:center;font-style:italic;color:#7a6f55;'
+                        'padding:50px 0;">Nenhuma magia encontrada.</div>')
+            for m in filtrados:
+                card = ui.html(_card_magia_html(m)).style("cursor:pointer")
+                card.on("click", lambda e, mm=m: abrir_folio(mm))
         if contador_ref["el"]:
             contador_ref["el"].set_text(f"{len(filtrados)} de {total} magias")
 
     def set_escola(v):
         estado["escola"] = v
-        re_render()
+        render_grid()
 
     def set_nivel(v):
         estado["nivel"] = v
-        re_render()
+        render_grid()
 
     def set_busca(e):
         estado["busca"] = (e.value or "").strip()
-        re_render()
+        render_grid()
 
-    # escolas na ordem por contagem (igual a SPEC); label com acento via _ESCOLA_EXIBICAO.
+    def set_sombra(e):
+        estado["sombra"] = bool(e.value)
+        render_grid()
+
     escolas_opts = {"todas": "Todas as escolas"}
     for esc in ["Transmutacao", "Encantamento", "Conjuracao", "Evocacao",
                 "Necromancia", "Abjuracao", "Divinacao", "Ilusao"]:
@@ -720,23 +1111,32 @@ async def pagina_magias():
         with ui.column().classes("gp-inner w-full gap-4"):
             with ui.row().classes("w-full items-center gap-3"):
                 ui.button(icon="arrow_back",
-                          on_click=lambda: ui.navigate.to("/oficina")
+                          on_click=lambda: ui.navigate.to("/oficina/magias")
                           ).props("flat round dense color=amber-2")
                 with ui.column().classes("gap-0"):
-                    ui.label("Magias do Alderyn").classes("bestiario-title").style("font-size:30px;")
+                    ui.label(fam_txt).classes("bestiario-title").style(f"font-size:30px;color:{cor};")
                     contador_ref["el"] = ui.label(f"{total} de {total} magias").classes(
                         "bestiario-body").style("font-style:italic;font-size:13px;")
+            if epig:
+                ui.html('<div style="font-family:\'Spectral\',Georgia,serif;font-style:italic;'
+                        f'font-size:13px;color:#8a7f68;">{html.escape(epig)}</div>')
             ui.html('<div class="gp-rule"></div>')
 
             with ui.row().classes("gp-filtros w-full items-center gap-3 flex-wrap").style("padding:12px 14px;"):
                 ui.input(placeholder="Buscar por nome...", on_change=set_busca
-                         ).props("dense outlined dark clearable").style("min-width:240px;")
+                         ).props("dense outlined dark clearable").style("min-width:220px;")
                 ui.select(escolas_opts, value="todas", on_change=lambda e: set_escola(e.value)
-                          ).props("dense outlined dark").style("min-width:190px;")
+                          ).props("dense outlined dark").style("min-width:180px;")
                 ui.select(niveis_opts, value="todos", on_change=lambda e: set_nivel(e.value)
-                          ).props("dense outlined dark").style("min-width:160px;")
+                          ).props("dense outlined dark").style("min-width:150px;")
+                ui.switch("Só as que cobram a ânima", on_change=set_sombra
+                          ).props("color=red-5").style("color:#b0a48a;")
 
-            grade_ref["el"] = ui.html(_grade_magias_html(todas)).classes("w-full")
+            grid_ref["el"] = ui.element("div").style(
+                "display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));"
+                "gap:14px;width:100%;align-items:stretch;"
+            )
+            render_grid()
 
 
 @ui.page("/oficina/historias")

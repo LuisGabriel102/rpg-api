@@ -132,3 +132,40 @@ def barra_nav(ativo: str = "") -> None:
     html = (f'<div class="cat-nav">{icone}{links}<span style="flex:1"></span>'
             f'<a class="cat-enter" href="/jogar">entrar no mundo</a></div>')
     ui.html(html).classes("w-full sticky top-0 z-50")
+
+
+def barra_nav_alderyn(pagina_atual: str) -> None:
+    """Barra de navegacao fina no topo das paginas do Alderyn (Versao A: so navega).
+
+    pagina_atual: 'oficina' | 'jogo' | 'oraculo' -> marca qual link fica destacado.
+    Versao A: cada link so chama ui.navigate.to. Nada de dado viaja junto.
+    """
+    destinos = [
+        ("oficina", "Oficina", "/oficina"),
+        ("jogo",    "Jogo",    "/jogar"),
+        ("oraculo", "Oráculo", "/oraculo"),
+    ]
+    with ui.row().style(
+        "width:100%; gap:20px; align-items:center; "
+        "padding:8px 18px; margin:0; "
+        "background:rgba(18,18,20,0.94); "
+        "border-bottom:1px solid rgba(255,255,255,0.08); "
+        "position:sticky; top:0; z-index:1000;"
+    ):
+        for chave, rotulo, rota in destinos:
+            ativo = (chave == pagina_atual)
+            cor = "#e9e6dd" if ativo else "rgba(233,230,221,0.50)"
+            peso = "600" if ativo else "400"
+            base = (
+                f"color:{cor}; font-weight:{peso}; font-size:15px; "
+                "padding:2px 0; letter-spacing:0.3px;"
+            )
+            if ativo:
+                ui.label(rotulo).style(
+                    base + " border-bottom:2px solid #e9e6dd; cursor:default;"
+                )
+            else:
+                lk = ui.label(rotulo).style(
+                    base + " border-bottom:2px solid transparent; cursor:pointer;"
+                )
+                lk.on("click", lambda r=rota: ui.navigate.to(r))

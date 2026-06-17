@@ -26,17 +26,19 @@ MODO_MOCK (no topo): True = prosa FALSA, custo zero, valida a casca; False =
 Opus 4.8 real (paga), com prompt caching ligado.
 """
 
+import asyncio
 import html
 import json
 import random
 import re
+import time
 import traceback
 from pathlib import Path
 
-from nicegui import ui, run
-from anthropic import Anthropic
+from nicegui import ui
+from anthropic import AsyncAnthropic
 from cronista_prompt import CRONISTA_SYSTEM_PROMPT
-from ui_helpers import aguardar_conexao_websocket
+from ui_helpers import aguardar_conexao_websocket, barra_nav_alderyn
 
 # ---------------------------------------------------------------------------
 # Tier 4 - memoria do narrador. O /jogar deixa de ser stateless: cada turno e
@@ -302,37 +304,17 @@ def _cronista_mock(historico: list[dict]) -> str:
     return f"{prosa}\n\n<estado>\n{corpo}\n</estado>"
 
 
-_client = None
+_aclient = None
 
 
-def _get_client() -> Anthropic:
-    """Instancia o cliente Anthropic so quando o Opus real for usado. Assim o
-    MODO_MOCK roda sem nenhuma credencial - o ponto do modo de teste."""
-    global _client
-    if _client is None:
-        _client = Anthropic()
-    return _client
-
-
-def _chamar_cronista(historico: list[dict], modelo: str = "claude-opus-4-8") -> str:
-    if MODO_MOCK:
-        return _cronista_mock(historico)
-    # Opus real. O system vai como bloco com cache_control: o prefixo (prompt
-    # do Cronista, estavel e byte-identico) fica em cache e os turnos seguintes
-    # pagam uma fracao. Sampling continua omitido de proposito (Opus 4.8 rejeita).
-    resp = _get_client().messages.create(
-        model=modelo,
-        max_tokens=800,
-        system=[
-            {
-                "type": "text",
-                "text": CRONISTA_SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=historico,
-    )
-    return resp.content[0].text
+def _get_aclient() -> AsyncAnthropic:
+    """Cliente ASYNC (lazy), usado SO pro streaming do Cronista (messages.stream
+    roda no event loop do NiceGUI). Lazy de proposito: o MODO_MOCK nao instancia
+    nada, entao roda sem credencial."""
+    global _aclient
+    if _aclient is None:
+        _aclient = AsyncAnthropic()
+    return _aclient
 
 
 # ---------------------------------------------------------------------------
@@ -415,6 +397,28 @@ def _prosa_para_html(texto: str) -> str:
     esc = html.escape(texto.strip())
     paras = [p.replace("\n", " ").strip() for p in re.split(r"\n\s*\n", esc)]
     return "</p><p>".join(p for p in paras if p)
+
+
+# Marcador do bloco de estado (oculto). O stream pinga so a parte VISIVEL: corta no
+# inicio de "<estado" assim que ele aparece - e, enquanto o marcador chega pedaco a
+# pedaco, esconde tambem o prefixo parcial no fim ("<e", "<est"...). Assim a tag
+# crua NUNCA pinga na tela. No fim, _separar_estado (que usa "<estado>") faz o corte
+# canonico pro processamento - este aqui e so pra exibicao ao vivo.
+_MARCADOR_ESTADO = "<estado"
+
+
+def parte_visivel(acc: str) -> str:
+    """So a narracao, sem o bloco de estado. Corta no marcador completo ou no
+    prefixo parcial que esteja chegando no fim do texto acumulado."""
+    low = acc.lower()
+    idx = low.find(_MARCADOR_ESTADO)
+    if idx != -1:
+        return acc[:idx]
+    # marcador a meio caminho no fim do acumulado: esconde o prefixo parcial
+    for k in range(len(_MARCADOR_ESTADO) - 1, 0, -1):
+        if low.endswith(_MARCADOR_ESTADO[:k]):
+            return acc[: len(acc) - k]
+    return acc
 
 
 # ============================================================================
@@ -1031,6 +1035,8 @@ _CONFIG_JS = """
 async def pagina_jogar():
     await aguardar_conexao_websocket("Abrindo a folha...")
 
+    barra_nav_alderyn("jogo")
+
     historico: list[dict] = []
     ocupado = False   # trava de turno: barra acao concorrente durante o await do Cronista
     geracao = 0       # token de geracao: recomecar incrementa e invalida narrar em voo
@@ -1072,6 +1078,40 @@ async def pagina_jogar():
         opts = "{fiador:true}" if fiador else ("{eco:true}" if eco else "{}")
         corpo = _prosa_para_html(texto) if not eco else html.escape(texto.strip())
         _js(f"window.Jogar && window.Jogar.arrive({json.dumps(corpo)}, {opts})")
+
+    # ---- streaming: pinga a narracao num unico bloco que cresce. Espelha o
+    # window.Jogar.arrive (cria .glow.show em #corpo, faz fade dos anteriores,
+    # rola pra cena), mas atualizavel via id '__stream'. NAO toca o jogar.js.
+    def _stream_iniciar() -> None:
+        _js(
+            "(function(){var n=document.getElementById('corpo');if(!n)return;"
+            "n.querySelectorAll('.glow:not(.faded)').forEach(function(s){s.classList.add('faded');});"
+            "var o=document.createElement('div');o.className='glow show';o.id='__stream';"
+            "o.innerHTML='<p></p>';n.appendChild(o);"
+            "o.scrollIntoView({behavior:'smooth',block:'center'});})();"
+        )
+
+    def _stream_update(prosa_visivel: str) -> None:
+        inner = "<p>" + _prosa_para_html(prosa_visivel) + "</p>"
+        _js(
+            "(function(){var o=document.getElementById('__stream');if(!o)return;"
+            f"o.innerHTML={json.dumps(inner)};"
+            "o.scrollIntoView({behavior:'auto',block:'center'});})();"
+        )
+
+    def _stream_finalizar() -> None:
+        # tira o id: o bloco vira uma narracao concluida comum (.glow.show), igual
+        # ao que o arrive deixaria. O proximo turno cria um novo '__stream'.
+        _js(
+            "(function(){var o=document.getElementById('__stream');if(!o)return;"
+            "o.removeAttribute('id');o.scrollIntoView({behavior:'smooth',block:'center'});})();"
+        )
+
+    def _stream_abortar() -> None:
+        _js(
+            "(function(){var o=document.getElementById('__stream');"
+            "if(o)o.remove();})();"
+        )
 
     def _pondera(on: bool) -> None:
         acao = "remove" if on else "add"
@@ -1122,10 +1162,59 @@ async def pagina_jogar():
 
         _pondera(True)
         try:
-            resposta = await run.io_bound(_chamar_cronista, msgs, modelo_atual)
-            # recomecou durante o await: abandona sem escrever prosa fantasma nem
-            # tocar o historico (que o recomecar ja zerou).
+            # STREAMING: a narracao pinga num bloco que cresce em #corpo. So a
+            # camada de EXIBICAO mudou - o processamento pos-resposta (estado,
+            # canon, memoria) continua identico, alimentado pelo texto completo
+            # acumulado no fim do stream.
+            _stream_iniciar()
+            resposta = ""
+            if MODO_MOCK:
+                # mock: gera a resposta inteira (custo zero) e pinga em pedacos,
+                # pra validar o "pingando" sem gastar API. Mesmo caminho de display.
+                completa = _cronista_mock(msgs)
+                passo = 18
+                for i in range(0, len(completa), passo):
+                    if minha_geracao != geracao:
+                        _stream_abortar()
+                        return
+                    resposta = completa[: i + passo]
+                    _stream_update(parte_visivel(resposta))
+                    await asyncio.sleep(0.035)
+                resposta = completa
+            else:
+                # Opus real via stream. MESMO modelo/max_tokens/system (com
+                # cache_control) de antes; SEM temperature/top_p/top_k (dao 400).
+                ultimo = 0.0  # throttle do update (~60ms) pra nao martelar o browser
+                async with _get_aclient().messages.stream(
+                    model=modelo_atual,
+                    max_tokens=800,
+                    system=[
+                        {
+                            "type": "text",
+                            "text": CRONISTA_SYSTEM_PROMPT,
+                            "cache_control": {"type": "ephemeral"},
+                        }
+                    ],
+                    messages=msgs,
+                ) as stream:
+                    async for delta in stream.text_stream:
+                        # recomecou no meio do stream: para de pingar e descarta.
+                        if minha_geracao != geracao:
+                            _stream_abortar()
+                            return
+                        resposta += delta
+                        agora = time.monotonic()
+                        if agora - ultimo >= 0.06:
+                            ultimo = agora
+                            _stream_update(parte_visivel(resposta))
+                    final = await stream.get_final_message()
+                    resposta = "".join(
+                        b.text for b in final.content
+                        if getattr(b, "type", None) == "text"
+                    )
+            # stream terminou. Se recomecou bem no fim, abandona.
             if minha_geracao != geracao:
+                _stream_abortar()
                 return
             # loga o que o Cronista devolveu (criterio #3 do flip MODO_MOCK=False).
             print("[memoria] === resposta do Cronista (Opus) ===")
@@ -1142,7 +1231,11 @@ async def pagina_jogar():
             # efemero, entao "adentrar" repetido nao deixa rastro no banco.
             if mostrar_acao:
                 await _gravar_turno_safe(sessao_atual, "narrador", prosa)
-            _arrive(prosa)
+            # o stream ja exibiu a prosa pingando; aqui so garantimos o texto final
+            # exato (sem o <estado>) e encerramos o bloco. A exibicao da narracao
+            # acontece UNICA E EXCLUSIVAMENTE por estas duas chamadas.
+            _stream_update(prosa)
+            _stream_finalizar()
             _js(f"window.Jogar && window.Jogar.setPressao({pressao_atual})")
             # a cena so troca de pele se o Cronista pediu uma atmosfera valida;
             # senao 'atmosfera' vem None e a pele atual se mantem.
@@ -1152,7 +1245,11 @@ async def pagina_jogar():
             # recomecou durante o await: nao contamina o historico ja zerado nem
             # mostra aviso de uma cena que nao existe mais.
             if minha_geracao != geracao:
+                _stream_abortar()
                 return
+            # erro no meio do stream (rede/API): descarta o bloco parcial, mostra
+            # aviso sobrio e solta a trava (no finally). Nao derruba a pagina.
+            _stream_abortar()
             # a chamada falhou: o turno do jogador ficou sem resposta. Removemos
             # ele do historico, senao o proximo turno manda dois "user" seguidos
             # e a API rejeita (mensagens precisam alternar) - travaria o jogo.

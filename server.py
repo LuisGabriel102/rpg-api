@@ -44,6 +44,7 @@ app.add_middleware(BasicAuthMiddleware)
 # ---------------------------------------------------------------------------
 import oficina_app
 import jogo  # noqa: F401 — registra @ui.page("/jogar")
+import oraculo  # noqa: F401 — registra @ui.page("/oraculo")
 
 # ---------------------------------------------------------------------------
 # 4. Montar os endpoints JSON da Oficina no app.
