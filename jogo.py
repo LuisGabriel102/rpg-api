@@ -314,14 +314,14 @@ def _get_client() -> Anthropic:
     return _client
 
 
-def _chamar_cronista(historico: list[dict]) -> str:
+def _chamar_cronista(historico: list[dict], modelo: str = "claude-opus-4-8") -> str:
     if MODO_MOCK:
         return _cronista_mock(historico)
     # Opus real. O system vai como bloco com cache_control: o prefixo (prompt
     # do Cronista, estavel e byte-identico) fica em cache e os turnos seguintes
     # pagam uma fracao. Sampling continua omitido de proposito (Opus 4.8 rejeita).
     resp = _get_client().messages.create(
-        model="claude-opus-4-8",
+        model=modelo,
         max_tokens=800,
         system=[
             {
@@ -514,6 +514,10 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
   white-space:nowrap; opacity:.65; transition:opacity .3s ease, color .3s ease; }
 .head .selar:hover{ opacity:1; color:var(--brasa); }
 .head .sep{ color:var(--regua2); font-size:11px; opacity:.6; }
+.head .engr{ font-family:"IM Fell English",serif; font-size:15px; line-height:1;
+  color:var(--osso2); background:none; border:none; padding:0; cursor:pointer;
+  white-space:nowrap; opacity:.65; transition:opacity .3s ease, color .3s ease; }
+.head .engr:hover{ opacity:1; color:var(--brasa); }
 
 /* marginalia: HOJE so a Pressao Emocional (0-10). Stats/Tensao ficam pro combate. */
 .marg{ display:flex; align-items:center; justify-content:flex-end; gap:14px; flex-wrap:wrap;
@@ -616,6 +620,83 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
   text-transform:lowercase; color:var(--osso2); opacity:.6;
   border:1px dashed rgba(140,129,103,.5); border-radius:2px; padding:.2rem .55rem; background:rgba(14,11,8,.5); }
 
+/* ===========================================================================
+   PAINEL DE CONFIGURACOES (overlay) + leitura (tamanho do texto, modo foco).
+   Casca CSS/JS pura, no mesmo registro da Gravura. Sem componentes ui.* novos.
+   =========================================================================== */
+.config-overlay{ position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center;
+  background:rgba(6,5,4,.72); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); padding:20px; }
+.config-box{ width:100%; max-width:520px; max-height:86vh; overflow-y:auto;
+  background:#1b1712; border:1px solid var(--regua2);
+  box-shadow:0 30px 90px -30px rgba(0,0,0,.85), inset 0 0 0 1px rgba(0,0,0,.4); padding:26px 28px; }
+.config-titulo{ font-family:"IM Fell English",serif !important; font-size:22px; color:var(--osso);
+  margin:0 0 18px; letter-spacing:.04em; }
+.config-sec{ margin-bottom:22px; }
+.config-sub{ font-family:"IM Fell English SC",serif !important; font-size:12px; letter-spacing:.18em;
+  text-transform:lowercase; color:var(--osso2); margin:0 0 12px; padding-bottom:6px; border-bottom:1px solid var(--regua); }
+
+/* cards de modelo (seletor de narracao) */
+.modelo-cards{ display:flex; flex-direction:column; gap:9px; }
+.mcard{ position:relative; display:block; width:100%; text-align:left; cursor:pointer;
+  background:rgba(0,0,0,.22); border:1px solid var(--regua); padding:11px 34px 11px 13px;
+  transition:border-color .25s ease, background .25s ease; }
+.mcard:hover{ border-color:var(--osso2); }
+.mcard.ativo{ border-color:var(--brasa); background:rgba(198,122,51,.08); }
+.mcard-top{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
+.mcard-nome{ font-family:"IM Fell English",serif !important; font-size:16px; color:var(--osso); }
+.mcard-custo{ font-family:"IM Fell English SC",serif !important; font-size:10.5px; letter-spacing:.1em;
+  text-transform:lowercase; color:var(--osso2); }
+.mcard-desc{ display:block; margin-top:4px; font-family:"Spectral",Georgia,serif !important;
+  font-size:13px; color:var(--leitura); opacity:.78; line-height:1.45; }
+.mcard-check{ position:absolute; top:10px; right:12px; color:var(--brasa); font-size:14px; opacity:0; transition:opacity .2s ease; }
+.mcard.ativo .mcard-check{ opacity:1; }
+
+/* linha generica: rotulo a esquerda, controle a direita */
+.config-linha{ display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:12px; }
+.config-rotulo{ font-family:"Spectral",Georgia,serif !important; font-size:14px; color:var(--leitura); opacity:.85; }
+
+/* tamanho do texto: A- A A+ */
+.txt-tam{ display:flex; gap:6px; }
+.txt-tam .tbtn{ font-family:"IM Fell English",serif !important; color:var(--osso2);
+  background:rgba(0,0,0,.22); border:1px solid var(--regua); cursor:pointer; padding:4px 11px; min-width:34px;
+  transition:border-color .2s ease, color .2s ease, background .2s ease; }
+.txt-tam .tbtn:nth-child(1){ font-size:12px; }
+.txt-tam .tbtn:nth-child(2){ font-size:15px; }
+.txt-tam .tbtn:nth-child(3){ font-size:18px; }
+.txt-tam .tbtn:hover{ border-color:var(--osso2); color:var(--osso); }
+.txt-tam .tbtn.ativo{ border-color:var(--brasa); color:var(--osso); background:rgba(198,122,51,.1); }
+
+/* toggle do modo foco */
+.foco-toggle{ font-family:"IM Fell English SC",serif !important; letter-spacing:.1em; text-transform:lowercase;
+  font-size:12px; color:var(--osso2); background:rgba(0,0,0,.22); border:1px solid var(--regua); cursor:pointer;
+  padding:5px 14px; transition:border-color .2s ease, color .2s ease, background .2s ease; }
+.foco-toggle:hover{ border-color:var(--osso2); color:var(--osso); }
+.foco-toggle.on{ border-color:var(--brasa); color:var(--osso); background:rgba(198,122,51,.1); }
+
+/* botao Fechar do painel */
+.config-fechar{ display:block; width:100%; margin-top:6px; font-family:"IM Fell English SC",serif !important;
+  letter-spacing:.18em; text-transform:lowercase; font-size:.8rem; color:var(--osso);
+  background:transparent; border:1px solid var(--regua2); cursor:pointer; padding:.6rem; transition:all .3s ease; }
+.config-fechar:hover{ border-color:var(--brasa); color:#f0e6d2; background:rgba(198,122,51,.1); }
+
+/* TAMANHO DO TEXTO: 3 niveis fixos aplicados ao container da narracao (#corpo).
+   A classe vive no <body> (ancestral estavel), entao vence o clamp do .corpo. */
+body.txt-nivel-0 .corpo{ font-size:16px; }
+body.txt-nivel-1 .corpo{ font-size:19px; }
+body.txt-nivel-2 .corpo{ font-size:23px; line-height:1.8; }
+
+/* MODO FOCO: esconde o cromo (header, marginalia, estampa, selo), deixa narracao + input.
+   A moldura da folha tambem some pra leitura limpa. */
+body.foco .head, body.foco .marg, body.foco .plate, body.foco .selo-mock{ display:none !important; }
+body.foco .pagina{ border-color:transparent; box-shadow:none; }
+body.foco .pagina::after{ display:none; }
+.sair-foco{ display:none; position:fixed; top:14px; right:16px; z-index:55;
+  font-family:"IM Fell English SC",serif !important; letter-spacing:.12em; text-transform:lowercase; font-size:.66rem;
+  color:var(--osso2); background:rgba(14,11,8,.6); border:1px solid var(--regua); cursor:pointer; padding:.3rem .7rem;
+  opacity:.5; transition:opacity .25s ease, color .25s ease; }
+.sair-foco:hover{ opacity:1; color:var(--brasa); }
+body.foco .sair-foco{ display:block; }
+
 @media (prefers-reduced-motion:reduce){ .pagina, .corpo .glow.show{ animation:none; } .pondera .ret span{ animation:none; } .alderyn-stage::after{ animation:none; } }
 </style>
 """
@@ -632,6 +713,8 @@ _BODY = """
       <span class="ttl">vig&iacute;lia&nbsp;quebrada</span>
       <span class="ln"></span>
       <button type="button" class="selar" id="encerrar-sessao" title="Selar a sess&atilde;o e abrir a pr&oacute;xima">selar&nbsp;sess&atilde;o</button>
+      <span class="sep">&middot;</span>
+      <button type="button" class="engr" id="abrir-config" title="Configura&ccedil;&otilde;es" aria-label="Configura&ccedil;&otilde;es">&#9881;</button>
       <span class="sep">&middot;</span>
       <a class="sair" href="/oficina" title="Voltar a Oficina">&larr;&nbsp;oficina</a>
     </div>
@@ -666,6 +749,60 @@ _BODY = """
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 21l4-1L20 7a2 2 0 0 0-3-3L4 17l-1 4z"/><path d="M14 6l3 3"/></svg>
       </button>
     </div>
+
+    <!-- painel de Configuracoes (overlay). Escondido por padrao via .oculto. -->
+    <div class="config-overlay oculto" id="config-overlay">
+      <div class="config-box" role="dialog" aria-label="Configura&ccedil;&otilde;es" aria-modal="true">
+        <h2 class="config-titulo">Configura&ccedil;&otilde;es</h2>
+
+        <section class="config-sec">
+          <h3 class="config-sub">Narra&ccedil;&atilde;o</h3>
+          <div class="modelo-cards" id="modelo-cards">
+            <button type="button" class="mcard" data-modelo="claude-fable-5">
+              <span class="mcard-top"><span class="mcard-nome">Fable 5</span><span class="mcard-custo">custo alto</span></span>
+              <span class="mcard-desc">O mais profundo. Para as cenas que t&ecirc;m que ser perfeitas.</span>
+              <span class="mcard-check" aria-hidden="true">&#10003;</span>
+            </button>
+            <button type="button" class="mcard ativo" data-modelo="claude-opus-4-8">
+              <span class="mcard-top"><span class="mcard-nome">Opus 4.8</span><span class="mcard-custo">custo m&eacute;dio &middot; padr&atilde;o</span></span>
+              <span class="mcard-desc">Equil&iacute;brio entre profundidade e custo.</span>
+              <span class="mcard-check" aria-hidden="true">&#10003;</span>
+            </button>
+            <button type="button" class="mcard" data-modelo="claude-sonnet-4-6">
+              <span class="mcard-top"><span class="mcard-nome">Sonnet 4.6</span><span class="mcard-custo">custo baixo</span></span>
+              <span class="mcard-desc">Mais leve e r&aacute;pido. Cenas de transi&ccedil;&atilde;o.</span>
+              <span class="mcard-check" aria-hidden="true">&#10003;</span>
+            </button>
+            <button type="button" class="mcard" data-modelo="claude-haiku-4-5-20251001">
+              <span class="mcard-top"><span class="mcard-nome">Haiku 4.5</span><span class="mcard-custo">custo m&iacute;nimo</span></span>
+              <span class="mcard-desc">O mais barato e veloz. Para jogar &agrave; vontade.</span>
+              <span class="mcard-check" aria-hidden="true">&#10003;</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="config-sec">
+          <h3 class="config-sub">Leitura</h3>
+          <div class="config-linha">
+            <span class="config-rotulo">Tamanho do texto</span>
+            <div class="txt-tam" id="txt-tam">
+              <button type="button" class="tbtn" data-nivel="0" title="Menor" aria-label="Diminuir">A&minus;</button>
+              <button type="button" class="tbtn ativo" data-nivel="1" title="Padr&atilde;o" aria-label="Padr&atilde;o">A</button>
+              <button type="button" class="tbtn" data-nivel="2" title="Maior" aria-label="Aumentar">A+</button>
+            </div>
+          </div>
+          <div class="config-linha">
+            <span class="config-rotulo">Modo foco</span>
+            <button type="button" class="foco-toggle" id="foco-toggle" aria-pressed="false"><span class="foco-estado">Desligado</span></button>
+          </div>
+        </section>
+
+        <button type="button" class="config-fechar" id="config-fechar">Fechar</button>
+      </div>
+    </div>
+
+    <!-- botao discreto pra sair do modo foco (alem do ESC). So aparece com body.foco. -->
+    <button type="button" class="sair-foco" id="sair-foco" title="Sair do modo foco (ESC)">sair do foco</button>
 
   </main>
 </div>
@@ -738,6 +875,79 @@ _ATMOSFERA_JS = """
 _ATMOSFERA_JS = _ATMOSFERA_JS.replace("__VARS__", json.dumps(_ATM_VARIACOES))
 
 
+# Casca do painel de Configuracoes - CSS/JS puro, SEM componente ui.* novo. Abre/fecha
+# o overlay; os cards de modelo reusam o evento 'trocar_modelo' que ja existe (mesmo
+# backend); tamanho do texto e modo foco sao 100% cliente, lembrados em localStorage.
+# Injetado por run_javascript (porta nao-sanitizada), como o resto do /jogar.
+_CONFIG_JS = """
+(function () {
+  if (window.__configWired) return;
+  window.__configWired = true;
+
+  var overlay = document.getElementById('config-overlay');
+  var abrir = document.getElementById('abrir-config');
+  var fechar = document.getElementById('config-fechar');
+  function mostra() { if (overlay) overlay.classList.remove('oculto'); }
+  function esconde() { if (overlay) overlay.classList.add('oculto'); }
+  if (abrir) abrir.addEventListener('click', mostra);
+  if (fechar) fechar.addEventListener('click', esconde);
+  // clicar no fundo escurecido (fora da caixa) fecha
+  if (overlay) overlay.addEventListener('click', function (e) { if (e.target === overlay) esconde(); });
+
+  // CARDS DE MODELO: reaproveitam o evento existente 'trocar_modelo' (string do modelo).
+  var cards = document.querySelectorAll('#modelo-cards .mcard');
+  cards.forEach(function (c) {
+    c.addEventListener('click', function () {
+      cards.forEach(function (x) { x.classList.remove('ativo'); });
+      c.classList.add('ativo');
+      emitEvent('trocar_modelo', { modelo: c.dataset.modelo });
+    });
+  });
+
+  // TAMANHO DO TEXTO: 3 niveis, classe no <body>, lembrado em localStorage.
+  var NIVEIS = ['0', '1', '2'];
+  var tbtns = document.querySelectorAll('#txt-tam .tbtn');
+  function aplicaTexto(nivel) {
+    document.body.classList.remove('txt-nivel-0', 'txt-nivel-1', 'txt-nivel-2');
+    document.body.classList.add('txt-nivel-' + nivel);
+    tbtns.forEach(function (b) { b.classList.toggle('ativo', b.dataset.nivel === nivel); });
+  }
+  var nivelSalvo = localStorage.getItem('jogar_txt_nivel');
+  if (NIVEIS.indexOf(nivelSalvo) < 0) nivelSalvo = '1';
+  aplicaTexto(nivelSalvo);
+  tbtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      aplicaTexto(b.dataset.nivel);
+      localStorage.setItem('jogar_txt_nivel', b.dataset.nivel);
+    });
+  });
+
+  // MODO FOCO: classe no <body>, lembrado em localStorage. Sai por ESC ou botaozinho.
+  var toggle = document.getElementById('foco-toggle');
+  var estado = toggle ? toggle.querySelector('.foco-estado') : null;
+  function aplicaFoco(on) {
+    document.body.classList.toggle('foco', on);
+    if (toggle) { toggle.classList.toggle('on', on); toggle.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+    if (estado) estado.textContent = on ? 'Ligado' : 'Desligado';
+  }
+  aplicaFoco(localStorage.getItem('jogar_foco') === '1');
+  if (toggle) toggle.addEventListener('click', function () {
+    var novo = !document.body.classList.contains('foco');
+    aplicaFoco(novo);
+    localStorage.setItem('jogar_foco', novo ? '1' : '0');
+  });
+  var sairFoco = document.getElementById('sair-foco');
+  function saiFoco() { aplicaFoco(false); localStorage.setItem('jogar_foco', '0'); }
+  if (sairFoco) sairFoco.addEventListener('click', saiFoco);
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (overlay && !overlay.classList.contains('oculto')) { esconde(); return; }
+    if (document.body.classList.contains('foco')) saiFoco();
+  });
+})();
+"""
+
+
 @ui.page("/jogar")
 async def pagina_jogar():
     await aguardar_conexao_websocket("Abrindo a folha...")
@@ -747,6 +957,7 @@ async def pagina_jogar():
     geracao = 0       # token de geracao: recomecar incrementa e invalida narrar em voo
     pressao_atual = 0
     sessao_atual = SESSAO_ID   # Tier 6: rebinda quando o lifecycle abre a proxima sessao
+    modelo_atual = "claude-opus-4-8"   # seletor de modelo (UI): vale a partir do proximo turno
 
     ui.add_head_html(_FONTS + _CSS)
     ui.html(_BODY)
@@ -770,6 +981,9 @@ async def pagina_jogar():
         "if(b && !b.dataset.wired){b.dataset.wired='1';"
         "b.addEventListener('click',function(){emitEvent('jogar_encerrar',{});});}"
     )
+    # Painel de Configuracoes: abre/fecha + cards de modelo (reusam 'trocar_modelo')
+    # + tamanho do texto + modo foco. Mesma porta nao-sanitizada do resto do /jogar.
+    ui.run_javascript(_CONFIG_JS)
 
     def _js(code: str) -> None:
         """Dispara JS no cliente (fire-and-forget, como o resto do monolito)."""
@@ -785,7 +999,7 @@ async def pagina_jogar():
         _js(f"document.getElementById('pondera') && document.getElementById('pondera').classList.{acao}('oculto')")
 
     async def narrar(msg_usuario: str, mostrar_acao: bool = True):
-        nonlocal pressao_atual, ocupado, geracao, sessao_atual
+        nonlocal pressao_atual, ocupado, geracao, sessao_atual, modelo_atual
         # trava de turno: se ja ha um turno em voo, ignora a nova acao ANTES de
         # tocar o historico - senao dois "user" seguidos quebram a alternancia.
         if ocupado:
@@ -797,12 +1011,13 @@ async def pagina_jogar():
         if mostrar_acao:
             _arrive(msg_usuario, eco=True)
 
-        # Tier 4 - memoria (1): grava o turno de entrada em sessao_turnos. A acao do
-        # jogador vai como papel='jogador'; a abertura (mostrar_acao=False) e uma
-        # diretiva de cena, nao fala do jogador, entao vai como papel='sistema'.
-        # Conteudo limpo (msg_usuario), sem maquinaria de prompt.
-        papel_entrada = "jogador" if mostrar_acao else "sistema"
-        await _gravar_turno_safe(sessao_atual, papel_entrada, msg_usuario)
+        # Tier 4 - memoria (1): grava SO a fala do jogador (mostrar_acao=True). A
+        # abertura (mostrar_acao=False) e diretiva de ambientacao, texto fixo: NAO
+        # persiste em sessao_turnos nem vira contexto. Antes ia como papel='sistema'
+        # e era re-gravada a cada "adentrar", sujando o historico com [ABERTURA]
+        # repetido. Agora "adentrar" varias vezes nao cria nenhuma linha no banco.
+        if mostrar_acao:
+            await _gravar_turno_safe(sessao_atual, "jogador", msg_usuario)
 
         # Tier 4 - memoria (2): carrega o contexto da cronica (5 tiers) pra sessao.
         # query_text = a fala do jogador (ajuda full-text/trigram); na abertura, None.
@@ -828,7 +1043,7 @@ async def pagina_jogar():
 
         _pondera(True)
         try:
-            resposta = await run.io_bound(_chamar_cronista, msgs)
+            resposta = await run.io_bound(_chamar_cronista, msgs, modelo_atual)
             # recomecou durante o await: abandona sem escrever prosa fantasma nem
             # tocar o historico (que o recomecar ja zerou).
             if minha_geracao != geracao:
@@ -844,7 +1059,10 @@ async def pagina_jogar():
             prosa, pressao_atual, atmosfera = _separar_estado(resposta, pressao_atual)
             # Tier 4 - memoria (5): grava o turno do narrador. Conteudo = a prosa
             # limpa (sem o bloco <estado>, que e maquinaria e nao vira contexto).
-            await _gravar_turno_safe(sessao_atual, "narrador", prosa)
+            # Pula na abertura (mostrar_acao=False): o turno de abertura inteiro e
+            # efemero, entao "adentrar" repetido nao deixa rastro no banco.
+            if mostrar_acao:
+                await _gravar_turno_safe(sessao_atual, "narrador", prosa)
             _arrive(prosa)
             _js(f"window.Jogar && window.Jogar.setPressao({pressao_atual})")
             # a cena so troca de pele se o Cronista pediu uma atmosfera valida;
@@ -937,7 +1155,19 @@ async def pagina_jogar():
         _js("window.Jogar && window.Jogar.setPressao(0)")
         _js("window.setAtmosfera && window.setAtmosfera('ermo', {forcar:true})")
 
+    async def ao_trocar_modelo(e):
+        # seletor de modelo na UI: guarda a escolha; vale a partir do proximo turno.
+        # nao re-renderiza nem interrompe um turno em voo (o narrar le modelo_atual
+        # so quando chama o Cronista).
+        nonlocal modelo_atual
+        args = e.args if isinstance(e.args, dict) else {}
+        novo = args.get("modelo")
+        if novo:
+            modelo_atual = novo
+            print(f"[modelo] Cronista trocado para: {modelo_atual} (vale do proximo turno)")
+
     ui.on("jogar_action", ao_agir)
     ui.on("jogar_comecar", ao_comecar)
     ui.on("jogar_recomecar", ao_recomecar)
     ui.on("jogar_encerrar", ao_encerrar)
+    ui.on("trocar_modelo", ao_trocar_modelo)
