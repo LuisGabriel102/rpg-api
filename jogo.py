@@ -509,20 +509,28 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .head .ttl{ font-family:"IM Fell English SC",serif !important; letter-spacing:.16em; font-size:14px; color:var(--osso); text-transform:lowercase; }
 .head .fleur{ flex:none; opacity:.8; }
 .head .ln{ flex:1; height:1px; background:var(--regua); }
-.head .sair{ font-family:"IM Fell English",serif; font-style:italic; font-size:12px;
-  color:var(--osso2); text-decoration:none; white-space:nowrap; opacity:.65;
-  transition:opacity .3s ease; }
-.head .sair:hover{ opacity:1; }
-.head .selar{ font-family:"IM Fell English",serif; font-style:italic; font-size:12px;
-  color:var(--osso2); background:none; border:none; padding:0; cursor:pointer;
-  white-space:nowrap; opacity:.65; transition:opacity .3s ease, color .3s ease; }
-.head .selar:hover{ opacity:1; color:var(--brasa); }
-.head .sep{ color:var(--regua2); font-size:11px; opacity:.6; }
-.head .engr{ font-family:"IM Fell English",serif; font-size:20px; line-height:1;
-  color:var(--osso2); background:rgba(0,0,0,.25); border:1px solid var(--regua); border-radius:3px;
-  padding:3px 7px; cursor:pointer; white-space:nowrap; opacity:.9;
-  transition:opacity .3s ease, color .3s ease, border-color .3s ease; }
-.head .engr:hover{ opacity:1; color:var(--brasa); border-color:var(--brasa); }
+/* CONTROLES = acessibilidade vence o tom (a atmosfera fica na cena). Secundarios:
+   borda 2px ambar + texto claro + fundo translucido; hover preenche. >=44px. */
+.head .sair{ font-family:"IM Fell English",serif; font-size:15px; letter-spacing:.04em;
+  color:var(--osso); text-decoration:none; white-space:nowrap;
+  border:2px solid var(--brasa); border-radius:6px; background:rgba(198,122,51,.10);
+  min-height:44px; display:inline-flex; align-items:center; padding:0 16px;
+  transition:background .2s ease, color .2s ease; }
+.head .sair:hover{ background:var(--brasa); color:#140d04; }
+.head .sair:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; }
+.head .selar{ font-family:"IM Fell English",serif; font-size:15px; letter-spacing:.04em;
+  color:var(--osso); background:rgba(198,122,51,.10); border:2px solid var(--brasa);
+  border-radius:6px; min-height:44px; padding:0 16px; cursor:pointer; white-space:nowrap;
+  display:inline-flex; align-items:center; transition:background .2s ease, color .2s ease; }
+.head .selar:hover{ background:var(--brasa); color:#140d04; }
+.head .selar:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; }
+.head .sep{ display:none; }
+.head .engr{ font-size:28px; line-height:1; color:var(--osso);
+  background:rgba(198,122,51,.10); border:2px solid var(--brasa); border-radius:6px;
+  min-width:44px; min-height:44px; display:inline-flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:background .2s ease, color .2s ease; }
+.head .engr:hover{ background:var(--brasa); color:#140d04; }
+.head .engr:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; }
 
 /* marginalia: HOJE so a Pressao Emocional (0-10). Stats/Tensao ficam pro combate. */
 .marg{ display:flex; align-items:center; justify-content:flex-end; gap:14px; flex-wrap:wrap;
@@ -598,26 +606,42 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
   letter-spacing:.06em; color:var(--osso); line-height:1.1; }
 .portal-traco{ width:6rem; height:1px; margin:1.4rem auto 0;
   background:linear-gradient(90deg, transparent, var(--regua2), transparent); }
+/* PRIMARIO: preenchido ambar + texto escuro, na cara. */
 .adentrar{ margin-top:2.6rem; font-family:"IM Fell English SC",serif !important;
-  letter-spacing:.22em; text-transform:lowercase; font-size:.95rem; color:var(--osso);
-  background:transparent; border:1px solid var(--regua2); border-radius:2px;
-  padding:.7rem 2.1rem; cursor:pointer; transition:all .35s ease; }
-.adentrar:hover{ border-color:var(--brasa); color:#f0e6d2; background:rgba(198,122,51,.1);
-  box-shadow:0 0 26px rgba(198,122,51,.18); }
+  letter-spacing:.04em; text-transform:lowercase; font-size:18px; font-weight:600;
+  color:#140d04; background:var(--brasa); border:2px solid var(--brasa); border-radius:6px;
+  min-height:52px; padding:0 36px; cursor:pointer; transition:background .25s ease, box-shadow .25s ease; }
+.adentrar:hover{ background:#e08a3e; border-color:#e08a3e; color:#140d04;
+  box-shadow:0 0 26px rgba(198,122,51,.35); }
+.adentrar:focus-visible{ outline:2px solid #f0e6d2; outline-offset:3px; }
 
 /* a inscricao (input) - some ate Adentrar */
-.scrawl{ display:flex; align-items:flex-end; gap:12px; margin-top:28px; position:relative; z-index:2;
-  border-bottom:1px solid var(--regua2); padding-bottom:4px; }
-.scrawl .recomecar-btn{ font-family:"IM Fell English SC",serif !important; letter-spacing:.12em;
-  text-transform:lowercase; font-size:.72rem; color:var(--osso2); background:none; border:none;
-  cursor:pointer; padding:4px 2px; transition:color .25s; white-space:nowrap; }
-.scrawl .recomecar-btn:hover{ color:var(--brasa); }
-.scrawl input{ flex:1; background:transparent !important; border:none !important; outline:none !important;
-  color:var(--leitura) !important; font-family:"Spectral",serif !important; font-size:16px; padding:6px 2px; box-shadow:none !important; }
-.scrawl input::placeholder{ color:var(--osso2); font-style:italic; font-family:"IM Fell English",serif; }
-.scrawl.lit{ border-color:rgba(198,122,51,.55); }
-.scrawl button.send-btn{ background:none !important; border:none !important; color:var(--osso2); cursor:pointer; padding:4px; transition:color .2s; }
-.scrawl button.send-btn:hover{ color:var(--brasa); }
+.scrawl{ display:flex; align-items:center; gap:12px; margin-top:28px; position:relative; z-index:2; }
+/* recomecar: secundario (borda 2px ambar) */
+.scrawl .recomecar-btn{ font-family:"IM Fell English SC",serif !important; letter-spacing:.04em;
+  text-transform:lowercase; font-size:15px; color:var(--osso); background:rgba(198,122,51,.10);
+  border:2px solid var(--brasa); border-radius:6px; cursor:pointer; min-height:44px; padding:0 16px;
+  transition:background .2s, color .2s; white-space:nowrap; }
+.scrawl .recomecar-btn:hover{ background:var(--brasa); color:#140d04; }
+.scrawl .recomecar-btn:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; }
+/* campo de comando: borda 2px clara, alto contraste, "digite aqui" */
+.scrawl input{ flex:1; background:rgba(10,8,6,.55); border:2px solid var(--osso2);
+  border-radius:6px; outline:none; color:var(--leitura);
+  font-family:"Spectral",serif; font-size:17px; min-height:48px;
+  padding:0 16px; box-shadow:none; transition:border-color .2s ease; }
+.scrawl input::placeholder{ color:var(--osso); opacity:.85; font-style:italic; font-family:"IM Fell English",serif; }
+.scrawl input:focus-visible, .scrawl.lit input{ border-color:var(--brasa); }
+/* enviar: primario preenchido */
+.scrawl button.send-btn{ background:var(--brasa); border:2px solid var(--brasa);
+  border-radius:6px; color:#140d04; cursor:pointer; min-width:52px; min-height:48px;
+  display:inline-flex; align-items:center; justify-content:center; transition:background .2s; }
+.scrawl button.send-btn:hover{ background:#e08a3e; border-color:#e08a3e; }
+.scrawl button.send-btn:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; }
+.scrawl button.send-btn svg{ width:24px; height:24px; }
+/* desabilitado (defensivo): apagado mas mantem a FORMA de botao */
+.scrawl button.send-btn:disabled, .scrawl button.send-btn[disabled]{
+  background:rgba(198,122,51,.25); border-color:rgba(198,122,51,.45);
+  color:rgba(20,13,4,.55); cursor:default; }
 
 /* selo do modo mock */
 .selo-mock{ position:fixed; top:.9rem; left:1rem; z-index:50;
@@ -688,27 +712,32 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 
 /* tamanho do texto: A- A A+ */
 .txt-tam{ display:flex; gap:6px; }
-.txt-tam .tbtn{ font-family:"IM Fell English",serif !important; color:var(--osso2);
-  background:rgba(0,0,0,.22); border:1px solid var(--regua); cursor:pointer; padding:4px 11px; min-width:34px;
-  transition:border-color .2s ease, color .2s ease, background .2s ease; }
-.txt-tam .tbtn:nth-child(1){ font-size:12px; }
-.txt-tam .tbtn:nth-child(2){ font-size:15px; }
-.txt-tam .tbtn:nth-child(3){ font-size:18px; }
-.txt-tam .tbtn:hover{ border-color:var(--osso2); color:var(--osso); }
-.txt-tam .tbtn.ativo{ border-color:var(--brasa); color:var(--osso); background:rgba(198,122,51,.1); }
+.txt-tam .tbtn{ font-family:"IM Fell English",serif !important; color:var(--osso);
+  background:rgba(198,122,51,.10); border:2px solid var(--brasa); border-radius:6px; cursor:pointer;
+  min-width:48px; min-height:44px; padding:0 12px;
+  transition:background .2s ease, color .2s ease; }
+.txt-tam .tbtn:nth-child(1){ font-size:15px; }
+.txt-tam .tbtn:nth-child(2){ font-size:18px; }
+.txt-tam .tbtn:nth-child(3){ font-size:21px; }
+.txt-tam .tbtn:hover{ background:var(--brasa); color:#140d04; }
+.txt-tam .tbtn.ativo{ color:#140d04; background:var(--brasa); }
+.txt-tam .tbtn:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; }
 
 /* toggle do modo foco */
-.foco-toggle{ font-family:"IM Fell English SC",serif !important; letter-spacing:.1em; text-transform:lowercase;
-  font-size:12px; color:var(--osso2); background:rgba(0,0,0,.22); border:1px solid var(--regua); cursor:pointer;
-  padding:5px 14px; transition:border-color .2s ease, color .2s ease, background .2s ease; }
-.foco-toggle:hover{ border-color:var(--osso2); color:var(--osso); }
-.foco-toggle.on{ border-color:var(--brasa); color:var(--osso); background:rgba(198,122,51,.1); }
+.foco-toggle{ font-family:"IM Fell English SC",serif !important; letter-spacing:.04em; text-transform:lowercase;
+  font-size:15px; color:var(--osso); background:rgba(198,122,51,.10); border:2px solid var(--brasa); cursor:pointer;
+  border-radius:6px; min-height:44px; padding:0 16px; transition:background .2s ease, color .2s ease; }
+.foco-toggle:hover{ background:var(--brasa); color:#140d04; }
+.foco-toggle.on{ color:#140d04; background:var(--brasa); }
+.foco-toggle:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; }
 
 /* botao Fechar do painel */
 .config-fechar{ display:block; width:100%; margin-top:6px; font-family:"IM Fell English SC",serif !important;
-  letter-spacing:.18em; text-transform:lowercase; font-size:.8rem; color:var(--osso);
-  background:transparent; border:1px solid var(--regua2); cursor:pointer; padding:.6rem; transition:all .3s ease; }
-.config-fechar:hover{ border-color:var(--brasa); color:#f0e6d2; background:rgba(198,122,51,.1); }
+  letter-spacing:.04em; text-transform:lowercase; font-size:16px; color:#140d04;
+  background:var(--brasa); border:2px solid var(--brasa); border-radius:6px; cursor:pointer;
+  min-height:48px; padding:0 .6rem; transition:background .25s ease; }
+.config-fechar:hover{ background:#e08a3e; border-color:#e08a3e; color:#140d04; }
+.config-fechar:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; }
 
 /* TAMANHO DO TEXTO: 3 niveis fixos aplicados ao container da narracao (#corpo).
    A classe vive no <body> (ancestral estavel), entao vence o clamp do .corpo. */
