@@ -514,10 +514,11 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
   white-space:nowrap; opacity:.65; transition:opacity .3s ease, color .3s ease; }
 .head .selar:hover{ opacity:1; color:var(--brasa); }
 .head .sep{ color:var(--regua2); font-size:11px; opacity:.6; }
-.head .engr{ font-family:"IM Fell English",serif; font-size:15px; line-height:1;
-  color:var(--osso2); background:none; border:none; padding:0; cursor:pointer;
-  white-space:nowrap; opacity:.65; transition:opacity .3s ease, color .3s ease; }
-.head .engr:hover{ opacity:1; color:var(--brasa); }
+.head .engr{ font-family:"IM Fell English",serif; font-size:20px; line-height:1;
+  color:var(--osso2); background:rgba(0,0,0,.25); border:1px solid var(--regua); border-radius:3px;
+  padding:3px 7px; cursor:pointer; white-space:nowrap; opacity:.9;
+  transition:opacity .3s ease, color .3s ease, border-color .3s ease; }
+.head .engr:hover{ opacity:1; color:var(--brasa); border-color:var(--brasa); }
 
 /* marginalia: HOJE so a Pressao Emocional (0-10). Stats/Tensao ficam pro combate. */
 .marg{ display:flex; align-items:center; justify-content:flex-end; gap:14px; flex-wrap:wrap;
@@ -638,18 +639,44 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 /* cards de modelo (seletor de narracao) */
 .modelo-cards{ display:flex; flex-direction:column; gap:9px; }
 .mcard{ position:relative; display:block; width:100%; text-align:left; cursor:pointer;
-  background:rgba(0,0,0,.22); border:1px solid var(--regua); padding:11px 34px 11px 13px;
-  transition:border-color .25s ease, background .25s ease; }
+  background:rgba(0,0,0,.22); border:1px solid var(--regua); padding:11px 13px;
+  transition:border-color .25s ease, background .25s ease, box-shadow .25s ease; }
 .mcard:hover{ border-color:var(--osso2); }
-.mcard.ativo{ border-color:var(--brasa); background:rgba(198,122,51,.08); }
+.mcard:focus-visible{ outline:none; border-color:var(--osso); box-shadow:0 0 0 2px rgba(205,191,159,.25); }
+/* ATIVO = 3 sinais: borda brasa + borda dupla via inset box-shadow (engrossa SEM
+   mudar a largura da borda -> sem pulo de layout) + fundo alaranjado mais forte. */
+.mcard.ativo{ border-color:var(--brasa); background:rgba(198,122,51,.14); box-shadow:inset 0 0 0 1px var(--brasa); }
 .mcard-top{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
 .mcard-nome{ font-family:"IM Fell English",serif !important; font-size:16px; color:var(--osso); }
 .mcard-custo{ font-family:"IM Fell English SC",serif !important; font-size:10.5px; letter-spacing:.1em;
   text-transform:lowercase; color:var(--osso2); }
+/* selo "em uso": empurrado pra direita no .mcard-top, so visivel no card ativo */
+.mcard-selo{ display:none; margin-left:auto; align-self:center; font-family:"IM Fell English SC",serif !important;
+  font-size:10px; letter-spacing:.08em; text-transform:lowercase; color:var(--brasa);
+  border:1px solid var(--brasa); border-radius:10px; padding:1px 6px; white-space:nowrap; }
+.mcard.ativo .mcard-selo{ display:inline-flex; }
 .mcard-desc{ display:block; margin-top:4px; font-family:"Spectral",Georgia,serif !important;
   font-size:13px; color:var(--leitura); opacity:.78; line-height:1.45; }
-.mcard-check{ position:absolute; top:10px; right:12px; color:var(--brasa); font-size:14px; opacity:0; transition:opacity .2s ease; }
-.mcard.ativo .mcard-check{ opacity:1; }
+
+/* "ver detalhes": gatilho do accordion (botao REAL dentro do card que virou <div>) */
+.mcard-vermais{ display:inline-block; margin-top:8px; font-family:"IM Fell English SC",serif !important;
+  font-size:10.5px; letter-spacing:.08em; text-transform:lowercase; color:var(--osso2);
+  background:none; border:none; padding:0; cursor:pointer; text-decoration:underline;
+  text-underline-offset:2px; transition:color .2s ease; }
+.mcard-vermais:hover{ color:var(--brasa); }
+/* bloco de detalhes: accordion deslizante, fechado por padrao */
+.mcard-detalhe{ max-height:0; overflow:hidden; opacity:0; margin-top:0; padding-top:0; border-top:1px solid transparent;
+  transition:max-height .35s ease, opacity .3s ease, margin-top .35s ease, padding-top .35s ease; }
+.mcard.expandido .mcard-detalhe{ max-height:520px; opacity:1; margin-top:10px; padding-top:10px; border-top:1px solid var(--regua); }
+.det-linha{ margin:0 0 6px; font-family:"Spectral",Georgia,serif !important; font-size:12.5px;
+  color:var(--leitura); opacity:.85; line-height:1.5; }
+.det-linha:last-child{ margin-bottom:0; }
+.det-rotulo{ font-family:"IM Fell English SC",serif !important; font-size:10.5px; letter-spacing:.1em;
+  text-transform:lowercase; color:var(--osso2); margin-right:6px; }
+
+/* nota do tier fechado (Mythos), no rodape da secao Narracao */
+.modelo-nota{ margin-top:12px; font-family:"IM Fell English",serif !important; font-style:italic;
+  font-size:11.5px; color:var(--osso2); opacity:.8; line-height:1.5; }
 
 /* linha generica: rotulo a esquerda, controle a direita */
 .config-linha{ display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:12px; }
@@ -758,27 +785,56 @@ _BODY = """
         <section class="config-sec">
           <h3 class="config-sub">Narra&ccedil;&atilde;o</h3>
           <div class="modelo-cards" id="modelo-cards">
-            <button type="button" class="mcard" data-modelo="claude-fable-5">
-              <span class="mcard-top"><span class="mcard-nome">Fable 5</span><span class="mcard-custo">custo alto</span></span>
+            <div class="mcard" role="button" tabindex="0" data-modelo="claude-fable-5">
+              <span class="mcard-top"><span class="mcard-nome">Fable 5</span><span class="mcard-custo">custo alto</span><span class="mcard-selo" aria-hidden="true">&#10003;&nbsp;em uso</span></span>
               <span class="mcard-desc">O mais profundo. Para as cenas que t&ecirc;m que ser perfeitas.</span>
-              <span class="mcard-check" aria-hidden="true">&#10003;</span>
-            </button>
-            <button type="button" class="mcard ativo" data-modelo="claude-opus-4-8">
-              <span class="mcard-top"><span class="mcard-nome">Opus 4.8</span><span class="mcard-custo">custo m&eacute;dio &middot; padr&atilde;o</span></span>
+              <button type="button" class="mcard-vermais">ver detalhes &#9662;</button>
+              <div class="mcard-detalhe">
+                <p class="det-linha"><span class="det-rotulo">o que &eacute;</span>O modelo mais profundo que sua chave alcan&ccedil;a &mdash; um tier inteiro acima do Opus.</p>
+                <p class="det-linha"><span class="det-rotulo">capacidades</span>A prosa mais rica e nuan&ccedil;ada da lista. Pega subtexto, ironia e camadas que os outros deixam escapar. L&ecirc; hist&oacute;rias longu&iacute;ssimas sem perder o fio &mdash; janela de 1 milh&atilde;o de tokens, resposta at&eacute; 128 mil.</p>
+                <p class="det-linha"><span class="det-rotulo">custo</span>~R$ 0,22 por cena. O dobro do Opus, o mais caro de todos. (US$ 10 entrada / US$ 50 sa&iacute;da, por milh&atilde;o de tokens.)</p>
+                <p class="det-linha"><span class="det-rotulo">use quando</span>a cena TEM que ser perfeita. O cl&iacute;max. A revela&ccedil;&atilde;o. A morte de algu&eacute;m que importava.</p>
+                <p class="det-linha"><span class="det-rotulo">exemplo</span>seu mentor cai, e as &uacute;ltimas palavras dele desmentem tudo que voc&ecirc; jurava saber. Uma cena que voc&ecirc; vai querer reler.</p>
+              </div>
+            </div>
+            <div class="mcard ativo" role="button" tabindex="0" data-modelo="claude-opus-4-8">
+              <span class="mcard-top"><span class="mcard-nome">Opus 4.8</span><span class="mcard-custo">custo m&eacute;dio &middot; padr&atilde;o</span><span class="mcard-selo" aria-hidden="true">&#10003;&nbsp;em uso</span></span>
               <span class="mcard-desc">Equil&iacute;brio entre profundidade e custo.</span>
-              <span class="mcard-check" aria-hidden="true">&#10003;</span>
-            </button>
-            <button type="button" class="mcard" data-modelo="claude-sonnet-4-6">
-              <span class="mcard-top"><span class="mcard-nome">Sonnet 4.6</span><span class="mcard-custo">custo baixo</span></span>
+              <button type="button" class="mcard-vermais">ver detalhes &#9662;</button>
+              <div class="mcard-detalhe">
+                <p class="det-linha"><span class="det-rotulo">o que &eacute;</span>O Cronista de hoje. O ponto de equil&iacute;brio entre profundidade e bolso.</p>
+                <p class="det-linha"><span class="det-rotulo">capacidades</span>Prosa densa e tom firme, consistente cena ap&oacute;s cena. Segura NPCs com camadas e di&aacute;logo longo sem se perder. Janela de 1 milh&atilde;o de tokens, resposta at&eacute; 128 mil. Conhece o mundo at&eacute; janeiro de 2026.</p>
+                <p class="det-linha"><span class="det-rotulo">custo</span>~R$ 0,11 por cena &mdash; a base de compara&ccedil;&atilde;o. (US$ 5 entrada / US$ 25 sa&iacute;da, por milh&atilde;o.)</p>
+                <p class="det-linha"><span class="det-rotulo">use quando</span>a cena importa de verdade. Di&aacute;logo tenso, um NPC com segredo, uma escolha que pesa.</p>
+                <p class="det-linha"><span class="det-rotulo">exemplo</span>um homem nega, sob juramento, algo que voc&ecirc; sabe que ele fez. A prosa precisa segurar o peso da mentira sem entreg&aacute;-la.</p>
+              </div>
+            </div>
+            <div class="mcard" role="button" tabindex="0" data-modelo="claude-sonnet-4-6">
+              <span class="mcard-top"><span class="mcard-nome">Sonnet 4.6</span><span class="mcard-custo">custo baixo</span><span class="mcard-selo" aria-hidden="true">&#10003;&nbsp;em uso</span></span>
               <span class="mcard-desc">Mais leve e r&aacute;pido. Cenas de transi&ccedil;&atilde;o.</span>
-              <span class="mcard-check" aria-hidden="true">&#10003;</span>
-            </button>
-            <button type="button" class="mcard" data-modelo="claude-haiku-4-5-20251001">
-              <span class="mcard-top"><span class="mcard-nome">Haiku 4.5</span><span class="mcard-custo">custo m&iacute;nimo</span></span>
+              <button type="button" class="mcard-vermais">ver detalhes &#9662;</button>
+              <div class="mcard-detalhe">
+                <p class="det-linha"><span class="det-rotulo">o que &eacute;</span>Mais leve e r&aacute;pido que o Opus, sem despencar de qualidade.</p>
+                <p class="det-linha"><span class="det-rotulo">capacidades</span>Boa prosa, resposta mais &aacute;gil. Janela de 1 milh&atilde;o de tokens, resposta at&eacute; 64 mil &mdash; metade do teto do Opus.</p>
+                <p class="det-linha"><span class="det-rotulo">custo</span>~R$ 0,07 por cena, bem mais barato que o Opus. (US$ 3 entrada / US$ 15 sa&iacute;da, por milh&atilde;o.)</p>
+                <p class="det-linha"><span class="det-rotulo">use quando</span>cenas de transi&ccedil;&atilde;o, em que o importante &eacute; s&oacute; chegar do outro lado.</p>
+                <p class="det-linha"><span class="det-rotulo">exemplo</span>voc&ecirc; cavalga tr&ecirc;s dias at&eacute; a pr&oacute;xima vila. Nada de mais acontece, mas a estrada precisa existir entre uma cena e outra.</p>
+              </div>
+            </div>
+            <div class="mcard" role="button" tabindex="0" data-modelo="claude-haiku-4-5-20251001">
+              <span class="mcard-top"><span class="mcard-nome">Haiku 4.5</span><span class="mcard-custo">custo m&iacute;nimo</span><span class="mcard-selo" aria-hidden="true">&#10003;&nbsp;em uso</span></span>
               <span class="mcard-desc">O mais barato e veloz. Para jogar &agrave; vontade.</span>
-              <span class="mcard-check" aria-hidden="true">&#10003;</span>
-            </button>
+              <button type="button" class="mcard-vermais">ver detalhes &#9662;</button>
+              <div class="mcard-detalhe">
+                <p class="det-linha"><span class="det-rotulo">o que &eacute;</span>O mais r&aacute;pido e o mais barato. Feito pra jogar &agrave; vontade.</p>
+                <p class="det-linha"><span class="det-rotulo">capacidades</span>Prosa mais simples e direta, mas veloz. Janela menor &mdash; 200 mil tokens &mdash; ent&atilde;o esquece hist&oacute;rias muito longas antes dos outros. Resposta at&eacute; 64 mil.</p>
+                <p class="det-linha"><span class="det-rotulo">custo</span>~R$ 0,02 por cena. Cinco vezes mais barato que o Opus, o mais econ&ocirc;mico de todos. (US$ 1 entrada / US$ 5 sa&iacute;da, por milh&atilde;o.)</p>
+                <p class="det-linha"><span class="det-rotulo">use quando</span>testar, brincar, encadear muitas cenas seguidas sem pensar no bolso.</p>
+                <p class="det-linha"><span class="det-rotulo">exemplo</span>voc&ecirc; quer rodar dez aberturas diferentes pra mesma entrada, s&oacute; pra ver como o Cronista reage. Gaste sem culpa.</p>
+              </div>
+            </div>
           </div>
+          <p class="modelo-nota">Existe um tier ainda acima &mdash; o Mythos &mdash; mas &eacute; fechado, s&oacute; por convite. Sua chave n&atilde;o alcan&ccedil;a. Por isso ele n&atilde;o aparece aqui.</p>
         </section>
 
         <section class="config-sec">
@@ -894,13 +950,36 @@ _CONFIG_JS = """
   // clicar no fundo escurecido (fora da caixa) fecha
   if (overlay) overlay.addEventListener('click', function (e) { if (e.target === overlay) esconde(); });
 
-  // CARDS DE MODELO: reaproveitam o evento existente 'trocar_modelo' (string do modelo).
+  // CARDS DE MODELO. Duas acoes SEPARADAS no mesmo card:
+  //  - SELECIONAR (corpo do card, ou Enter/Espaco): reusa 'trocar_modelo'.
+  //  - EXPANDIR (botao "ver detalhes"): accordion, com stopPropagation pra NAO
+  //    selecionar. Card virou <div role=button>, entao teclado e manual aqui.
   var cards = document.querySelectorAll('#modelo-cards .mcard');
+  function seleciona(c) {
+    cards.forEach(function (x) { x.classList.remove('ativo'); });
+    c.classList.add('ativo');
+    emitEvent('trocar_modelo', { modelo: c.dataset.modelo });
+  }
   cards.forEach(function (c) {
-    c.addEventListener('click', function () {
-      cards.forEach(function (x) { x.classList.remove('ativo'); });
-      c.classList.add('ativo');
-      emitEvent('trocar_modelo', { modelo: c.dataset.modelo });
+    c.addEventListener('click', function () { seleciona(c); });
+    c.addEventListener('keydown', function (e) {
+      // so o card em si seleciona; teclas no botao "ver detalhes" (target != card) passam.
+      if (e.target !== c) return;
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();   // Espaco nao rola a pagina
+        seleciona(c);
+      }
+    });
+    var ver = c.querySelector('.mcard-vermais');
+    if (ver) ver.addEventListener('click', function (e) {
+      e.stopPropagation();   // CRITICO: expandir NAO troca o modelo
+      var abrir = !c.classList.contains('expandido');
+      cards.forEach(function (x) { x.classList.remove('expandido'); });  // so um aberto por vez
+      if (abrir) c.classList.add('expandido');
+      cards.forEach(function (x) {
+        var g = x.querySelector('.mcard-vermais');
+        if (g) g.textContent = x.classList.contains('expandido') ? 'ocultar ▴' : 'ver detalhes ▾';
+      });
     });
   });
 
