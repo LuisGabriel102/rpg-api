@@ -2449,8 +2449,12 @@ async def pagina_jogar():
                 ocupado = False
 
     async def ao_comecar(_=None):
+        # ADENTRAR so faz a transicao pro modo de jogo (entrar). O jogo comeca EM
+        # SILENCIO, como o Claude: NADA e narrado automaticamente e NENHUMA chamada ao
+        # Opus acontece aqui. A 1a chamada ao Cronista passa a ser a 1a acao do jogador
+        # (ao_agir). ABERTURA_MSG fica definida de proposito (documenta a intencao e
+        # permite reverter), so deixou de ser disparada.
         _js("window.Jogar && window.Jogar.entrar()")
-        await narrar(ABERTURA_MSG, mostrar_acao=False)
 
     async def ao_agir(e):
         args = e.args if isinstance(e.args, dict) else {}
