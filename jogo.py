@@ -639,6 +639,15 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .corpo .glow.pulse::before{ animation:pulseglow 1.2s ease; }
 .corpo .glow.done{ animation:none; opacity:1; transform:none; }
 
+/* DIGITACAO ao vivo (stream): o texto escorre alinhado a esquerda e sem hifen (pra
+   nao "dancar"); no fim o bloco vira .done e volta ao justify herdado do .corpo. O
+   motor de revelacao vive no cliente (requestAnimationFrame). O caret pisca. */
+.corpo .glow.streaming{ white-space:pre-wrap; text-align:left; hyphens:none; -webkit-hyphens:none; animation:none; }
+.corpo .glow.streaming p{ margin:0; }
+.caret{ display:inline-block; width:2px; height:1.05em; margin-left:1px; vertical-align:-2px;
+  background:var(--brasa); animation:caretblink 1.05s steps(1,end) infinite; }
+@keyframes caretblink{ 0%,55%{opacity:1} 56%,100%{opacity:0} }
+
 /* eco do jogador - a acao dita, recuada e surda */
 .corpo .glow.eco{ margin:0 0 1.2em; }
 .eco-p{ font-family:"IM Fell English",serif !important; font-style:italic; color:var(--osso2);
@@ -907,6 +916,7 @@ body.foco .sair-foco{ display:block; }
 
 @media (prefers-reduced-motion:reduce){
   .pagina, .corpo .glow.show{ animation:none; }
+  .caret{ animation:none; opacity:.7; }   /* o motor revela tudo de uma vez; caret estatico */
   .pondera .ret span{ animation:none; }
   .alderyn-stage::after{ animation:none; }
   /* atmosfera da tela do jogo: tudo PARADO no estado final */
@@ -2208,34 +2218,78 @@ async def pagina_jogar():
     # window.Jogar.arrive (cria .glow.show em #corpo, faz fade dos anteriores,
     # rola pra cena), mas atualizavel via id '__stream'. NAO toca o jogar.js.
     def _stream_iniciar() -> None:
+        # Motor de revelacao no CLIENTE: o Python so vai setar window.__rev.target
+        # (barato, ver _stream_update); um loop em requestAnimationFrame REVELA os
+        # chars num ritmo calmo, acelerando pra alcancar quando o servidor adianta.
+        # Isso descola a velocidade que o texto APARECE da que ele CHEGA. Sem
+        # 'show'/'arrive' durante a digitacao; o scroll cola embaixo no #miolo (o
+        # container real de overflow), sem scrollIntoView (que recentralizava a pagina).
+        # PISO e DIV controlam a velocidade (cauda da digitacao / quanto alcanca).
         _js(
-            "(function(){var n=document.getElementById('corpo');if(!n)return;"
+            "(function(){"
+            "var PISO=3, DIV=6;"
+            "var n=document.getElementById('corpo');if(!n)return;"
             "n.querySelectorAll('.glow:not(.faded)').forEach(function(s){s.classList.add('faded');});"
-            "var o=document.createElement('div');o.className='glow show';o.id='__stream';"
-            "o.innerHTML='<p></p>';n.appendChild(o);"
-            "o.scrollIntoView({behavior:'smooth',block:'center'});})();"
+            "var o=document.createElement('div');o.className='glow streaming';o.id='__stream';"
+            "var p=document.createElement('p');var tn=document.createTextNode('');"
+            "var caret=document.createElement('span');caret.className='caret';"
+            "p.appendChild(tn);p.appendChild(caret);o.appendChild(p);n.appendChild(o);"
+            "var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;"
+            "window.__rev={tn:tn,target:'',shown:0,raf:0,cancel:false};"
+            "function scroller(){return document.getElementById('miolo')||document.scrollingElement;}"
+            "function frame(){"
+            "var r=window.__rev;if(!r||r.cancel)return;"
+            "if(r.shown>r.target.length)r.shown=r.target.length;"
+            "var pend=r.target.length-r.shown;"
+            "if(pend>0){"
+            "var passo=reduce?pend:Math.max(PISO,Math.ceil(pend/DIV));"
+            "r.shown=Math.min(r.target.length,r.shown+passo);"
+            "r.tn.nodeValue=r.target.slice(0,r.shown);"
+            "var sc=scroller();"
+            "if(sc){var perto=(sc.scrollHeight-sc.scrollTop-sc.clientHeight)<80;"
+            "if(perto)sc.scrollTop=sc.scrollHeight;}"
+            "}"
+            "r.raf=requestAnimationFrame(frame);"
+            "}"
+            "window.__rev.raf=requestAnimationFrame(frame);"
+            "})();"
         )
 
     def _stream_update(prosa_visivel: str) -> None:
-        inner = "<p>" + _prosa_para_html(prosa_visivel) + "</p>"
-        _js(
-            "(function(){var o=document.getElementById('__stream');if(!o)return;"
-            f"o.innerHTML={json.dumps(inner)};"
-            "o.scrollIntoView({behavior:'auto',block:'center'});})();"
-        )
+        # SO atualiza o alvo do motor (operacao barata, nao toca o DOM nem rola). O
+        # motor cliente (requestAnimationFrame) revela. prosa_visivel continua vindo
+        # de parte_visivel(resposta). Mesma assinatura e mesmos pontos de chamada.
+        _js(f"(function(){{if(window.__rev)window.__rev.target={json.dumps(prosa_visivel)};}})();")
 
     def _stream_finalizar() -> None:
-        # tira o id: o bloco vira uma narracao concluida comum (.glow.show), igual
-        # ao que o arrive deixaria. O proximo turno cria um novo '__stream'.
+        # revela o que faltar de uma vez, PARA o motor, e sela em <p> definitivos com
+        # a MESMA regra do _prosa_para_html (split \n\s*\n; \n->espaco; trim; descarta
+        # vazios), via textContent (seguro). Vira .glow.done (layout dos blocos
+        # concluidos), tira o id, cola o scroll no fim do #miolo. Proximo turno recria.
         _js(
-            "(function(){var o=document.getElementById('__stream');if(!o)return;"
-            "o.removeAttribute('id');o.scrollIntoView({behavior:'smooth',block:'center'});})();"
+            "(function(){"
+            "var r=window.__rev;var o=document.getElementById('__stream');"
+            "var txt=r?r.target:(o?o.textContent:'');"
+            "if(r){r.cancel=true;if(r.raf)cancelAnimationFrame(r.raf);}"
+            "if(o){o.innerHTML='';"
+            "txt.split(/\\n\\s*\\n/).forEach(function(par){"
+            "par=par.replace(/\\n/g,' ').trim();if(!par)return;"
+            "var pp=document.createElement('p');pp.textContent=par;o.appendChild(pp);});"
+            "o.classList.remove('streaming');o.classList.add('done');o.removeAttribute('id');"
+            "var sc=document.getElementById('miolo')||document.scrollingElement;"
+            "if(sc)sc.scrollTop=sc.scrollHeight;}"
+            "window.__rev=null;})();"
         )
 
     def _stream_abortar() -> None:
+        # PARA o motor e descarta o alvo, depois remove o bloco parcial. Recomecar no
+        # meio nao deixa o motor antigo revelando texto velho (_stream_iniciar recria
+        # window.__rev do zero -> proximo turno comeca limpo, sem texto fantasma).
         _js(
-            "(function(){var o=document.getElementById('__stream');"
-            "if(o)o.remove();})();"
+            "(function(){var r=window.__rev;"
+            "if(r){r.cancel=true;if(r.raf)cancelAnimationFrame(r.raf);}"
+            "window.__rev=null;"
+            "var o=document.getElementById('__stream');if(o)o.remove();})();"
         )
 
     def _pondera(on: bool) -> None:
