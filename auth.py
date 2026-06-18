@@ -41,6 +41,7 @@ _PUBLIC_PATHS: set[str] = {
     "/docs",         # Swagger UI do backend
     "/redoc",        # Redoc do backend
     "/openapi.json", # schema OpenAPI do backend
+    "/sistema",      # pagina estatica "O Sistema"
 }
 
 _PUBLIC_PREFIXES: tuple[str, ...] = (

@@ -101,6 +101,22 @@ async def health_db():
 
 
 # ---------------------------------------------------------------------------
+# 5c. Pagina "O Sistema": explicacao estatica do sistema de dados (2d10).
+#     HTML standalone em static/sistema.html, servido numa URL limpa /sistema.
+#     So le o arquivo e devolve. Liberada sem login pela whitelist do auth.py.
+# ---------------------------------------------------------------------------
+from pathlib import Path
+from fastapi.responses import HTMLResponse
+
+_SISTEMA_HTML = Path(__file__).resolve().parent / "static" / "sistema.html"
+
+
+@app.get("/sistema", include_in_schema=False)
+async def pagina_sistema():
+    return HTMLResponse(_SISTEMA_HTML.read_text(encoding="utf-8"))
+
+
+# ---------------------------------------------------------------------------
 # 6. Montar o NiceGUI no app do monolito (UMA vez). storage_secret assina os
 #    cookies de sessao do NiceGUI.
 # ---------------------------------------------------------------------------
