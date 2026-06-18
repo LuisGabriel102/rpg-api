@@ -646,7 +646,11 @@ async def pagina_oficina_catedral():
         "historias": "/oficina/historias",
     }
 
-    ui.html(render_catedral_html(counts, hrefs)).classes("w-full")
+    _full = render_catedral_html(counts, hrefs)
+    if "</style>" in _full:
+        _head_css, _full = _full.split("</style>", 1)
+        ui.add_head_html(_head_css + "</style>")
+    ui.html(_full).classes("w-full")
 
 
 # ============================================================
