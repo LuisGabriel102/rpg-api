@@ -38,7 +38,7 @@ from pathlib import Path
 from nicegui import ui
 from anthropic import AsyncAnthropic
 from cronista_prompt import CRONISTA_SYSTEM_PROMPT
-from ui_helpers import aguardar_conexao_websocket, barra_nav_alderyn
+from ui_helpers import aguardar_conexao_websocket
 
 # ---------------------------------------------------------------------------
 # Tier 4 - memoria do narrador. O /jogar deixa de ser stateless: cada turno e
@@ -446,9 +446,9 @@ _CSS = """
 }
 /* --- resets p/ vencer o Quasar/NiceGUI: APP-SHELL de tela cheia (pagina fixa) ---
    A pagina NAO rola: html/body/q-page travados em 100% e overflow:hidden. O
-   .nicegui-content vira coluna flex de 100dvh; a tira de nav (barra_nav_alderyn)
-   fica flex:none no topo e o wrapper que contem a cena enche o resto (flex:1).
-   O scroll existe SO dentro do .miolo (e do .config-scroll). */
+   .nicegui-content vira coluna flex de 100dvh; o wrapper que contem a cena enche
+   a coluna inteira (flex:1) - sem barra de nav no topo (a navegacao virou botoes
+   no card: oraculo + oficina). O scroll existe SO dentro do .miolo (e do .config-scroll). */
 html, body{ height:100%; margin:0; overflow:hidden; }
 body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !important; }
 .q-page-container{ min-height:0 !important; height:100%; }
@@ -571,6 +571,14 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .head .engr .ti{ font-size:20px; }
 .head .engr:hover{ background:var(--brasa); color:#140d04; }
 .head .engr:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; }
+/* oraculo: MESMO estilo dourado do grupo (espelha .engr) + olho coerente; vizinho do configuracoes */
+.head .oraculo{ font-family:"IM Fell English",serif; font-size:15px; letter-spacing:.04em; line-height:1; color:var(--osso);
+  background:rgba(198,122,51,.10); border:2px solid var(--brasa); border-radius:6px; white-space:nowrap; text-decoration:none;
+  min-height:44px; padding:0 16px; display:inline-flex; align-items:center; gap:8px;
+  cursor:pointer; transition:background .2s ease, color .2s ease; }
+.head .oraculo .ti{ font-size:20px; }
+.head .oraculo:hover{ background:var(--brasa); color:#140d04; }
+.head .oraculo:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; }
 /* "voltar ao jogo" (tela de config): grande, alto contraste, no mesmo registro */
 .head .voltar-jogo{ font-family:"IM Fell English",serif; font-size:15px; letter-spacing:.04em; color:var(--osso);
   background:rgba(198,122,51,.10); border:2px solid var(--brasa); border-radius:6px; white-space:nowrap;
@@ -1662,6 +1670,7 @@ _BODY = """
       <span class="ln"></span>
       <button type="button" class="selar" id="encerrar-sessao" title="Selar a sess&atilde;o e abrir a pr&oacute;xima">selar&nbsp;sess&atilde;o</button>
       <button type="button" class="engr" id="abrir-config" title="Configura&ccedil;&otilde;es" aria-label="Configura&ccedil;&otilde;es"><i class="ti ti-settings" aria-hidden="true"></i>configura&ccedil;&otilde;es</button>
+      <a class="oraculo" href="/oraculo" title="Consultar o Or&aacute;culo"><i class="ti ti-eye" aria-hidden="true"></i>or&aacute;culo</a>
       <a class="sair" href="/oficina" title="Voltar &agrave; oficina">&larr;&nbsp;oficina</a>
     </div>
 
@@ -2149,8 +2158,6 @@ _DADO_JS = """
 @ui.page("/jogar")
 async def pagina_jogar():
     await aguardar_conexao_websocket("Abrindo a folha...")
-
-    barra_nav_alderyn("jogo")
 
     historico: list[dict] = []
     ocupado = False   # trava de turno: barra acao concorrente durante o await do Cronista
