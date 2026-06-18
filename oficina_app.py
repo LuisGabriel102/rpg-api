@@ -460,6 +460,7 @@ _CATEDRAL_TPL = Template(r"""<style>
       </svg>
       Histórias
     </a>
+    <a class="ct-bo" style="display:inline-flex;align-items:center;gap:7px;color:#b6a684;font-size:13.5px;text-decoration:none;border-bottom:1px solid rgba(182,166,132,.35);padding-bottom:2px" href="/sistema">Sistema</a>
   </div>
 
   <div style="text-align:center;margin-top:1.25rem">

@@ -144,6 +144,7 @@ def barra_nav_alderyn(pagina_atual: str) -> None:
         ("oficina", "Oficina", "/oficina"),
         ("jogo",    "Jogo",    "/jogar"),
         ("oraculo", "Oráculo", "/oraculo"),
+        ("sistema", "Sistema", "/sistema"),
     ]
     with ui.row().style(
         "width:100%; gap:20px; align-items:center; "

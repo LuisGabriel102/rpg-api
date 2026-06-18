@@ -1681,6 +1681,7 @@ _BODY = """
       <button type="button" class="selar" id="encerrar-sessao" title="Selar a sess&atilde;o e abrir a pr&oacute;xima">selar&nbsp;sess&atilde;o</button>
       <button type="button" class="engr" id="abrir-config" title="Configura&ccedil;&otilde;es" aria-label="Configura&ccedil;&otilde;es"><i class="ti ti-settings" aria-hidden="true"></i>configura&ccedil;&otilde;es</button>
       <a class="oraculo" href="/oraculo" title="Consultar o Or&aacute;culo"><i class="ti ti-eye" aria-hidden="true"></i>or&aacute;culo</a>
+      <a class="oraculo" href="/sistema" title="Como o sistema funciona">sistema</a>
       <a class="sair" href="/oficina" title="Voltar &agrave; oficina">&larr;&nbsp;oficina</a>
     </div>
 
