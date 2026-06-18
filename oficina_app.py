@@ -653,6 +653,32 @@ SIGILOS = {
 "O Estranho": '<svg viewBox="0 0 40 40"><path d="M7 20 Q20 9 33 20 Q20 31 7 20 Z" fill="none" stroke="#8f9c5e" stroke-width="1.4"/><ellipse cx="20" cy="20" rx="2.6" ry="6" fill="#8f9c5e"/></svg>',
 }
 
+# ---------------------------------------------------------------------------
+# SIGILOS DOS ELEMENTOS: as 10 familias do dominio "Os Elementos" ganham forma
+# PROPRIA (card pequeno ~40px) + brasao GRANDE animado (cabecalho da disciplina).
+# As outras 32 familias NAO entram aqui -> seguem com o diamante do dominio.
+# ELEMENTO_ESCOLA: familia crua -> nome do elemento (arquivo /static/sigilos/{x}.svg).
+# FORMA_ESCOLA: familia crua -> SVG estatico da forma central (inline, ja 40x40).
+# ---------------------------------------------------------------------------
+ELEMENTO_ESCOLA = {
+    "Piromancia": "fogo", "Criomancia": "gelo", "Hidromancia": "agua",
+    "Aeromancia": "vento", "Geomancia": "terra", "Electromancia": "raio",
+    "Acidomancia": "acido", "Toxicomancia": "veneno", "Fotomancia": "luz",
+    "Sonomancia": "trovao",
+}
+FORMA_ESCOLA = {
+"Piromancia": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><path d="M20 34 C13 30 11 22 16 16 C16.5 19 17.5 20.5 19 21 C16.5 15 19 9 17.5 5 C23 8 26 14 24 20 C25.5 18.5 26.5 16.5 26.5 14.5 C30 19 29 27 23 33 C22 34.2 21 34.2 20 34 Z" fill="#e0822e"/><path d="M20 31 C16.5 28 15.5 23 18 19 C18.5 21 19.3 22 20.3 22.6 C19 18.5 20.5 14.5 20 11.5 C22.6 14.5 23.4 18.5 22 22 C23.4 25.5 22.5 28.5 20 31 Z" fill="#ffb24a"/></svg>',
+"Criomancia": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><polygon points="20,3 28,12 25,29 20,37 15,29 12,12" fill="#bfe0ec" fill-opacity="0.16" stroke="#79b6cc" stroke-width="1.4" stroke-linejoin="round"/><path d="M20 3 L20 37 M12 12 L28 12 M15 29 L20 20 L25 29" fill="none" stroke="#79b6cc" stroke-width="1" opacity="0.9" stroke-linejoin="round"/></svg>',
+"Hidromancia": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><path d="M20 5 C25 14 29 20 29 25 A9 9 0 1 1 11 25 C11 20 15 14 20 5 Z" fill="#3f8a9e"/><path d="M15.5 24 a4.5 4.5 0 0 0 1 7.5" fill="none" stroke="#a6d4df" stroke-width="1.5" opacity="0.75" stroke-linecap="round"/></svg>',
+"Aeromancia": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><path d="M7 13 Q19 8 28 12 Q33 14 30 17.5" fill="none" stroke="#e3e9eb" stroke-width="1.7" stroke-linecap="round"/><path d="M6 21 Q20 16 31 20" fill="none" stroke="#e3e9eb" stroke-width="1.7" stroke-linecap="round"/><path d="M9 29 Q19 25 26 28 Q30 29.5 27.5 32.5" fill="none" stroke="#cdd5d7" stroke-width="1.5" stroke-linecap="round"/></svg>',
+"Geomancia": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><path d="M20 6 L32 12.5 L32 26 L20 32.5 L8 26 L8 12.5 Z" fill="#b5934a" fill-opacity="0.16" stroke="#b5934a" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 12.5 L20 18.7 L32 12.5 M20 18.7 L20 32.5" fill="none" stroke="#b5934a" stroke-width="1.2" opacity="0.9"/></svg>',
+"Electromancia": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><path d="M23 4 L12 22 L18 22 L15 36 L28 16 L22 16 L26 4 Z" fill="#ecd84a"/></svg>',
+"Acidomancia": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><path d="M20 6 C23 12 25 15.5 25 18.5 a5 5 0 1 1 -10 0 C15 15.5 17 12 20 6 Z" fill="#c2b54a"/><ellipse cx="20" cy="31.5" rx="11" ry="3.3" fill="#c2b54a" opacity="0.78"/><ellipse cx="20" cy="31.5" rx="5" ry="1.5" fill="#e1d273"/></svg>',
+"Toxicomancia": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><path d="M20 6 C24 14 28 19 28 24 A8 8 0 1 1 12 24 C12 19 16 14 20 6 Z" fill="#6f8d36"/><circle cx="22.5" cy="26" r="2.3" fill="#aac26a"/><circle cx="17" cy="22.5" r="1.4" fill="#aac26a"/></svg>',
+"Fotomancia": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><polygon points="20.0,3.0 21.6,16.1 27.8,12.2 23.9,18.4 37.0,20.0 23.9,21.6 27.8,27.8 21.6,23.9 20.0,37.0 18.4,23.9 12.2,27.8 16.1,21.6 3.0,20.0 16.1,18.4 12.2,12.2 18.4,16.1" fill="#e0a838"/><circle cx="20" cy="20" r="3.6" fill="#ffd070"/></svg>',
+"Sonomancia": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><circle cx="20" cy="20" r="15" fill="none" stroke="#9a82c8" stroke-width="1.5"/><circle cx="20" cy="20" r="10" fill="none" stroke="#9a82c8" stroke-width="1.4" opacity="0.85"/><circle cx="20" cy="20" r="5" fill="none" stroke="#9a82c8" stroke-width="1.3" opacity="0.7"/><circle cx="20" cy="20" r="2" fill="#b4a6da"/></svg>',
+}
+
 # Marca da Sombra: escala propria, FORA das 8 cores de dominio (destoa de proposito).
 COR_CORRUPCAO = {1: "#7e4a48", 2: "#9c3b3b", 3: "#8a1f1f"}  # doente -> coagulo -> sangue
 
@@ -956,7 +982,12 @@ def _hub_html(contagens: dict) -> str:
             c = contagens.get(fam, {"n": 0, "sombrias": 0})
             slug = _FAMILIA_SLUG[fam]
             nome = html.escape(_familia_exibicao(fam))
-            sig_selo = SIGILOS.get(dom, "").replace("<svg ", '<svg width="32" height="32" ', 1)
+            # forma PROPRIA p/ as 10 escolas dos Elementos (ja vem 40x40); resto =
+            # diamante do dominio (so viewBox -> precisa do width/height no replace).
+            if fam in FORMA_ESCOLA:
+                sig_selo = FORMA_ESCOLA[fam]
+            else:
+                sig_selo = SIGILOS.get(dom, "").replace("<svg ", '<svg width="32" height="32" ', 1)
             somb = c["sombrias"]
             somb_html = (
                 f'<div style="font-family:\'IM Fell English SC\',serif;font-size:10px;letter-spacing:.06em;'
@@ -1113,6 +1144,14 @@ async def pagina_magias_disciplina(slug: str):
                 ui.button(icon="arrow_back",
                           on_click=lambda: ui.navigate.to("/oficina/magias")
                           ).props("flat round dense color=amber-2")
+                # brasao GRANDE animado: so as 10 escolas dos Elementos. O .svg tem
+                # SMIL -> anima sozinho como <img>. Resto das familias: sem brasao.
+                if familia in ELEMENTO_ESCOLA:
+                    ui.html(
+                        f'<img src="/static/sigilos/{ELEMENTO_ESCOLA[familia]}.svg" '
+                        f'alt="" width="128" height="128" '
+                        f'style="width:128px;height:128px;flex:none;display:block;">'
+                    )
                 with ui.column().classes("gap-0"):
                     ui.label(fam_txt).classes("bestiario-title").style(f"font-size:30px;color:{cor};")
                     contador_ref["el"] = ui.label(f"{total} de {total} magias").classes(
