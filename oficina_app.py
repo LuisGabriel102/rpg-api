@@ -382,92 +382,203 @@ def _vitral_barra(ativo: str = "") -> str:
 # ============================================================
 
 _CATEDRAL_TPL = Template(r"""<style>
-.ct-sc{font-family:'IM Fell English SC',serif}
-.ct-se{font-family:'IM Fell English',serif}
-.ct-bo{font-family:'Spectral',serif}
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+.cat-root{
+  --bg:#131110; --panel:#1d1812; --panel-2:#241d15;
+  --line:#352c22; --line-soft:#282017;
+  --bone:#ece0c6; --ink:#a0957d; --ink-2:#7a6e59; --glow:#f5dcab;
+  --blood:#e8493a; --amber:#f4ba3c; --jade:#2fc4a0;
+  --venom:#9bd23e; --violet:#b06ff0; --sepia:#d29658;
+  --lock:#5c5448; --gold:#f4ba3c;
+  --serif:'Cormorant Garamond',Georgia,serif;
+  --sans:'Inter',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  position:relative; width:100%; min-height:100vh; overflow:hidden; box-sizing:border-box;
+  padding:0; color:var(--bone); font-family:var(--sans); -webkit-font-smoothing:antialiased;
+  background:radial-gradient(130% 62% at 50% -14%, rgba(245,220,171,.12), rgba(245,220,171,0) 56%), var(--bg);
+}
+.cat-root *{ box-sizing:border-box; }
+.cat-vignette{ position:absolute; inset:0; pointer-events:none; z-index:1;
+  background:radial-gradient(125% 105% at 50% 30%, transparent 50%, rgba(0,0,0,.6) 100%); }
+.cat-grain{ position:absolute; inset:0; pointer-events:none; z-index:2; opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.cat-wrap{ position:relative; z-index:3; max-width:1160px; margin:0 auto; padding:0 26px; }
+
+.cv-banner{ display:flex; gap:24px; align-items:center; padding:64px 0 12px; }
+.cv-banner .cv-sig{ color:var(--bone); flex:none; opacity:.95; }
+.cv-banner .cv-sig .cv-glow{ fill:var(--gold); }
+.cv-eyebrow{ font-family:var(--mono); font-size:.66rem; letter-spacing:.3em; text-transform:uppercase; color:var(--blood); margin:0 0 12px; }
+.cv-h1{ font-family:var(--serif); font-weight:700; line-height:.96; font-size:clamp(2.5rem,5.8vw,3.9rem); margin:0; color:var(--bone); }
+.cv-sub{ font-family:var(--serif); font-style:italic; font-size:clamp(1.05rem,2.2vw,1.3rem); color:var(--ink); margin:12px 0 0; }
+.cv-acervo{ display:flex; align-items:center; gap:16px; margin:44px 0 20px; }
+.cv-acervo span{ font-family:var(--mono); font-size:.7rem; letter-spacing:.34em; text-transform:uppercase; color:var(--ink); }
+.cv-acervo .cv-rule{ height:1px; background:var(--line); flex:1; }
+
+.cv-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.cv-tile{ position:relative; display:block; text-decoration:none; color:inherit;
+  background:linear-gradient(180deg, var(--panel-2), var(--panel));
+  border:1px solid var(--line); border-radius:4px; padding:26px 22px 20px; min-height:212px;
+  transition:transform .26s ease, border-color .26s ease, box-shadow .26s ease; }
+.cv-tile:hover{ transform:translateY(-5px); border-color:var(--c);
+  box-shadow:0 0 26px -6px var(--c), 0 16px 36px rgba(0,0,0,.5); }
+.cv-tile:focus-visible{ outline:2px solid var(--c); outline-offset:3px; }
+.cv-cnr{ position:absolute; width:14px; height:14px; opacity:.45; transition:opacity .26s ease; }
+.cv-cnr.tl{ top:-1px; left:-1px; border-top:2px solid var(--c); border-left:2px solid var(--c); }
+.cv-cnr.tr{ top:-1px; right:-1px; border-top:2px solid var(--c); border-right:2px solid var(--c); }
+.cv-cnr.bl{ bottom:-1px; left:-1px; border-bottom:2px solid var(--c); border-left:2px solid var(--c); }
+.cv-cnr.br{ bottom:-1px; right:-1px; border-bottom:2px solid var(--c); border-right:2px solid var(--c); }
+.cv-tile:hover .cv-cnr{ opacity:1; }
+.cv-ic{ color:var(--c); height:42px; margin-bottom:16px; filter:drop-shadow(0 0 10px transparent); transition:filter .26s ease; }
+.cv-tile:hover .cv-ic{ filter:drop-shadow(0 0 12px var(--c)); }
+.cv-tile h3{ font-family:var(--serif); font-weight:600; font-size:1.68rem; line-height:1.04; margin:0 0 7px; color:var(--bone); }
+.cv-tile p{ font-family:var(--sans); font-weight:300; font-size:.9rem; line-height:1.45; color:var(--ink); margin:0; }
+.cv-stat{ position:absolute; left:22px; bottom:18px; display:flex; align-items:baseline; gap:8px; font-family:var(--mono); padding-top:11px; }
+.cv-stat .cv-num{ font-size:1.5rem; font-weight:600; color:var(--c); line-height:1; }
+.cv-stat .cv-lbl{ font-size:.6rem; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-2); }
+.cv-stat.word .cv-lbl{ color:var(--c); opacity:.85; }
+.cv-tile.locked{ background:linear-gradient(180deg, #181410, #16120e); cursor:default; }
+.cv-tile.locked:hover{ transform:none; border-color:var(--line); box-shadow:none; }
+.cv-tile.locked:hover .cv-cnr{ opacity:.45; }
+.cv-tile.locked:hover .cv-ic{ filter:none; }
+.cv-tile.locked .cv-ic{ color:var(--lock); }
+.cv-tile.locked h3{ color:#8c826e; }
+.cv-tile.locked p{ color:var(--ink-2); }
+.cv-ribbon{ position:absolute; top:14px; right:-30px; transform:rotate(45deg);
+  background:#2a241b; color:var(--lock); border:1px solid #3a3226;
+  font-family:var(--mono); font-size:.54rem; letter-spacing:.22em; text-transform:uppercase; padding:4px 36px; }
+
+.cv-endnav{ margin:56px 0 0; }
+.cv-foot-rule{ height:1px; background:var(--line); margin-bottom:26px; }
+.cv-nav-row{ display:flex; align-items:center; justify-content:space-between; gap:22px 30px; flex-wrap:wrap; }
+.cv-enter{ display:inline-flex; align-items:center; gap:11px; text-decoration:none;
+  font-family:var(--serif); font-weight:500; font-size:1.22rem; color:var(--gold);
+  border:1px solid var(--gold); border-radius:5px; padding:11px 26px;
+  background:linear-gradient(180deg, rgba(244,186,60,.12), rgba(244,186,60,.03));
+  transition:box-shadow .26s ease, background .26s ease; }
+.cv-enter:hover{ background:linear-gradient(180deg, rgba(244,186,60,.24), rgba(244,186,60,.08)); box-shadow:0 0 30px -4px var(--gold); }
+.cv-dests{ display:flex; align-items:center; gap:13px; flex-wrap:wrap; }
+.cv-dests a{ font-family:var(--serif); font-size:1.2rem; color:var(--ink); text-decoration:none;
+  padding-bottom:2px; border-bottom:1.5px solid transparent; transition:color .25s, border-color .25s; }
+.cv-dests a:hover{ color:var(--bone); }
+.cv-dests a.on{ color:var(--bone); border-bottom-color:var(--blood); }
+.cv-dests .cv-dot{ color:var(--ink-2); font-family:var(--serif); }
+.cv-footer{ margin:40px 0 56px; }
+.cv-thesis{ font-family:var(--serif); font-style:italic; font-size:1.1rem; color:var(--ink); text-align:center; margin:0; }
+.cv-seal{ font-family:var(--mono); font-size:.6rem; letter-spacing:.3em; text-transform:uppercase; color:var(--ink-2); text-align:center; margin:14px 0 0; }
+
+@media (max-width:920px){ .cat-root .cv-grid{ grid-template-columns:repeat(2,1fr); } .cat-root .cv-banner{ flex-direction:column; align-items:flex-start; } }
+@media (max-width:560px){ .cat-root .cv-grid{ grid-template-columns:1fr; } .cat-root .cv-nav-row{ justify-content:flex-start; } }
+@media (prefers-reduced-motion:reduce){ .cat-root *{ transition:none !important; } }
 </style>
-<div aria-label="A Catedral do Alderyn" style="width:100%;min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;padding:2.5rem 1.5rem;background:radial-gradient(135% 115% at 50% 0%,#191e3a 0%,#0c1020 52%,#070912 100%)">
- <div style="max-width:1440px;margin:0 auto">
+<div class="cat-root">
+  <div class="cat-vignette"></div>
+  <div class="cat-grain"></div>
+  <div class="cat-wrap">
 
-  <div style="max-width:340px;margin:0 auto;position:relative;height:232px">
-    <svg viewBox="0 0 320 262" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%">
-      <path d="M12 258 L12 96 Q70 26 160 16 Q250 26 308 96 L308 258 Z" fill="#10131f" stroke="#c9a23a" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
-      <path d="M18 258 L18 98 Q74 34 160 24 Q246 34 302 98 L302 258" fill="none" stroke="#7e6420" stroke-width="1" opacity=".7" vector-effect="non-scaling-stroke"/>
-    </svg>
-    <div style="position:relative;height:100%;display:flex;flex-direction:column;align-items:center;padding-top:20px;box-sizing:border-box">
-      <svg viewBox="0 0 200 200" width="126" height="126" role="img" aria-label="Rosácea de vitral da Catedral">
-        <title>Rosácea de vitral</title>
-        <circle cx="100" cy="100" r="84" fill="#10131f"/>
-        <line x1="100" y1="100" x2="100" y2="18"  stroke="#5a4a22" stroke-width="1.4" opacity=".5"/>
-        <line x1="100" y1="100" x2="171" y2="59"  stroke="#5a4a22" stroke-width="1.4" opacity=".5"/>
-        <line x1="100" y1="100" x2="171" y2="141" stroke="#5a4a22" stroke-width="1.4" opacity=".5"/>
-        <line x1="100" y1="100" x2="100" y2="182" stroke="#5a4a22" stroke-width="1.4" opacity=".5"/>
-        <line x1="100" y1="100" x2="29"  y2="141" stroke="#5a4a22" stroke-width="1.4" opacity=".5"/>
-        <line x1="100" y1="100" x2="29"  y2="59"  stroke="#5a4a22" stroke-width="1.4" opacity=".5"/>
-        <circle cx="100"    cy="30"     r="9" fill="#233452" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="135"    cy="39.38"  r="9" fill="#2c2748" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="160.62" cy="65"     r="9" fill="#1f3a4e" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="170"    cy="100"    r="9" fill="#2a4636" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="160.62" cy="135"    r="9" fill="#463618" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="135"    cy="160.62" r="9" fill="#3e2228" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="100"    cy="170"    r="9" fill="#233452" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="65"     cy="160.62" r="9" fill="#2c2748" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="39.38"  cy="135"    r="9" fill="#1f3a4e" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="30"     cy="100"    r="9" fill="#2a4636" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="39.38"  cy="65"     r="9" fill="#463618" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="65"     cy="39.38"  r="9" fill="#3e2228" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="100" cy="100" r="84" fill="none" stroke="#b8902f" stroke-width="2.4"/>
-        <circle cx="100" cy="100" r="87" fill="none" stroke="#7e6420" stroke-width="1"/>
-        <circle cx="100" cy="100" r="50" fill="#10131f" stroke="#b8902f" stroke-width="1.6"/>
-        <circle cx="100"    cy="64"     r="11" fill="#9a4e30" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="134.24" cy="88.88"  r="11" fill="#6f5a96" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="121.16" cy="129.12" r="11" fill="#3f6a9e" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="78.84"  cy="129.12" r="11" fill="#468268" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="65.76"  cy="88.88"  r="11" fill="#a07e2a" stroke="#0d1018" stroke-width="1.2"/>
-        <circle cx="100" cy="100" r="15"  fill="#c9a23a" stroke="#0d1018" stroke-width="1.4"/>
-        <circle cx="100" cy="100" r="6.5" fill="#f3e7c4"/>
+    <header class="cv-banner">
+      <svg class="cv-sig" viewBox="0 0 100 100" width="78" height="78" aria-hidden="true">
+        <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="0.6" opacity="0.42"/>
+        <circle cx="50" cy="50" r="34" fill="none" stroke="currentColor" stroke-width="0.5" opacity="0.3"/>
+        <g fill="currentColor">
+          <circle cx="88" cy="50" r="1.8" opacity=".7"/><circle cx="82.9" cy="69" r="1.5" opacity=".4"/>
+          <circle cx="69" cy="82.9" r="1.8" opacity=".6"/><circle cx="50" cy="88" r="1.5" opacity=".45"/>
+          <circle cx="31" cy="82.9" r="1.8" opacity=".65"/><circle cx="17.1" cy="69" r="1.5" opacity=".4"/>
+          <circle cx="12" cy="50" r="1.8" opacity=".7"/><circle cx="17.1" cy="31" r="1.5" opacity=".42"/>
+          <circle cx="31" cy="17.1" r="1.8" opacity=".6"/><circle cx="50" cy="12" r="1.5" opacity=".48"/>
+          <circle cx="69" cy="17.1" r="1.8" opacity=".66"/><circle cx="82.9" cy="31" r="1.5" opacity=".4"/>
+        </g>
+        <circle cx="50" cy="50" r="7.5" fill="none" stroke="var(--gold)" stroke-width="0.6" opacity="0.6"/>
+        <circle class="cv-glow" cx="50" cy="50" r="3.3" opacity="0.95"/>
       </svg>
-      <div class="ct-sc" style="font-size:21px;letter-spacing:.04em;color:#e6c45c;margin-top:8px">A Catedral do Alderyn</div>
-      <div class="ct-bo" style="font-style:italic;font-size:12.5px;color:#b6a684;margin-top:3px">Tudo aqui tem um preço. Inclusive saber.</div>
+      <div>
+        <p class="cv-eyebrow">Arquivo da Catedral &middot; Vig&iacute;lia Quebrada &middot; 312</p>
+        <h1 class="cv-h1">A Catedral do Alderyn</h1>
+        <p class="cv-sub">Tudo aqui tem um pre&ccedil;o. Inclusive saber.</p>
+      </div>
+    </header>
+
+    <div class="cv-acervo"><span>O Acervo</span><div class="cv-rule"></div></div>
+
+    <div class="cv-grid">
+
+      <a class="cv-tile" style="--c:var(--blood)" href="$vocacoes_href">
+        <i class="cv-cnr tl"></i><i class="cv-cnr tr"></i><i class="cv-cnr bl"></i><i class="cv-cnr br"></i>
+        <div class="cv-ic"><svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22V12"/><path d="M12 12L5 4"/><path d="M12 12l7-8"/><circle cx="5" cy="3.4" r="1.4"/><circle cx="19" cy="3.4" r="1.4"/></svg></div>
+        <h3>Voca&ccedil;&otilde;es</h3>
+        <p>O que se escolhe ser &#8212; e o que isso custa.</p>
+        <span class="cv-stat"><span class="cv-num">$vocacoes_count</span><span class="cv-lbl">Voca&ccedil;&otilde;es</span></span>
+      </a>
+
+      <a class="cv-tile" style="--c:var(--amber)" href="$estrelas_href">
+        <i class="cv-cnr tl"></i><i class="cv-cnr tr"></i><i class="cv-cnr bl"></i><i class="cv-cnr br"></i>
+        <div class="cv-ic"><svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l1.7 7.8L21.5 12l-7.8 1.7L12 21.5l-1.7-7.8L2.5 12l7.8-1.7z"/></svg></div>
+        <h3>Estrelas</h3>
+        <p>Os astros sob os quais se nasce.</p>
+        <span class="cv-stat word"><span class="cv-lbl">Os Astros</span></span>
+      </a>
+
+      <a class="cv-tile" style="--c:var(--jade)" href="$npcs_href">
+        <i class="cv-cnr tl"></i><i class="cv-cnr tr"></i><i class="cv-cnr bl"></i><i class="cv-cnr br"></i>
+        <div class="cv-ic"><svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8.5" cy="8" r="3"/><circle cx="16.5" cy="9" r="2.4"/><path d="M3.5 19c0-3 2.2-5 5-5s5 2 5 5"/><path d="M14.5 19c.2-2.4 1.6-4 4-4 1.4 0 2.6.6 3 2"/></svg></div>
+        <h3>NPCs</h3>
+        <p>Os vivos &#8212; e o que cada um esconde.</p>
+        <span class="cv-stat"><span class="cv-num">$npcs_count</span><span class="cv-lbl">Figuras</span></span>
+      </a>
+
+      <a class="cv-tile" style="--c:var(--venom)" href="$bestiario_href">
+        <i class="cv-cnr tl"></i><i class="cv-cnr tr"></i><i class="cv-cnr bl"></i><i class="cv-cnr br"></i>
+        <div class="cv-ic"><svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="15.5" rx="4.6" ry="3.6"/><circle cx="6.5" cy="10" r="1.7"/><circle cx="10" cy="6.6" r="1.7"/><circle cx="14" cy="6.6" r="1.7"/><circle cx="17.5" cy="10" r="1.7"/></svg></div>
+        <h3>Besti&aacute;rio</h3>
+        <p>O que ca&ccedil;a nas margens.</p>
+        <span class="cv-stat"><span class="cv-num">$bestiario_count</span><span class="cv-lbl">Criaturas</span></span>
+      </a>
+
+      <a class="cv-tile" style="--c:var(--violet)" href="$magias_href">
+        <i class="cv-cnr tl"></i><i class="cv-cnr tr"></i><i class="cv-cnr bl"></i><i class="cv-cnr br"></i>
+        <div class="cv-ic"><svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5L20.5 19H3.5z"/><circle cx="12" cy="14" r="2.1"/></svg></div>
+        <h3>Magias</h3>
+        <p>O pre&ccedil;o de dobrar o mundo.</p>
+        <span class="cv-stat"><span class="cv-num">$magias_count</span><span class="cv-lbl">Magias</span></span>
+      </a>
+
+      <span class="cv-tile locked" style="--c:var(--lock)" aria-disabled="true">
+        <i class="cv-cnr tl"></i><i class="cv-cnr tr"></i><i class="cv-cnr bl"></i><i class="cv-cnr br"></i>
+        <span class="cv-ribbon">em obras</span>
+        <div class="cv-ic"><svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+        <h3>Itens</h3>
+        <p>O que se carrega, e o que pesa.</p>
+        <span class="cv-stat word"><span class="cv-lbl">Trancado</span></span>
+      </span>
+
     </div>
-  </div>
 
-  <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:.9rem 0 1.3rem">
-    <span style="height:1px;width:64px;background:linear-gradient(90deg,transparent,#b8902f)"></span>
-    <span style="color:#caa23a;font-size:12px">&#9670;</span>
-    <span style="height:1px;width:64px;background:linear-gradient(90deg,#b8902f,transparent)"></span>
-  </div>
+    <nav class="cv-endnav" aria-label="Navega&ccedil;&atilde;o principal">
+      <div class="cv-foot-rule"></div>
+      <div class="cv-nav-row">
+        <a class="cv-enter" href="$jogar_href">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="M13 6l6 6-6 6"/></svg>
+          Entrar no Mundo
+        </a>
+        <div class="cv-dests">
+          <a href="/oficina" class="on">Oficina</a>
+          <span class="cv-dot">&middot;</span>
+          <a href="$jogar_href">Jogo</a>
+          <span class="cv-dot">&middot;</span>
+          <a href="/oraculo">Or&aacute;culo</a>
+          <span class="cv-dot">&middot;</span>
+          <a href="/sistema">Sistema</a>
+          <span class="cv-dot">&middot;</span>
+          <a href="$historias_href">Hist&oacute;rias</a>
+        </div>
+      </div>
+    </nav>
 
-  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:16px;align-items:start">
-<a href="$vocacoes_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%231a2039%27%20stroke%3D%27%23caa23a%27%20stroke-width%3D%272.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true"><circle cx="24" cy="24" r="16" fill="none" stroke="#b8902f" stroke-width="1.2" opacity=".7"/><circle cx="24" cy="10" r="4.4" fill="#9a4e30"/><circle cx="37.3" cy="19.7" r="4.4" fill="#6f5a96"/><circle cx="32.2" cy="35.3" r="4.4" fill="#3f6a9e"/><circle cx="15.8" cy="35.3" r="4.4" fill="#468268"/><circle cx="10.7" cy="19.7" r="4.4" fill="#a07e2a"/><circle cx="24" cy="24" r="2.4" fill="#e6c45c"/></svg></div><div class="ct-se" style="font-size:19px;color:#f6ecd2;margin-top:3px">Vocações</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#ab9e82;line-height:1.35;text-align:center;margin-top:3px">O que se escolhe ser &#8212; e o que isso custa.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.16);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$vocacoes_count vocações</span></div></a><a href="$estrelas_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true"><line x1="20" y1="15" x2="34" y2="9" stroke="#b8902f" stroke-width=".8" opacity=".5"/><line x1="20" y1="15" x2="8" y2="25" stroke="#b8902f" stroke-width=".8" opacity=".5"/><path d="M20 4 L23.2 12 L31 15 L23.2 18 L20 26 L16.8 18 L9 15 L16.8 12 Z" fill="#f3e7c4" stroke="#c9a23a" stroke-width=".8"/><circle cx="34" cy="9" r="2" fill="#f3e7c4"/><circle cx="8" cy="25" r="1.6" fill="#f3e7c4"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Estrelas</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">Os astros sob os quais se nasce.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$estrelas_count signos</span></div></a><a href="$npcs_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 44 32" width="42" height="31" aria-hidden="true"><circle cx="29" cy="12" r="4" fill="#463618" stroke="#c9a23a" stroke-width="1"/><path d="M21 30 Q21 22 29 22 Q37 22 37 30 Z" fill="#463618" stroke="#c9a23a" stroke-width="1"/><circle cx="16" cy="12" r="5" fill="#5a4420" stroke="#c9a23a" stroke-width="1.1"/><path d="M6 30 Q6 21 16 21 Q26 21 26 30 Z" fill="#5a4420" stroke="#c9a23a" stroke-width="1.1"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">NPCs</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">Os vivos &#8212; e o que cada um esconde.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$npcs_count figuras</span></div></a><a href="$bestiario_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 44 40" width="38" height="35" aria-hidden="true"><ellipse cx="12" cy="15" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="18.5" cy="10" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="25.5" cy="10" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="32" cy="15" rx="3.4" ry="5.2" fill="#3a2620" stroke="#c9a23a" stroke-width="1"/><ellipse cx="22" cy="29" rx="9" ry="7" fill="#3a2620" stroke="#c9a23a" stroke-width="1.1"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Bestiário</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">O que caça nas margens.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$bestiario_count criaturas</span></div></a><a href="$magias_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23181d34%27%20stroke%3D%27%23c9a23a%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 36 36" width="34" height="34" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="#c9a23a" stroke-width="1.2"/><path d="M18 32 L6 11 L30 11 Z" fill="#1f1e30" stroke="#c9a23a" stroke-width="1"/><circle cx="18" cy="17" r="2.6" fill="#14131f" stroke="#c9a23a" stroke-width=".9"/></svg></div><div class="ct-se" style="font-size:17px;color:#f3e7c4;margin-top:3px">Magias</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#a4977c;line-height:1.35;text-align:center;margin-top:3px">O preço de dobrar o mundo.</div><span class="ct-bo" style="margin-top:auto;background:rgba(202,162,58,.13);color:#e6c45c;font-size:11.5px;padding:3px 10px;border-radius:8px">$magias_count magias</span></div></a><a href="$itens_href" style="display:block;text-decoration:none"><div style="height:202px;background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20200%20182%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M6%20178%20L6%2064%20Q42%2014%20100%208%20Q158%2014%20194%2064%20L194%20178%20Z%27%20fill%3D%27%23101320%27%20stroke%3D%27%235a5340%27%20stroke-width%3D%271.2%27%20stroke-dasharray%3D%274%203%27%2F%3E%3C%2Fsvg%3E');background-repeat:no-repeat;background-position:center;background-size:100% 100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px 14px 16px;box-sizing:border-box;opacity:.58"><div style="height:40px;display:flex;align-items:center"><svg viewBox="0 0 24 40" width="22" height="36" aria-hidden="true"><path d="M12 3 L15 9 L15 26 L12 30 L9 26 L9 9 Z" fill="#1f1e30" stroke="#6a6450" stroke-width="1.1"/><line x1="5" y1="28" x2="19" y2="28" stroke="#6a6450" stroke-width="2"/><line x1="12" y1="28" x2="12" y2="36" stroke="#6a6450" stroke-width="2"/><circle cx="12" cy="37.5" r="2" fill="none" stroke="#6a6450" stroke-width="1.2"/></svg></div><div class="ct-se" style="font-size:17px;color:#8a8270;margin-top:3px">Itens</div><div class="ct-bo" style="font-style:italic;font-size:12px;color:#6f6a58;line-height:1.35;text-align:center;margin-top:3px">O que se carrega, e o que pesa.</div><span class="ct-bo" style="margin-top:auto;background:#1c1b2a;color:#8a8270;font-size:11px;padding:3px 10px;border-radius:8px">em obras</span></div></a>
-  </div>
+    <footer class="cv-footer">
+      <p class="cv-thesis">Tudo tem nome. Todo nome tem pre&ccedil;o.</p>
+      <p class="cv-seal">Vig&iacute;lia Quebrada &middot; 312</p>
+    </footer>
 
-  <div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-top:1.5rem;flex-wrap:wrap">
-    <a href="$jogar_href" class="ct-se" style="display:inline-flex;align-items:center;gap:9px;background:linear-gradient(180deg,#1f2742,#171d33);border:1.5px solid #caa23a;color:#f0d987;font-size:16px;padding:11px 22px;border-radius:10px;text-decoration:none">
-      <svg viewBox="0 0 24 28" width="18" height="21" aria-hidden="true">
-        <path d="M4 26 L4 9 Q12 1 20 9 L20 26 Z" fill="none" stroke="#e6c45c" stroke-width="1.6"/>
-        <line x1="12" y1="3.4" x2="12" y2="26" stroke="#e6c45c" stroke-width="1.1"/>
-        <line x1="4" y1="14" x2="20" y2="14" stroke="#e6c45c" stroke-width=".9"/>
-      </svg>
-      Entrar no Mundo
-    </a>
-    <a href="$historias_href" class="ct-bo" style="display:inline-flex;align-items:center;gap:7px;color:#b6a684;font-size:13.5px;text-decoration:none;border-bottom:1px solid rgba(182,166,132,.35);padding-bottom:2px">
-      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-        <path d="M6 3 L16 3 Q19 3 19 6 L19 21 L8 21 Q6 21 6 19 Z" fill="none" stroke="currentColor" stroke-width="1.3"/>
-        <line x1="9" y1="8"  x2="16" y2="8"  stroke="currentColor" stroke-width="1"/>
-        <line x1="9" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="1"/>
-        <line x1="9" y1="16" x2="13" y2="16" stroke="currentColor" stroke-width="1"/>
-      </svg>
-      Histórias
-    </a>
-    <a class="ct-bo" style="display:inline-flex;align-items:center;gap:7px;color:#b6a684;font-size:13.5px;text-decoration:none;border-bottom:1px solid rgba(182,166,132,.35);padding-bottom:2px" href="/sistema">Sistema</a>
   </div>
-
-  <div style="text-align:center;margin-top:1.25rem">
-    <span class="ct-bo" style="font-style:italic;font-size:12px;color:#7e7158;letter-spacing:.03em">Tudo tem nome. Todo nome tem preço.</span>
-  </div>
-
- </div>
 </div>
 """)
 
@@ -497,8 +608,6 @@ async def pagina_oficina_catedral():
     # A Catedral do Alderyn (v6) — landing in-place de /oficina.
     # FIX TIMEOUT NICEGUI: envia placeholder + aguarda WS antes das queries.
     await aguardar_conexao_websocket("Abrindo a Catedral...")
-
-    barra_nav_alderyn("oficina")
 
     ui.add_head_html(_VITRAL_HEAD)
 
