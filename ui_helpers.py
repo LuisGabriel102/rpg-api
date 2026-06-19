@@ -191,6 +191,8 @@ CSS_ALDERYN = """<style>
   --sans:'Inter',system-ui,sans-serif;
   --mono:'IBM Plex Mono',ui-monospace,monospace;
 }
+html,body{height:100%;margin:0;}
+body{overflow:hidden;}
 .ald-hud{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:13px 26px;background:rgba(19,17,16,.94);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1000;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}
 .ald-brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
 .ald-brand .ald-rune{color:var(--gold);font-size:15px;line-height:1;}

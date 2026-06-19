@@ -301,13 +301,13 @@ _FONTS = (
 _CSS = """<style>
 body,.q-page,.q-page-container,.nicegui-content{background:var(--bg) !important;}
 .nicegui-content{padding:0 !important;gap:0 !important;}
-.orac-stage{width:100%;min-height:100vh;display:flex;justify-content:center;padding:5vh 18px 4vh;box-sizing:border-box;background:radial-gradient(130% 70% at 50% -8%,rgba(245,220,171,.10),rgba(245,220,171,0) 56%),var(--bg);}
-.orac-pagina{position:relative;width:100%;max-width:760px;display:flex;flex-direction:column;min-height:86vh;box-sizing:border-box;padding:clamp(20px,3.2vw,34px);}
+.orac-stage{width:100%;height:calc(100vh - 64px);display:flex;justify-content:center;padding:0 18px;box-sizing:border-box;background:radial-gradient(130% 70% at 50% -8%,rgba(245,220,171,.10),rgba(245,220,171,0) 56%),var(--bg);overflow:hidden;}
+.orac-pagina{position:relative;width:100%;max-width:760px;height:100%;display:flex;flex-direction:column;box-sizing:border-box;padding:clamp(20px,3.2vw,34px) clamp(20px,3.2vw,34px) 0;}
 .orac-head{padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:6px;}
 .orac-head .eyebrow{display:block;font-family:var(--mono);font-size:.66rem;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-2);margin:0 0 10px;}
 .orac-head .ttl{display:block;font-family:var(--serif);font-weight:700;font-size:clamp(2rem,4.4vw,2.7rem);line-height:1;color:var(--bone);}
 .orac-head .sub{display:block;font-family:var(--serif);font-style:italic;font-size:1.02rem;color:var(--ink);margin-top:8px;}
-.orac-conversa{flex:1;overflow-y:auto;padding:24px 2px 112px;display:flex;flex-direction:column;gap:22px;}
+.orac-conversa{flex:1;min-height:0;overflow-y:auto;padding:24px 2px 8px;display:flex;flex-direction:column;gap:22px;}
 .orac-conversa::-webkit-scrollbar{width:8px;}
 .orac-conversa::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
 .orac-conversa::-webkit-scrollbar-track{background:transparent;}
@@ -323,7 +323,7 @@ body,.q-page,.q-page-container,.nicegui-content{background:var(--bg) !important;
 .orac-pensa span:nth-child(2){animation-delay:.2s;}
 .orac-pensa span:nth-child(3){animation-delay:.4s;}
 @keyframes opisca{0%,100%{opacity:.2}50%{opacity:.9}}
-.orac-scrawl{position:fixed;left:0;right:0;bottom:0;margin:0 auto;width:100%;max-width:760px;box-sizing:border-box;display:flex;align-items:flex-end;gap:10px;padding:16px clamp(20px,3.2vw,34px);border-top:1px solid var(--line);background:var(--bg);z-index:50;}
+.orac-scrawl{flex-shrink:0;display:flex;align-items:flex-end;gap:10px;padding:16px 0 18px;border-top:1px solid var(--line);background:var(--bg);}
 .orac-scrawl .q-field{flex:1;}
 .orac-scrawl input{color:var(--bone) !important;font-family:var(--sans) !important;font-size:1rem !important;}
 .orac-scrawl .send{font-family:var(--mono);letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;color:var(--ink-2);background:transparent;border:1px solid var(--line);border-radius:4px;padding:.6rem 1.4rem;cursor:pointer;transition:color .26s ease,border-color .26s ease,background .26s ease;}
