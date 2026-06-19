@@ -307,7 +307,7 @@ body,.q-page,.q-page-container,.nicegui-content{background:var(--bg) !important;
 .orac-head .eyebrow{display:block;font-family:var(--mono);font-size:.66rem;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-2);margin:0 0 10px;}
 .orac-head .ttl{display:block;font-family:var(--serif);font-weight:700;font-size:clamp(2rem,4.4vw,2.7rem);line-height:1;color:var(--bone);}
 .orac-head .sub{display:block;font-family:var(--serif);font-style:italic;font-size:1.02rem;color:var(--ink);margin-top:8px;}
-.orac-conversa{flex:1;overflow-y:auto;padding:24px 2px;display:flex;flex-direction:column;gap:22px;}
+.orac-conversa{flex:1;overflow-y:auto;padding:24px 2px 96px;display:flex;flex-direction:column;gap:22px;}
 .orac-conversa::-webkit-scrollbar{width:8px;}
 .orac-conversa::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
 .orac-conversa::-webkit-scrollbar-track{background:transparent;}
@@ -323,7 +323,7 @@ body,.q-page,.q-page-container,.nicegui-content{background:var(--bg) !important;
 .orac-pensa span:nth-child(2){animation-delay:.2s;}
 .orac-pensa span:nth-child(3){animation-delay:.4s;}
 @keyframes opisca{0%,100%{opacity:.2}50%{opacity:.9}}
-.orac-scrawl{display:flex;align-items:flex-end;gap:10px;margin-top:16px;border-top:1px solid var(--line);padding-top:18px;}
+.orac-scrawl{position:sticky;bottom:0;display:flex;align-items:flex-end;gap:10px;margin-top:16px;border-top:1px solid var(--line);padding:18px 0 14px;background:linear-gradient(0deg,var(--bg) 72%,rgba(19,17,16,0) 100%);z-index:5;}
 .orac-scrawl .q-field{flex:1;}
 .orac-scrawl input{color:var(--bone) !important;font-family:var(--sans) !important;font-size:1rem !important;}
 .orac-scrawl .send{font-family:var(--mono);letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;color:var(--ink-2);background:transparent;border:1px solid var(--line);border-radius:4px;padding:.6rem 1.4rem;cursor:pointer;transition:color .26s ease,border-color .26s ease,background .26s ease;}
