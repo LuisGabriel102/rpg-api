@@ -347,6 +347,41 @@ body,.q-page,.q-page-container,.nicegui-content{background:var(--bg) !important;
 .orac-scrawl .send:hover{border-color:var(--gold);color:var(--bone);background:rgba(244,186,60,.08);}
 @media (prefers-reduced-motion:reduce){.orac-pensa span{animation:none;opacity:.7;}.orac-scrawl .send{transition:none;}}
 @media (max-width:560px){.orac-pagina{padding:18px 16px;}.msg{max-width:94%;}}
+
+/* ---- Pacote 2: gamificacao (decorativo, aditivo) ---- */
+
+/* glifo no titulo */
+.orac-head .ttl-glifo{color:var(--gold);font-size:.62em;vertical-align:.22em;margin-right:.42rem;opacity:.92;font-weight:400;}
+
+/* cantos dourados na folha (4 colchetes via ::before/::after da .orac-pagina) */
+.orac-pagina::before,.orac-pagina::after{content:"";position:absolute;width:18px;height:18px;pointer-events:none;z-index:2;}
+.orac-pagina::before{top:8px;left:8px;border-top:1.5px solid var(--gold);border-left:1.5px solid var(--gold);}
+.orac-pagina::after{bottom:8px;right:8px;border-bottom:1.5px solid var(--gold);border-right:1.5px solid var(--gold);}
+.orac-pagina>.orac-head{position:relative;}
+/* os outros 2 cantos: pendurados no .orac-head (topo-direita) e no .orac-scrawl (base-esquerda) */
+.orac-head::after{content:"";position:absolute;top:-12px;right:-12px;width:18px;height:18px;border-top:1.5px solid var(--gold);border-right:1.5px solid var(--gold);pointer-events:none;z-index:2;}
+.orac-scrawl{position:relative;}
+.orac-scrawl::before{content:"";position:absolute;bottom:8px;left:-12px;width:18px;height:18px;border-bottom:1.5px solid var(--gold);border-left:1.5px solid var(--gold);pointer-events:none;z-index:2;}
+
+/* marca d'agua: losango gigante fantasma atras de tudo */
+.orac-pagina>.orac-marca{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(45deg);width:min(46vh,360px);height:min(46vh,360px);border:1px solid var(--bone);opacity:.025;pointer-events:none;z-index:0;}
+.orac-conversa,.orac-head,.orac-scrawl,.orac-modelo,.orac-status{position:relative;z-index:1;}
+
+/* console: prompt dourado antes do campo */
+.orac-scrawl::after{content:"\276F";font-family:var(--mono);color:var(--gold);font-size:1rem;align-self:center;opacity:.85;margin-right:-2px;order:-1;}
+
+/* status diegetico */
+.orac-status{flex-shrink:0;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.58rem;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-2);padding:0 2px 10px;}
+.orac-status-dot{width:5px;height:5px;border-radius:50%;background:var(--gold);box-shadow:0 0 5px var(--gold);animation:orac-pulse 2.4s ease-in-out infinite;}
+@keyframes orac-pulse{0%,100%{opacity:.35;}50%{opacity:1;}}
+
+/* scanline: textura de tela ultra-sutil sobre o stage */
+.orac-stage::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;background:repeating-linear-gradient(to bottom,rgba(236,224,198,.018) 0,rgba(236,224,198,.018) 1px,transparent 1px,transparent 3px);mix-blend-mode:overlay;}
+
+/* respeita reduced-motion: para o pulso */
+@media (prefers-reduced-motion: reduce){
+.orac-status-dot{animation:none;opacity:.8;}
+}
 </style>
 """
 
@@ -372,10 +407,11 @@ async def pagina_oraculo():
 
     with ui.element("div").classes("orac-stage"):
         with ui.element("div").classes("orac-pagina"):
+            ui.html('<div class="orac-marca"></div>')
             ui.html(
                 '<div class="orac-head">'
                 '<span class="eyebrow">Vig&iacute;lia Quebrada &middot; 312</span>'
-                '<span class="ttl">O Or&aacute;culo</span>'
+                '<span class="ttl"><span class="ttl-glifo">&#9671;</span>O Or&aacute;culo</span>'
                 '<span class="sub">a mente do mundo</span>'
                 '</div>'
             )
@@ -396,6 +432,13 @@ async def pagina_oraculo():
                 options=_MODELOS_ORAC, value=modelo_atual, on_change=_troca_modelo
             )
             _sel.props("borderless dense options-dense").classes("orac-modelo")
+
+            ui.html(
+                '<div class="orac-status">'
+                '<span class="orac-status-dot"></span>'
+                'ARQUIVO &middot; ABERTO'
+                '</div>'
+            )
 
             conversa = ui.element("div").classes("orac-conversa")
             with conversa:
