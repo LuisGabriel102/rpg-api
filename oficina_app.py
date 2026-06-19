@@ -1945,8 +1945,8 @@ async def _buscar_pagina_vocacoes(
 
 
 _COR_PILAR = {
-    "corpo": "#c0653f", "sombra": "#9b7fc0", "arcano": "#4f86c6",
-    "espirito": "#5aa882", "engenho": "#c9a23a",
+    "corpo": "#e8493a", "sombra": "#b06ff0", "arcano": "#5b8fd6",
+    "espirito": "#f4ba3c", "engenho": "#ee8d3a",
 }
 
 _NOME_PILAR = {
