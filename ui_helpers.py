@@ -170,3 +170,76 @@ def barra_nav_alderyn(pagina_atual: str) -> None:
                     base + " border-bottom:2px solid transparent; cursor:pointer;"
                 )
                 lk.on("click", lambda r=rota: ui.navigate.to(r))
+
+
+# =========================================================
+#  TEMA ÚNICO DA CATEDRAL + BARRA HUD  (casca visual unificada)
+#  Fonte de verdade: _CATEDRAL_TPL em oficina_app.py.
+#  Aditivo — não substitui barra_nav_alderyn nem barra_nav (legados).
+# =========================================================
+
+CSS_ALDERYN = """<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+:root{
+  --bg:#131110; --panel:#1d1812; --panel-2:#241d15;
+  --line:#352c22; --line-soft:#282017;
+  --bone:#ece0c6; --ink:#a0957d; --ink-2:#7a6e59; --glow:#f5dcab;
+  --blood:#e8493a; --amber:#f4ba3c; --jade:#2fc4a0;
+  --venom:#9bd23e; --violet:#b06ff0; --sepia:#d29658;
+  --lock:#5c5448; --gold:#f4ba3c;
+  --serif:'Cormorant Garamond',Georgia,serif;
+  --sans:'Inter',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+.ald-hud{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:13px 26px;background:rgba(19,17,16,.94);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1000;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}
+.ald-brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.ald-brand .ald-rune{color:var(--gold);font-size:15px;line-height:1;}
+.ald-brand .ald-mark{font-family:var(--mono);font-size:.78rem;letter-spacing:.34em;text-transform:uppercase;color:var(--bone);}
+.ald-links{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.ald-link{position:relative;text-decoration:none;font-family:var(--mono);font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-2);padding:9px 16px;transition:color .26s ease,transform .26s ease,text-shadow .26s ease;}
+.ald-cnr{position:absolute;width:11px;height:11px;opacity:0;transition:opacity .26s ease;pointer-events:none;}
+.ald-cnr.tl{top:-1px;left:-1px;border-top:2px solid var(--c);border-left:2px solid var(--c);}
+.ald-cnr.tr{top:-1px;right:-1px;border-top:2px solid var(--c);border-right:2px solid var(--c);}
+.ald-cnr.bl{bottom:-1px;left:-1px;border-bottom:2px solid var(--c);border-left:2px solid var(--c);}
+.ald-cnr.br{bottom:-1px;right:-1px;border-bottom:2px solid var(--c);border-right:2px solid var(--c);}
+.ald-link:hover{color:var(--bone);transform:translateY(-2px);text-shadow:0 0 10px rgba(244,186,60,.4);}
+.ald-link:hover .ald-cnr{opacity:1;}
+.ald-link.on{color:var(--c);text-shadow:0 0 10px rgba(244,186,60,.4);}
+.ald-link.on .ald-cnr{opacity:1;}
+@media (max-width:560px){.ald-hud{padding:12px 16px;}}
+@media (prefers-reduced-motion:reduce){.ald-hud *{transition:none !important;}.ald-link:hover{transform:none;}}
+</style>"""
+
+
+def aplicar_tema_alderyn() -> None:
+    """Injeta no <head> as fontes, os tokens da Catedral e o CSS da barra HUD.
+    Chamar UMA vez no setup de cada pagina migrada (antes de barra_hud)."""
+    ui.add_head_html(CSS_ALDERYN)
+
+
+def barra_hud(pagina_atual: str) -> None:
+    """Barra de navegacao HUD — a casca unica do sistema.
+    pagina_atual: 'catedral' | 'jogar' | 'oraculo' | 'sistema'.
+    Requer aplicar_tema_alderyn() ja chamado na pagina."""
+    destinos = [
+        ("catedral", "Catedral",       "/oficina"),
+        ("jogar",    "Jogar",          "/jogar"),
+        ("oraculo",  "Or&aacute;culo", "/oraculo"),
+        ("sistema",  "Sistema",        "/sistema"),
+    ]
+    cnr = ('<i class="ald-cnr tl"></i><i class="ald-cnr tr"></i>'
+           '<i class="ald-cnr bl"></i><i class="ald-cnr br"></i>')
+    links = ""
+    for chave, rotulo, href in destinos:
+        on = " on" if chave == pagina_atual else ""
+        links += (f'<a class="ald-link{on}" style="--c:var(--gold)" '
+                  f'href="{href}">{cnr}{rotulo}</a>')
+    html = (
+        '<nav class="ald-hud" role="navigation" aria-label="Navega&ccedil;&atilde;o principal">'
+        '<a class="ald-brand" href="/oficina">'
+        '<span class="ald-rune">&#9671;</span>'
+        '<span class="ald-mark">Alderyn</span></a>'
+        f'<div class="ald-links">{links}</div>'
+        '</nav>'
+    )
+    ui.html(html).classes("w-full")

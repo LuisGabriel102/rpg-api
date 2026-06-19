@@ -32,7 +32,7 @@ from anthropic import Anthropic
 from sqlalchemy import text  # bind params (:param) pro INSERT da gravacao
 
 from db import engine  # mesmo engine async/asyncpg que a memoria do narrador usa
-from ui_helpers import aguardar_conexao_websocket, barra_nav_alderyn
+from ui_helpers import aguardar_conexao_websocket, barra_nav_alderyn, aplicar_tema_alderyn, barra_hud
 
 
 # ============================================================================
@@ -298,70 +298,38 @@ _FONTS = (
     'family=Spectral:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">'
 )
 
-_CSS = """
-<style>
-:root{
-  --ground:#0e0b08; --breu:#080706; --pagina:#17130c;
-  --osso:#cdbf9f; --osso2:#8c8167; --leitura:#dbcfb3;
-  --brasa:#c67a33; --regua:rgba(205,191,159,.22); --regua2:rgba(205,191,159,.42);
-}
-body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !important; }
-.nicegui-content{ padding:0 !important; gap:0 !important; }
-
-.orac-stage{ width:100%; min-height:100vh; display:flex; justify-content:center;
-  padding:4vh 18px; box-sizing:border-box;
-  background:radial-gradient(130% 100% at 50% 0%, #1a150e 0%, #110d09 50%, #0a0806 100%); }
-.orac-pagina{ position:relative; width:100%; max-width:840px; display:flex; flex-direction:column;
-  min-height:90vh; background:linear-gradient(180deg, #19140d, #130f09);
-  border:1px solid var(--regua2);
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.4), 0 38px 100px -42px rgba(0,0,0,.8);
-  padding:clamp(20px,3.4vw,38px); box-sizing:border-box; }
-
-.orac-head{ display:flex; align-items:center; gap:12px; padding-bottom:14px;
-  border-bottom:1px solid var(--regua); }
-.orac-head .ttl{ font-family:"IM Fell English",serif !important; font-size:24px;
-  letter-spacing:.04em; color:var(--osso); }
-.orac-head .ln{ flex:1; height:1px; background:var(--regua); }
-.orac-head .sub{ font-family:"IM Fell English SC",serif !important; font-size:11px;
-  letter-spacing:.18em; text-transform:lowercase; color:var(--osso2); }
-.orac-head .sair{ font-family:"IM Fell English",serif !important; font-style:italic;
-  font-size:12px; color:var(--osso2); text-decoration:none; opacity:.7; }
-.orac-head .sair:hover{ opacity:1; color:var(--brasa); }
-
-.orac-conversa{ flex:1; overflow-y:auto; padding:20px 4px; display:flex;
-  flex-direction:column; gap:18px; }
-.orac-conversa::-webkit-scrollbar{ width:8px; }
-.orac-conversa::-webkit-scrollbar-thumb{ background:var(--regua); border-radius:4px; }
-
-.msg{ max-width:88%; }
-.msg .quem{ display:block; font-family:"IM Fell English SC",serif !important;
-  font-size:10.5px; letter-spacing:.16em; text-transform:lowercase; color:var(--osso2);
-  margin-bottom:5px; }
-.msg .texto{ font-family:"Spectral",Georgia,serif !important; font-size:16.5px;
-  line-height:1.66; color:var(--leitura); white-space:pre-wrap; word-wrap:break-word; }
-.msg.gabriel{ align-self:flex-end; text-align:right; }
-.msg.gabriel .texto{ color:var(--osso); font-style:italic; }
-.msg.gabriel .quem{ color:var(--brasa); }
-.msg.oraculo{ align-self:flex-start; border-left:1px solid var(--regua2); padding-left:15px; }
-.msg.erro .texto{ color:#a8564a; font-style:italic; }
-
-.orac-pensa{ align-self:flex-start; font-family:"IM Fell English",serif !important;
-  font-style:italic; color:var(--osso2); font-size:14px; opacity:.85; padding-left:15px; }
-.orac-pensa span{ animation:opisca 1.4s infinite ease-in-out; }
-.orac-pensa span:nth-child(2){ animation-delay:.2s; }
-.orac-pensa span:nth-child(3){ animation-delay:.4s; }
-@keyframes opisca{ 0%,100%{opacity:.2} 50%{opacity:.95} }
-
-.orac-scrawl{ display:flex; align-items:flex-end; gap:10px; margin-top:14px;
-  border-top:1px solid var(--regua); padding-top:16px; }
-.orac-scrawl .q-field{ flex:1; }
-.orac-scrawl input{ color:var(--leitura) !important; font-family:"Spectral",serif !important;
-  font-size:16px !important; }
-.orac-scrawl .send{ font-family:"IM Fell English SC",serif !important; letter-spacing:.14em;
-  text-transform:lowercase; font-size:.78rem; color:var(--osso); background:transparent;
-  border:1px solid var(--regua2); padding:.55rem 1.4rem; cursor:pointer;
-  transition:all .3s ease; }
-.orac-scrawl .send:hover{ border-color:var(--brasa); color:#f0e6d2; background:rgba(198,122,51,.1); }
+_CSS = """<style>
+body,.q-page,.q-page-container,.nicegui-content{background:var(--bg) !important;}
+.nicegui-content{padding:0 !important;gap:0 !important;}
+.orac-stage{width:100%;min-height:100vh;display:flex;justify-content:center;padding:5vh 18px 4vh;box-sizing:border-box;background:radial-gradient(130% 70% at 50% -8%,rgba(245,220,171,.10),rgba(245,220,171,0) 56%),var(--bg);}
+.orac-pagina{position:relative;width:100%;max-width:760px;display:flex;flex-direction:column;min-height:86vh;box-sizing:border-box;padding:clamp(20px,3.2vw,34px);}
+.orac-head{padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:6px;}
+.orac-head .eyebrow{display:block;font-family:var(--mono);font-size:.66rem;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-2);margin:0 0 10px;}
+.orac-head .ttl{display:block;font-family:var(--serif);font-weight:700;font-size:clamp(2rem,4.4vw,2.7rem);line-height:1;color:var(--bone);}
+.orac-head .sub{display:block;font-family:var(--serif);font-style:italic;font-size:1.02rem;color:var(--ink);margin-top:8px;}
+.orac-conversa{flex:1;overflow-y:auto;padding:24px 2px;display:flex;flex-direction:column;gap:22px;}
+.orac-conversa::-webkit-scrollbar{width:8px;}
+.orac-conversa::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+.orac-conversa::-webkit-scrollbar-track{background:transparent;}
+.msg{max-width:88%;}
+.msg .quem{display:block;font-family:var(--mono);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-2);margin-bottom:7px;}
+.msg .texto{font-family:var(--sans);font-weight:400;font-size:1rem;line-height:1.72;color:var(--bone);white-space:pre-wrap;word-wrap:break-word;}
+.msg.gabriel{align-self:flex-end;text-align:right;}
+.msg.gabriel .texto{color:var(--ink);}
+.msg.oraculo{align-self:flex-start;border-left:1px solid var(--line);padding-left:17px;}
+.msg.erro .texto{color:#b5524a;font-style:italic;}
+.orac-pensa{align-self:flex-start;font-family:var(--serif);font-style:italic;color:var(--ink-2);font-size:1rem;padding-left:17px;}
+.orac-pensa span{animation:opisca 1.4s infinite ease-in-out;}
+.orac-pensa span:nth-child(2){animation-delay:.2s;}
+.orac-pensa span:nth-child(3){animation-delay:.4s;}
+@keyframes opisca{0%,100%{opacity:.2}50%{opacity:.9}}
+.orac-scrawl{display:flex;align-items:flex-end;gap:10px;margin-top:16px;border-top:1px solid var(--line);padding-top:18px;}
+.orac-scrawl .q-field{flex:1;}
+.orac-scrawl input{color:var(--bone) !important;font-family:var(--sans) !important;font-size:1rem !important;}
+.orac-scrawl .send{font-family:var(--mono);letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;color:var(--ink-2);background:transparent;border:1px solid var(--line);border-radius:4px;padding:.6rem 1.4rem;cursor:pointer;transition:color .26s ease,border-color .26s ease,background .26s ease;}
+.orac-scrawl .send:hover{border-color:var(--gold);color:var(--bone);background:rgba(244,186,60,.08);}
+@media (prefers-reduced-motion:reduce){.orac-pensa span{animation:none;opacity:.7;}.orac-scrawl .send{transition:none;}}
+@media (max-width:560px){.orac-pagina{padding:18px 16px;}.msg{max-width:94%;}}
 </style>
 """
 
@@ -373,7 +341,8 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 async def pagina_oraculo():
     await aguardar_conexao_websocket("Despertando o Oraculo...")
 
-    barra_nav_alderyn("oraculo")
+    aplicar_tema_alderyn()
+    barra_hud("oraculo")
 
     # Estado da conversa EM MEMORIA (sem persistencia nesta versao). Cada item e
     # um turno de texto limpo {role, content} - o que o usuario ve. O loop de
@@ -381,16 +350,15 @@ async def pagina_oraculo():
     historico: list[dict] = []
     ocupado = False  # trava: barra perguntas concorrentes enquanto o Oraculo pensa
 
-    ui.add_head_html(_FONTS + _CSS)
+    ui.add_head_html(_CSS)
 
     with ui.element("div").classes("orac-stage"):
         with ui.element("div").classes("orac-pagina"):
             ui.html(
                 '<div class="orac-head">'
+                '<span class="eyebrow">Vig&iacute;lia Quebrada &middot; 312</span>'
                 '<span class="ttl">O Or&aacute;culo</span>'
-                '<span class="ln"></span>'
                 '<span class="sub">a mente do mundo</span>'
-                '<a class="sair" href="/oficina" title="Voltar &agrave; Oficina">&larr; oficina</a>'
                 '</div>'
             )
             conversa = ui.element("div").classes("orac-conversa")
