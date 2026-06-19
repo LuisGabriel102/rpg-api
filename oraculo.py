@@ -312,6 +312,7 @@ _FONTS = (
 )
 
 _CSS = """<style>
+:root{--panel:#1d1812;--panel-2:#241d15;--blood:#e8493a;--jade:#2fc4a0;--venom:#9bd23e;--violet:#b06ff0;--sepia:#d29658;--orac-c:#b06ff0;}
 body,.q-page,.q-page-container,.nicegui-content{background:var(--bg) !important;}
 .nicegui-content{padding:0 !important;gap:0 !important;}
 .orac-stage{width:100%;height:calc(100vh - 64px);display:flex;justify-content:center;padding:0 18px;box-sizing:border-box;background:radial-gradient(130% 70% at 50% -8%,rgba(245,220,171,.10),rgba(245,220,171,0) 56%),var(--bg);overflow:hidden;}
@@ -327,9 +328,9 @@ body,.q-page,.q-page-container,.nicegui-content{background:var(--bg) !important;
 .msg{max-width:88%;}
 .msg .quem{display:block;font-family:var(--mono);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-2);margin-bottom:7px;}
 .msg .texto{font-family:var(--sans);font-weight:400;font-size:1rem;line-height:1.72;color:var(--bone);white-space:pre-wrap;word-wrap:break-word;}
-.msg.gabriel{align-self:flex-end;text-align:right;}
+.msg.gabriel{align-self:flex-end;text-align:right;background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line);border-right:2px solid var(--gold);border-radius:4px;padding:14px 18px;}
 .msg.gabriel .texto{color:var(--ink);}
-.msg.oraculo{align-self:flex-start;border-left:1px solid var(--line);padding-left:17px;}
+.msg.oraculo{align-self:flex-start;background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line);border-left:2px solid var(--orac-c);border-radius:4px;padding:14px 18px;box-shadow:0 0 22px -10px var(--orac-c);}
 .msg.erro .texto{color:#b5524a;font-style:italic;}
 .orac-caret{display:inline-block;width:.5ch;height:1.05em;margin-left:2px;background:var(--gold);vertical-align:text-bottom;opacity:.7;animation:orac-blink 1.05s steps(1) infinite;}
 @keyframes orac-blink{0%,55%{opacity:.7;}55.01%,100%{opacity:0;}}
@@ -354,25 +355,26 @@ body,.q-page,.q-page-container,.nicegui-content{background:var(--bg) !important;
 .orac-head .ttl-glifo{color:var(--gold);font-size:.62em;vertical-align:.22em;margin-right:.42rem;opacity:.92;font-weight:400;}
 
 /* cantos dourados na folha (4 colchetes via ::before/::after da .orac-pagina) */
-.orac-pagina::before,.orac-pagina::after{content:"";position:absolute;width:18px;height:18px;pointer-events:none;z-index:2;}
-.orac-pagina::before{top:8px;left:8px;border-top:1.5px solid var(--gold);border-left:1.5px solid var(--gold);}
-.orac-pagina::after{bottom:8px;right:8px;border-bottom:1.5px solid var(--gold);border-right:1.5px solid var(--gold);}
+.orac-pagina::before,.orac-pagina::after{content:"";position:absolute;width:18px;height:18px;pointer-events:none;z-index:2;opacity:.55;transition:opacity .3s ease;}
+.orac-pagina::before{top:8px;left:8px;border-top:1.5px solid var(--orac-c);border-left:1.5px solid var(--orac-c);}
+.orac-pagina::after{bottom:8px;right:8px;border-bottom:1.5px solid var(--orac-c);border-right:1.5px solid var(--orac-c);}
+.orac-pagina:hover::before,.orac-pagina:hover::after{opacity:1;}
 .orac-pagina>.orac-head{position:relative;}
-/* os outros 2 cantos: pendurados no .orac-head (topo-direita) e no .orac-scrawl (base-esquerda) */
-.orac-head::after{content:"";position:absolute;top:-12px;right:-12px;width:18px;height:18px;border-top:1.5px solid var(--gold);border-right:1.5px solid var(--gold);pointer-events:none;z-index:2;}
+.orac-head::after{content:"";position:absolute;top:-12px;right:-12px;width:18px;height:18px;border-top:1.5px solid var(--orac-c);border-right:1.5px solid var(--orac-c);pointer-events:none;z-index:2;opacity:.55;}
 .orac-scrawl{position:relative;}
-.orac-scrawl::before{content:"";position:absolute;bottom:8px;left:-12px;width:18px;height:18px;border-bottom:1.5px solid var(--gold);border-left:1.5px solid var(--gold);pointer-events:none;z-index:2;}
+.orac-scrawl::after{content:"";position:absolute;bottom:8px;left:-12px;width:18px;height:18px;border-bottom:1.5px solid var(--orac-c);border-left:1.5px solid var(--orac-c);pointer-events:none;z-index:2;opacity:.55;}
 
 /* marca d'agua: losango gigante fantasma atras de tudo */
-.orac-pagina>.orac-marca{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(45deg);width:min(46vh,360px);height:min(46vh,360px);border:1px solid var(--bone);opacity:.025;pointer-events:none;z-index:0;}
+.orac-pagina>.orac-marca{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(45deg);width:min(46vh,360px);height:min(46vh,360px);border:1px solid var(--orac-c);opacity:.04;pointer-events:none;z-index:0;}
 .orac-conversa,.orac-head,.orac-scrawl,.orac-modelo,.orac-status{position:relative;z-index:1;}
 
 /* console: prompt dourado antes do campo */
-.orac-scrawl::after{content:"\276F";font-family:var(--mono);color:var(--gold);font-size:1rem;align-self:center;opacity:.85;margin-right:-2px;order:-1;}
+.orac-scrawl::before{content:"❯";font-family:var(--mono);color:var(--gold);font-size:1.05rem;align-self:center;opacity:.9;margin-right:6px;flex-shrink:0;}
 
 /* status diegetico */
 .orac-status{flex-shrink:0;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.58rem;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-2);padding:0 2px 10px;}
-.orac-status-dot{width:5px;height:5px;border-radius:50%;background:var(--gold);box-shadow:0 0 5px var(--gold);animation:orac-pulse 2.4s ease-in-out infinite;}
+.orac-status b,.orac-status .on{color:var(--orac-c);}
+.orac-status-dot{width:5px;height:5px;border-radius:50%;background:var(--orac-c);box-shadow:0 0 6px var(--orac-c);animation:orac-pulse 2.4s ease-in-out infinite;}
 @keyframes orac-pulse{0%,100%{opacity:.35;}50%{opacity:1;}}
 
 /* scanline: textura de tela ultra-sutil sobre o stage */
@@ -436,7 +438,7 @@ async def pagina_oraculo():
             ui.html(
                 '<div class="orac-status">'
                 '<span class="orac-status-dot"></span>'
-                'ARQUIVO &middot; ABERTO'
+                'ARQUIVO &middot; <b>ABERTO</b>'
                 '</div>'
             )
 
