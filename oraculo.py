@@ -26,9 +26,10 @@ jeito que `import jogo`. NAO toca oficina_app.py nem cronista_prompt.py.
 import html
 import json
 import re
+import time
 
 from nicegui import ui, run
-from anthropic import Anthropic
+from anthropic import Anthropic, AsyncAnthropic
 from sqlalchemy import text  # bind params (:param) pro INSERT da gravacao
 
 from db import engine  # mesmo engine async/asyncpg que a memoria do narrador usa
@@ -270,6 +271,18 @@ def _get_client() -> Anthropic:
     return _client
 
 
+_aclient: AsyncAnthropic | None = None
+
+
+def _get_aclient() -> AsyncAnthropic:
+    """Cliente ASYNC (lazy), pro streaming da resposta final. Espelha o do
+    jogo.py. Lê ANTHROPIC_API_KEY do ambiente."""
+    global _aclient
+    if _aclient is None:
+        _aclient = AsyncAnthropic()
+    return _aclient
+
+
 def _chamar_opus(mensagens: list[dict]):
     """Uma chamada ao Opus 4.8. Sync de proposito: roda via run.io_bound pra nao
     travar a UI (mesmo padrao do _chamar_cronista do jogo.py).
@@ -318,6 +331,10 @@ body,.q-page,.q-page-container,.nicegui-content{background:var(--bg) !important;
 .msg.gabriel .texto{color:var(--ink);}
 .msg.oraculo{align-self:flex-start;border-left:1px solid var(--line);padding-left:17px;}
 .msg.erro .texto{color:#b5524a;font-style:italic;}
+.orac-caret{display:inline-block;width:.5ch;height:1.05em;margin-left:2px;background:var(--gold);vertical-align:text-bottom;opacity:.7;animation:orac-blink 1.05s steps(1) infinite;}
+@keyframes orac-blink{0%,55%{opacity:.7;}55.01%,100%{opacity:0;}}
+.orac-modelo{align-self:flex-end;margin:0 0 6px;min-width:130px;}
+.orac-modelo .q-field__native,.orac-modelo .q-field__native span{font-family:var(--mono);font-size:.62rem;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-2);}
 .orac-pensa{align-self:flex-start;font-family:var(--serif);font-style:italic;color:var(--ink-2);font-size:1rem;padding-left:17px;}
 .orac-pensa span{animation:opisca 1.4s infinite ease-in-out;}
 .orac-pensa span:nth-child(2){animation-delay:.2s;}
@@ -349,6 +366,7 @@ async def pagina_oraculo():
     # tool use roda numa lista efemera derivada deste historico a cada pergunta.
     historico: list[dict] = []
     ocupado = False  # trava: barra perguntas concorrentes enquanto o Oraculo pensa
+    modelo_atual = MODELO_ORACULO   # seletor de modelo (UI): vale na proxima pergunta
 
     ui.add_head_html(_CSS)
 
@@ -361,6 +379,24 @@ async def pagina_oraculo():
                 '<span class="sub">a mente do mundo</span>'
                 '</div>'
             )
+            _MODELOS_ORAC = {
+                "claude-opus-4-8": "Opus 4.8",
+                "claude-opus-4-6": "Opus 4.6",
+                "claude-sonnet-4-6": "Sonnet 4.6",
+                "claude-haiku-4-5-20251001": "Haiku 4.5",
+                "claude-fable-5": "Fable 5",
+            }
+
+            def _troca_modelo(e):
+                nonlocal modelo_atual
+                if e.value:
+                    modelo_atual = e.value
+
+            _sel = ui.select(
+                options=_MODELOS_ORAC, value=modelo_atual, on_change=_troca_modelo
+            )
+            _sel.props("borderless dense options-dense").classes("orac-modelo")
+
             conversa = ui.element("div").classes("orac-conversa")
             with conversa:
                 ui.html(
@@ -387,6 +423,67 @@ async def pagina_oraculo():
             )
         _scroll()
 
+    def _orac_stream_iniciar() -> None:
+        # Motor de revelacao no cliente (espelha o do jogo.py). O Python so seta
+        # window.__orev.target; um requestAnimationFrame digita os chars numa
+        # bolha .msg.oraculo viva. Scroller = .orac-conversa.
+        ui.run_javascript(
+            "(function(){"
+            "var PISO=3, DIV=6;"
+            "var conv=document.querySelector('.orac-conversa');if(!conv)return;"
+            "var msg=document.createElement('div');msg.className='msg oraculo streaming';msg.id='__orac_stream';"
+            "var quem=document.createElement('span');quem.className='quem';quem.textContent='o oráculo';"
+            "var texto=document.createElement('div');texto.className='texto';"
+            "var tn=document.createTextNode('');"
+            "var caret=document.createElement('span');caret.className='orac-caret';"
+            "texto.appendChild(tn);texto.appendChild(caret);"
+            "msg.appendChild(quem);msg.appendChild(texto);conv.appendChild(msg);"
+            "var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;"
+            "window.__orev={tn:tn,target:'',shown:0,raf:0,cancel:false};"
+            "function frame(){"
+            "var r=window.__orev;if(!r||r.cancel)return;"
+            "if(r.shown>r.target.length)r.shown=r.target.length;"
+            "var pend=r.target.length-r.shown;"
+            "if(pend>0){"
+            "var passo=reduce?pend:Math.max(PISO,Math.ceil(pend/DIV));"
+            "r.shown=Math.min(r.target.length,r.shown+passo);"
+            "r.tn.nodeValue=r.target.slice(0,r.shown);"
+            "var perto=(conv.scrollHeight-conv.scrollTop-conv.clientHeight)<80;"
+            "if(perto)conv.scrollTop=conv.scrollHeight;"
+            "}"
+            "r.raf=requestAnimationFrame(frame);"
+            "}"
+            "window.__orev.raf=requestAnimationFrame(frame);"
+            "})();"
+        )
+
+    def _orac_stream_update(texto: str) -> None:
+        ui.run_javascript(
+            f"(function(){{if(window.__orev)window.__orev.target={json.dumps(texto)};}})();"
+        )
+
+    def _orac_stream_finalizar() -> None:
+        # Revela o resto, para o motor, sela o texto puro no .texto (pre-wrap
+        # respeita os \n) e tira o caret + id. Scroll no fim.
+        ui.run_javascript(
+            "(function(){"
+            "var r=window.__orev;var o=document.getElementById('__orac_stream');"
+            "var txt=r?r.target:(o?o.textContent:'');"
+            "if(r){r.cancel=true;if(r.raf)cancelAnimationFrame(r.raf);}"
+            "if(o){var t=o.querySelector('.texto');if(t)t.textContent=txt;"
+            "o.classList.remove('streaming');o.removeAttribute('id');"
+            "var conv=document.querySelector('.orac-conversa');if(conv)conv.scrollTop=conv.scrollHeight;}"
+            "window.__orev=null;})();"
+        )
+
+    def _orac_stream_abortar() -> None:
+        ui.run_javascript(
+            "(function(){var r=window.__orev;"
+            "if(r){r.cancel=true;if(r.raf)cancelAnimationFrame(r.raf);}"
+            "window.__orev=null;"
+            "var o=document.getElementById('__orac_stream');if(o)o.remove();})();"
+        )
+
     async def responder(pergunta: str):
         nonlocal ocupado
         if ocupado:
@@ -400,28 +497,68 @@ async def pagina_oraculo():
         historico.append({"role": "user", "content": pergunta})
         _render("gabriel", "gabriel", pergunta)
 
-        # Lista EFEMERA pro loop de tool use: parte do historico de texto limpo e
-        # acumula os turns de tool_use/tool_result so durante esta pergunta.
+        # Lista EFEMERA pro loop de tool use: parte do historico limpo.
         mensagens: list[dict] = [
             {"role": m["role"], "content": m["content"]} for m in historico
         ]
 
-        # indicador "o oraculo consulta..."
-        with conversa:
-            pensa = ui.html(
-                '<div class="orac-pensa">o or&aacute;culo consulta'
-                '<span>.</span><span>.</span><span>.</span></div>'
-            )
-        _scroll()
+        pensa = None
+
+        def _mostra_pensa():
+            nonlocal pensa
+            if pensa is None:
+                with conversa:
+                    pensa = ui.html(
+                        '<div class="orac-pensa">o or&aacute;culo consulta'
+                        '<span>.</span><span>.</span><span>.</span></div>'
+                    )
+                _scroll()
+
+        def _tira_pensa():
+            nonlocal pensa
+            if pensa is not None:
+                pensa.delete()
+                pensa = None
+
+        _mostra_pensa()
 
         final: str | None = None
         erro_fatal: str | None = None
+        selado_na_tela = False
+        bolha_viva = False
         try:
             for _ in range(MAX_ITERACOES):
-                resp = await run.io_bound(_chamar_opus, mensagens)
+                bolha_viva = False
+                texto_parcial = ""
+                ultimo = 0.0
+                async with _get_aclient().messages.stream(
+                    model=modelo_atual,
+                    max_tokens=1500,
+                    system=PERSONA_ORACULO,
+                    tools=[TOOL_CONSULTAR_BANCO, TOOL_REGISTRAR_DIRETRIZ],
+                    messages=mensagens,
+                ) as stream:
+                    async for delta in stream.text_stream:
+                        if not bolha_viva:
+                            # primeiro pedaco de prosa: tira "consulta...", abre a
+                            # bolha viva e comeca a digitar.
+                            _tira_pensa()
+                            _orac_stream_iniciar()
+                            bolha_viva = True
+                        texto_parcial += delta
+                        agora = time.monotonic()
+                        if agora - ultimo >= 0.06:
+                            ultimo = agora
+                            _orac_stream_update(texto_parcial)
+                    resp = await stream.get_final_message()
+
                 if resp.stop_reason == "tool_use":
-                    # anexa o turn do assistant (blocos como vieram) e roda cada
-                    # consulta, devolvendo um tool_result com o tool_use_id certo.
+                    # raro: a IA escreveu prosa antes de consultar. Descarta a
+                    # bolha parcial e volta o "consulta...".
+                    if bolha_viva:
+                        _orac_stream_abortar()
+                        bolha_viva = False
+                        _mostra_pensa()
                     mensagens.append({"role": "assistant", "content": resp.content})
                     resultados = []
                     for bloco in resp.content:
@@ -446,34 +583,43 @@ async def pagina_oraculo():
                         })
                     mensagens.append({"role": "user", "content": resultados})
                     continue
-                # end_turn (ou qualquer outro): pega o texto final e encerra.
+
+                # end_turn (ou outro): texto final.
                 final = "".join(
                     b.text for b in resp.content if getattr(b, "type", None) == "text"
                 ).strip()
+                if bolha_viva:
+                    _orac_stream_update(final)
+                    _orac_stream_finalizar()
+                    selado_na_tela = True
                 break
         except Exception as exc:  # noqa: BLE001
             import traceback
             print("[oraculo] ERRO === traceback ===")
             print(traceback.format_exc())
+            if bolha_viva:
+                _orac_stream_abortar()
             erro_fatal = f"o Oráculo vacila - {type(exc).__name__}. Tente de novo."
         finally:
-            pensa.delete()
+            _tira_pensa()
 
         if erro_fatal:
             _render("o oraculo", "oraculo erro", erro_fatal)
-            # turno falhou: tira a pergunta do historico pra nao desalinhar a
-            # alternancia user/assistant na proxima pergunta.
+            # turno falhou: tira a pergunta do historico pra nao desalinhar.
             if historico and historico[-1]["role"] == "user":
                 historico.pop()
             ocupado = False
             return
 
-        if not final:
-            # estourou as 6 iteracoes sem resposta final (PASSO 3.3).
+        if final is None:
+            # estourou as iteracoes sem resposta final.
             final = "O Oráculo se perdeu na consulta."
 
         historico.append({"role": "assistant", "content": final})
-        _render("o oraculo", "oraculo", final)
+        if not selado_na_tela:
+            # nunca digitou na tela (estourou iteracoes, ou end_turn sem prosa):
+            # renderiza estatico pra resposta aparecer.
+            _render("o oraculo", "oraculo", final)
         ocupado = False
 
     async def _enviar(_=None):
