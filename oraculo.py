@@ -384,6 +384,11 @@ body,.q-page,.q-page-container,.nicegui-content{background:var(--bg) !important;
 @media (prefers-reduced-motion: reduce){
 .orac-status-dot{animation:none;opacity:.8;}
 }
+
+/* realce violeta do oraculo — masthead na cor de assinatura */
+.orac-head .ttl{color:var(--orac-c);}
+.orac-head .ttl-glifo{color:var(--orac-c);}
+.msg.oraculo{border-left:3px solid var(--orac-c);box-shadow:0 0 30px -6px var(--orac-c);}
 </style>
 """
 
