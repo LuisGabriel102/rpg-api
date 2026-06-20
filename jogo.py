@@ -590,7 +590,7 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .head .ttl-config{ font-size:18px; letter-spacing:.1em; }
 
 /* marginalia: HOJE so a Pressao Emocional (0-10). Stats/Tensao ficam pro combate. */
-.marg{ display:flex; align-items:center; justify-content:flex-end; gap:14px; flex-wrap:wrap; flex:none;
+.marg{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; flex:none;
   margin-top:13px; padding-bottom:15px; border-bottom:1px solid var(--regua); position:relative; z-index:2; }
 .bar{ width:42px; height:5px; border:0.8px solid var(--osso2); position:relative; background:rgba(0,0,0,.25); }
 .bar>i{ display:block; height:100%; width:0; transition:width .7s ease, background .7s ease; }
@@ -605,6 +605,31 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .pressao.alta .bar>i{ background:var(--t-sangue); }
 .pressao.alta .num{ color:var(--t-sangue) !important; text-shadow:0 0 12px rgba(168,86,74,.4); }
 .pressao.alta .plab{ color:var(--t-sangue); }
+
+    /* ── VITAIS (Vida + Mana) — HUD à esquerda da .marg ── */
+    .vitais{ display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+    .vital{ display:flex; align-items:center; gap:8px; }
+    .vital .vlab{
+      font-family:"IM Fell English SC",serif !important;
+      font-size:11px; letter-spacing:.18em; text-transform:lowercase;
+      color:var(--osso2); width:34px;
+    }
+    .vital .bar{ width:96px; }
+    /* Vida: cheia = osso; baixa = sangue */
+    .vida .bar>i{ background:var(--osso); }
+    .vida.baixa .bar>i{ background:var(--t-sangue); }
+    .vida.baixa .num{ color:var(--t-sangue) !important; }
+    /* Mana: cheia = aço frio; baixa = surda */
+    .mana .bar>i{ background:var(--t-aco); }
+    .mana.baixa .bar>i{ background:var(--osso2); }
+    .mana.baixa .num{ color:var(--osso2) !important; }
+    /* Ferimento nomeado — só visível quando há (oculto fora de combate) */
+    .ferida{ margin-top:2px; }
+    /* .ferida.oculto{ display:none; }  ← descomente SÓ se .oculto não for global */
+    .ferida .fmark{
+      font-family:"IM Fell English SC",serif !important;
+      font-size:11px; letter-spacing:.06em; color:var(--t-sangue);
+    }
 
 /* base pronta pro combate (nao exibida hoje) */
 .stamps{ display:flex; gap:15px; flex-wrap:wrap; }
@@ -1686,6 +1711,19 @@ _BODY = """
     </div>
 
     <div class="marg">
+      <div class="vitais">
+        <div class="vital vida" title="Vida">
+          <span class="vlab">vida</span>
+          <span class="bar"><i style="width:78.6%"></i></span>
+          <span class="num"><b id="vida-num">22</b>&nbsp;/&nbsp;<span id="vida-max">28</span></span>
+        </div>
+        <div class="vital mana" title="Mana">
+          <span class="vlab">mana</span>
+          <span class="bar"><i style="width:100%"></i></span>
+          <span class="num"><b id="mana-num">30</b>&nbsp;/&nbsp;<span id="mana-max">30</span></span>
+        </div>
+        <div class="ferida oculto" id="ferida"><span class="fmark" id="ferida-txt"></span></div>
+      </div>
       <div class="pressao" id="pressao" title="Press&atilde;o Emocional">
         <span class="plab">press&atilde;o</span>
         <span class="bar"><i></i></span>
@@ -2166,6 +2204,45 @@ _DADO_JS = """
 """
 
 
+# JS dos vitais (Vida + Mana + Ferida) — setters globais, padrao do dado.
+# Ligados pela engine no Andar 2; hoje dormentes, testaveis via console.
+_VITAIS_JS = """
+window.setVida = function (v, vmax) {
+  v = Math.max(0, Math.round(v));
+  vmax = Math.max(1, Math.round(vmax));
+  var pct = Math.max(0, Math.min(100, Math.round(v / vmax * 100)));
+  var barra = document.querySelector('.vital.vida .bar > i');
+  if (barra) barra.style.width = pct + '%';
+  var n = document.getElementById('vida-num');
+  if (n) n.textContent = '' + v;
+  var mx = document.getElementById('vida-max');
+  if (mx) mx.textContent = '' + vmax;
+  var box = document.querySelector('.vital.vida');
+  if (box) box.classList.toggle('baixa', pct <= 30);
+};
+window.setMana = function (v, vmax) {
+  v = Math.max(0, Math.round(v));
+  vmax = Math.max(1, Math.round(vmax));
+  var pct = Math.max(0, Math.min(100, Math.round(v / vmax * 100)));
+  var barra = document.querySelector('.vital.mana .bar > i');
+  if (barra) barra.style.width = pct + '%';
+  var n = document.getElementById('mana-num');
+  if (n) n.textContent = '' + v;
+  var mx = document.getElementById('mana-max');
+  if (mx) mx.textContent = '' + vmax;
+  var box = document.querySelector('.vital.mana');
+  if (box) box.classList.toggle('baixa', pct <= 25);
+};
+window.setFerida = function (texto) {
+  var box = document.getElementById('ferida');
+  var txt = document.getElementById('ferida-txt');
+  var t = (texto == null) ? '' : ('' + texto).trim();
+  if (txt) txt.textContent = t;
+  if (box) box.classList.toggle('oculto', t === '');
+};
+"""
+
+
 @ui.page("/jogar")
 async def pagina_jogar():
     await aguardar_conexao_websocket("Abrindo a folha...")
@@ -2205,6 +2282,7 @@ async def pagina_jogar():
     # Zona de dados (Balde 1): arme + wiring do botao + renderer. So MOSTRA; o
     # veredito vem do Python via ui.on('rolar_dado') -> __resolverDado.
     ui.run_javascript(_DADO_JS)
+    ui.run_javascript(_VITAIS_JS)
 
     def _js(code: str) -> None:
         """Dispara JS no cliente (fire-and-forget, como o resto do monolito)."""
