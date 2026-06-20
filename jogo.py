@@ -345,6 +345,117 @@ async def _carregar_contexto_safe(sessao_id: int, query_text: str | None) -> str
         return ""
 
 
+# SELECT defensivo do Bloco de Estado: tudo em UMA linha por sessao. Subqueries
+# escalares (local/companheiros/combate) garantem 1 linha mesmo com 1:N. LEFT JOIN
+# em personagens/personagem_mana (1:1). Campo ausente -> NULL -> some da linha.
+_SQL_ESTADO = (
+    "SELECT s.data_narrativa_inicio AS data, s.personagem_id AS pid, "
+    "p.nome, p.classe_primaria AS classe, p.nivel, p.hp_atual, p.hp_maximo, "
+    "p.status_narrativo AS status, m.mp_atual, m.mp_maximo, "
+    "(SELECT ce.local_atual_desc FROM campanha_estado_atual ce "
+    " WHERE ce.campanha_id = s.campanha_id LIMIT 1) AS local, "
+    "(SELECT string_agg(a.nome, ', ') FROM personagem_aliados_ativos a "
+    " WHERE a.sessao_id = s.id) AS companheiros, "
+    "(SELECT c.estado FROM combate_ativo c WHERE c.sessao_id = s.id "
+    " ORDER BY c.criado_em DESC LIMIT 1) AS combate "
+    "FROM sessoes s "
+    "LEFT JOIN personagens p ON p.id = s.personagem_id "
+    "LEFT JOIN personagem_mana m ON m.personagem_id = s.personagem_id "
+    "WHERE s.id = :sid"
+)
+
+
+def _uma_linha(v) -> str:
+    """Texto livre do banco -> UMA linha: \\n,\\r,\\t e espacos multiplos viram um
+    espaco so. Impede que um valor com quebra de linha parta o [ESTADO] ao meio
+    (Correcao 2). None -> ''. """
+    if v is None:
+        return ""
+    return " ".join(str(v).split())
+
+
+async def _montar_estado_safe(sessao_id: int, pressao_atual: int) -> str:
+    """Bloco [ESTADO] do USER message: consciencia situacional do turno, puxada do
+    banco (sessao -> personagem). Vai SEMPRE no USER message, nunca no system (nao
+    quebra o cache do prefixo). Numeros mecanicos sao desejados aqui: o prompt (R1)
+    manda o Cronista traduzir numero em efeito e nunca escreve-lo na prosa.
+
+    Defensivo: campo ausente/null some da linha; falha total cai no bloco minimo (so
+    a Pressao) = comportamento anterior. UMA info por linha; todo texto livre passa
+    por _uma_linha e no fim qualquer \\n\\n e colapsado, pra nunca partir o bloco
+    (senao _texto_do_jogador dividiria no meio). A Pressao vem do contador em memoria
+    (pressao_atual), nao da tabela personagem_saude_mental. Labels em PT-BR (so o que
+    o modelo le); o key de SAIDA do modelo segue 'pressao_emocional' (contrato/prompt)."""
+    linhas = [f"pressão_emocional: {pressao_atual}"]
+    try:
+        from db import get_session
+        from sqlalchemy import text
+        async with get_session() as s:
+            row = (await s.execute(text(_SQL_ESTADO), {"sid": sessao_id})).mappings().first()
+            if row:
+                if row["data"]:
+                    linhas.append(f"data: {_uma_linha(row['data'])}")
+                if row["local"]:
+                    linhas.append(f"local: {_uma_linha(row['local'])}")
+                if row["nome"]:
+                    ident = _uma_linha(row["nome"])
+                    extra = ", ".join(x for x in (
+                        _uma_linha(row["classe"]) or None,
+                        f"nível {row['nivel']}" if row["nivel"] is not None else None) if x)
+                    if extra:
+                        ident += f" ({extra})"
+                    if row["status"]:
+                        ident += f" — {_uma_linha(row['status'])}"
+                    linhas.append(f"personagem: {ident}")
+                if row["hp_atual"] is not None and row["hp_maximo"] is not None:
+                    linhas.append(f"vida: {row['hp_atual']}/{row['hp_maximo']}")
+                if row["mp_atual"] is not None and row["mp_maximo"] is not None:
+                    linhas.append(f"mana: {row['mp_atual']}/{row['mp_maximo']}")
+                linhas.append(f"companheiros: {_uma_linha(row['companheiros']) or 'nenhum'}")
+                linhas.append(f"combate: {_uma_linha(row['combate']) or 'inativo'}")
+                pid = row["pid"]
+                if pid is not None:  # divida: RPC consultar_divida -> jsonb, guardada a parte
+                    try:
+                        d = (await s.execute(text("SELECT consultar_divida(:pid) AS d"),
+                                             {"pid": pid})).scalar()
+                        if d:
+                            tier_nome = _uma_linha((d.get("tier_info") or {}).get("nome_tier"))
+                            ld = f"dívida: {d.get('divida_viva', 0)} (tier {d.get('divida_tier', 0)}"
+                            if tier_nome:
+                                ld += f" — {tier_nome}"
+                            ld += f"), convicção: {d.get('conviccao', 0)}"
+                            linhas.append(ld)
+                            # manifestacoes ativas: material direto da prosa (o preco na carne).
+                            desc = []
+                            for mf in (d.get("manifestacoes_ativas") or []):
+                                if not isinstance(mf, dict):
+                                    continue
+                                tipo = _uma_linha(mf.get("tipo")).replace("_", " ")
+                                if not tipo:
+                                    continue
+                                intens = mf.get("intensidade")
+                                marca = tipo + (f" (int {intens})" if intens is not None else "")
+                                if not mf.get("visivel", True):
+                                    marca += " [oculta]"
+                                desc.append(marca)
+                            if desc:
+                                linhas.append("manifestações ativas: " + "; ".join(desc))
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"[estado] divida falhou: {type(exc).__name__}: {exc}")
+            # TODO: campos NAO rastreados no banco (nao inventar; ficam de fora do bloco):
+            #   - vigor (atual/max): nenhuma coluna no schema.
+            #   - fadiga (atual/max): nenhuma coluna no schema.
+            #   - clima / luz / hora do dia: nao persistido (atmosfera vem do output do narrador).
+            #   - Tensao de combate (0-5, ADR-004): combate_ativo guarda estado/rodada, nao a metrica.
+            #   - NPCs presentes na cena: derivavel de campanha_estado_atual.local_atual_id +
+            #     location_npcs; nao ligado aqui (so 'companheiros' via personagem_aliados_ativos).
+    except Exception as exc:  # noqa: BLE001
+        print(f"[estado] FALHA ao montar estado: {type(exc).__name__}: {exc}")
+    bloco = re.sub(r"\n{2,}", "\n", "[ESTADO]\n" + "\n".join(linhas))  # defesa final
+    assert "\n\n" not in bloco, "bloco [ESTADO] tem \\n\\n interno"
+    return bloco
+
+
 # Haiku mockado pro fim de sessao enquanto MODO_MOCK=True: zero token. Devolve
 # "nenhum fato duravel" - a extracao em si ja foi provada no Tier 5; aqui o foco e
 # o WIRING (encerrar -> recap -> nova sessao -> rebind). Com MODO_MOCK=False, o
@@ -354,7 +465,9 @@ def _haiku_mock_jogar(narracao: str, lista_entidades: str) -> str:
 
 
 _RE_ESTADO = re.compile(r"<estado>(.*?)</estado>", re.S | re.I)
-_RE_PRESSAO = re.compile(r"pressao_emocional\s*:\s*(\d+)", re.I)
+# aceita o label do INPUT acentuado (pressão_emocional) E o key do OUTPUT do modelo
+# (pressao_emocional, ensinado pelo prompt) — sem mexer no system/contrato de saida.
+_RE_PRESSAO = re.compile(r"press[aã]o_emocional\s*:\s*(\d+)", re.I)
 
 # As 5 atmosferas da Gravura. O Cronista pode pedir uma trocando a pele da cena
 # pelo bloco <estado> (atmosfera: X). Whitelist fechada: nome fora dela e ignorado
@@ -2407,7 +2520,7 @@ async def pagina_jogar():
         # historico guardado fica limpo.
         msgs = [m.copy() for m in historico]
         fala = msgs[-1]["content"]
-        partes = [f"[ESTADO] pressao_emocional: {pressao_atual}"]
+        partes = [await _montar_estado_safe(sessao_atual, pressao_atual)]
         if ctx_md:
             partes.append(f"<contexto>\n{ctx_md}\n</contexto>")
         partes.append(fala)
