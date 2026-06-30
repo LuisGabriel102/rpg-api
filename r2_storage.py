@@ -203,3 +203,55 @@ def _listar_versoes_sync(npc_id: int) -> list[dict]:
 async def listar_versoes_npc(npc_id: int) -> list[dict]:
     """Lista todas as versoes de imagem de um NPC, mais recente primeiro."""
     return await asyncio.to_thread(_listar_versoes_sync, npc_id)
+
+
+# ====================================================================
+# GRAVURAS (P3) — cache de imagem de cena por KEY ESTAVEL
+# ====================================================================
+# Diferente do upload de NPC (nome unico com timestamp), a gravura usa uma key
+# ESTAVEL por conteudo (gravura.chave_gravura) pra o cache funcionar: mesma cena
+# -> mesma key -> revisita = gratis. head_object confirma existencia sem baixar;
+# put_object grava na key exata. Mesma credencial/cliente do upload de NPC (write).
+
+def url_gravura(key: str) -> str:
+    """URL publica da gravura dada sua key R2 (ex.: gravuras/cena/<hash>.webp)."""
+    return f"{R2_PUBLIC_URL}/{key}"
+
+
+def _gravura_existe_sync(key: str) -> bool:
+    """True se a key ja existe no bucket (cache hit). 404 -> False. Outro erro propaga."""
+    try:
+        _client.head_object(Bucket=R2_BUCKET, Key=key)
+        return True
+    except ClientError as e:
+        code = str(e.response.get("Error", {}).get("Code", ""))
+        if code in ("404", "NoSuchKey", "NotFound"):
+            return False
+        raise
+    except BotoCoreError as e:
+        raise RuntimeError(f"Falha ao checar gravura no R2: {e}") from e
+
+
+async def gravura_existe(key: str) -> bool:
+    """Cache-first: existe a gravura dessa key no R2? (head_object, nao baixa bytes)."""
+    return await asyncio.to_thread(_gravura_existe_sync, key)
+
+
+def _upload_gravura_sync(key: str, file_bytes: bytes) -> str:
+    """Grava a gravura (webp) na key EXATA e devolve a URL publica."""
+    try:
+        _client.put_object(
+            Bucket=R2_BUCKET,
+            Key=key,
+            Body=file_bytes,
+            ContentType="image/webp",
+            CacheControl="public, max-age=31536000, immutable",
+        )
+    except (ClientError, BotoCoreError) as e:
+        raise RuntimeError(f"Falha ao subir gravura pra R2: {e}") from e
+    return f"{R2_PUBLIC_URL}/{key}"
+
+
+async def upload_gravura(key: str, file_bytes: bytes) -> str:
+    """Sobe a gravura (webp) sob a key estavel e devolve a URL publica."""
+    return await asyncio.to_thread(_upload_gravura_sync, key, file_bytes)

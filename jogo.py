@@ -35,9 +35,10 @@ import time
 import traceback
 from pathlib import Path
 
-from nicegui import ui
+from nicegui import ui, background_tasks
 from anthropic import AsyncAnthropic
 from cronista_prompt import CRONISTA_SYSTEM_PROMPT
+import gravura   # P3: pipeline da linha 'gravura:' (R2/fal lazy la dentro; import barato)
 from campanha_protagonista import bloco_campanha_infancia
 from ui_helpers import aguardar_conexao_websocket
 from app.resolucao_2d10 import classificar_faixa, rolar_resolucao
@@ -793,6 +794,12 @@ _SABORES_CORRUPCAO = ("hemomantic", "pactomantic", "aberrant", "toxic", "fey", "
 _RE_OPCOES = re.compile(r"opcoes\s*:\s*([^\n]+)", re.I)
 _MAX_OPCOES = 6   # clamp defensivo: o Cronista pode exagerar; a UI desenha no maximo 6 botoes
 
+# Gravura (P3): linha 'gravura: <o que se ve>' DENTRO do <estado>. Mesmo molde de
+# linha-unica do opcoes:. Lida por _extrair_gravura (SEPARADO de _separar_estado, pra NAO
+# mudar a arity dele -> suite intacta). Por estar no <estado>, ja some da prosa pelo corte
+# de _separar_estado (o jogador nunca le a tag). Dispara 1 imagem/cena; so quando presente.
+_RE_GRAVURA = re.compile(r"gravura\s*:\s*([^\n]+)", re.I)
+
 
 def _resumo_bando(inimigos):
     """Fatia 10a: resumo qualitativo do bando VIVO pro Cronista (nunca numero). Por ratio
@@ -981,6 +988,23 @@ def _separar_estado(resposta: str, pressao_anterior: int) -> tuple[str, int, str
         if _itens:
             opcoes = _itens[:_MAX_OPCOES]   # clamp defensivo no maximo 6
     return prosa, nova, atm, teste, opcoes
+
+
+def _extrair_gravura(resposta: str) -> "str | None":
+    """P3: descricao da linha 'gravura:' dentro do <estado> (ou None se ausente).
+
+    SEPARADO de _separar_estado de proposito: aditivo, NAO muda a arity do parser
+    central (a suite que desempacota 5 valores fica intacta). Reusa a MESMA busca do
+    bloco (tolera <estado> sem fechamento, igual a Fatia truncagem). A tag vive DENTRO
+    do <estado>, entao ja nao aparece na prosa (o corte de _separar_estado a remove)."""
+    m = _RE_ESTADO.search(resposta) or _RE_ESTADO_ABERTO.search(resposta)
+    if not m:
+        return None
+    mg = _RE_GRAVURA.search(m.group(1))
+    if not mg:
+        return None
+    desc = mg.group(1).strip()
+    return desc or None
 
 
 def _prosa_para_html(texto: str) -> str:
@@ -1370,6 +1394,11 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
   border:1px solid var(--osso2); opacity:.16; }
 .retrato-grande::after{ content:""; position:absolute; inset:0; z-index:2; pointer-events:none;
   background:radial-gradient(82% 72% at 50% 38%, transparent 42%, rgba(0,0,0,.72)); }
+/* P3: gravura da cena. Preenche a caixa de tamanho FIXO (aspect-ratio + max-height +
+   overflow:hidden da .retrato-grande) -> object-fit:cover nunca muda a geometria da
+   moldura (trava de layout intacta, com ou sem imagem). z-index 1 = sob vinheta/nome. */
+.retrato-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; }
+.retrato-img[hidden]{ display:none; }
 .retrato-cantos span{ position:absolute; width:13px; height:13px; border:2px solid var(--ouro); z-index:4; }
 .rc1{ top:6px; left:6px; border-right:none; border-bottom:none; }
 .rc2{ top:6px; right:6px; border-left:none; border-bottom:none; }
@@ -2600,6 +2629,9 @@ _BODY = """
                no markup mas escondidos -> P3 liga (#retratoNome/#retratoEstado/#inimigoVida/.hostil). -->
           <div class="retrato-grande" id="retrato">
             <span class="retrato-cantos"><span class="rc1"></span><span class="rc2"></span><span class="rc3"></span><span class="rc4"></span></span>
+            <!-- P3: gravura da cena. Vazia/escondida ate window.setGravura(url) (assincrono).
+                 z-index 1: cobre o losango placeholder, fica SOB a vinheta e o banner de nome. -->
+            <img class="retrato-img" id="retratoImg" alt="" hidden>
             <div class="retrato-nome" id="retrato-nome" hidden>
               <div class="inimigo-vida" id="inimigoVida" hidden><i id="ivBar" style="width:100%"></i></div>
               <b id="retratoNome"></b><small id="retratoEstado"></small>
@@ -3233,6 +3265,28 @@ window.setOpcoes = function (lista) {
 """
 
 
+# P3 — gravura na moldura. Setter GLOBAL DE TOPO window.setGravura(url): poe a imagem da
+# cena no #retratoImg (z-index 1: cobre o losango placeholder, fica SOB a vinheta ::after
+# e SOB o banner de nome ::retrato-nome). Mesma convencao dos outros window.set* (sem
+# pendurar em window.Jogar -> sem clobber pelo bundle static/jogar.js). url falsa/erro de
+# carga -> esconde (volta ao estado sobrio). NUNCA mexe no tamanho da moldura (so preenche
+# uma caixa de tamanho fixo, overflow:hidden) -> a trava de layout fica intacta.
+_GRAVURA_JS = """
+window.setGravura = function (url) {
+  var img = document.getElementById('retratoImg');
+  if (!img) return;
+  if (!url) { img.hidden = true; img.removeAttribute('src'); return; }
+  img.onload = function () { img.hidden = false; };
+  img.onerror = function () { img.hidden = true; img.removeAttribute('src'); };
+  img.src = url;
+};
+window.limparGravura = function () {
+  var img = document.getElementById('retratoImg');
+  if (img) { img.hidden = true; img.removeAttribute('src'); }
+};
+"""
+
+
 class EstadoTurno:
     """Fatia 1: estado mutavel que o motor de turno narrado le e atualiza."""
     __slots__ = ("historico", "pressao_atual", "sessao_atual", "modelo_atual", "resultado_pendente", "is_infancia")
@@ -3250,9 +3304,9 @@ class EstadoTurno:
 
 class ResultadoTurno:
     """Fatia 1: saida do motor de turno narrado."""
-    __slots__ = ("prosa", "pressao", "atmosfera", "teste", "resposta", "vestindo", "abortado", "opcoes")
+    __slots__ = ("prosa", "pressao", "atmosfera", "teste", "resposta", "vestindo", "abortado", "opcoes", "gravura")
 
-    def __init__(self, prosa, pressao, atmosfera, teste, resposta, vestindo, abortado, opcoes=None):
+    def __init__(self, prosa, pressao, atmosfera, teste, resposta, vestindo, abortado, opcoes=None, gravura=None):
         self.prosa = prosa
         self.pressao = pressao
         self.atmosfera = atmosfera
@@ -3261,6 +3315,7 @@ class ResultadoTurno:
         self.vestindo = vestindo
         self.abortado = abortado
         self.opcoes = opcoes   # FASE FRONT: botoes de acao (list[str]|None); o narrar os empurra pra UI
+        self.gravura = gravura   # P3: descricao da gravura desta cena (str|None); narrar dispara a imagem assincrona
 
 
 class EstadoCombate:
@@ -3466,9 +3521,12 @@ async def executar_turno_narrado(estado, msg_usuario, mostrar_acao=True, *,
     estado.historico.append({"role": "assistant", "content": resposta})
     prosa, nova_pressao, atmosfera, teste, _opcoes = _separar_estado(resposta, estado.pressao_atual)
     estado.pressao_atual = nova_pressao
+    # P3: descricao da gravura desta cena (None se o Cronista nao pediu). Parse separado,
+    # aditivo (nao mexe na tupla de _separar_estado). O `narrar` dispara a imagem assincrona.
+    _gravura = _extrair_gravura(resposta)
     # _opcoes (botoes de acao) ja vem parseado; a FASE FRONT o encaminha pro ResultadoTurno
     # e o `narrar` o empurra pra UI (window.setOpcoes) ao fim do turno.
-    return ResultadoTurno(prosa, nova_pressao, atmosfera, teste, resposta, _vestindo, False, opcoes=_opcoes)
+    return ResultadoTurno(prosa, nova_pressao, atmosfera, teste, resposta, _vestindo, False, opcoes=_opcoes, gravura=_gravura)
 
 
 def _armar_dado_js(tp: dict | None = None) -> str:
@@ -3993,6 +4051,8 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
     ui.run_javascript(_VITAIS_JS)
     # FASE FRONT: instala window.setOpcoes (botoes de acao no rodape).
     ui.run_javascript(_OPCOES_JS)
+    # P3: instala window.setGravura (imagem de cena na moldura da esquerda).
+    ui.run_javascript(_GRAVURA_JS)
 
     # RESUME (trava d): com o historico repintado, rola o #miolo pro FIM no load -> o
     # turno mais recente fica visivel, como numa conversa. rAF por ~1s: re-cola embaixo
@@ -4604,6 +4664,34 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
             # FASE FRONT: desenha os botoes de acao desta resposta (3-6) no rodape. Lista
             # vazia/None some o bloco. Clique preenche #cmd e foca; o jogador confirma.
             _js(f"window.setOpcoes && window.setOpcoes({json.dumps(_res.opcoes or [])})")
+            # P3 GRAVURA (assincrono): a prosa ja streamou e selou acima. Se o Cronista
+            # pediu 'gravura:', dispara a imagem EM BACKGROUND (cache-first + teto de
+            # seguranca dentro de gravura.obter_gravura) e, quando pronta, cai na moldura
+            # via window.setGravura. Falha/None -> moldura fica no estado sobrio (a cena
+            # NUNCA quebra por causa da imagem). Guarda de geracao: se a sessao recomecou
+            # durante a geracao (minha_geracao != geracao), descarta o push (sem fantasma).
+            if _res.gravura:
+                _cli_grav = ui.context.client
+                _mg_grav = minha_geracao
+                _sess_grav = sessao_atual
+                _desc_grav = _res.gravura
+
+                async def _cair_gravura():
+                    try:
+                        _url = await gravura.obter_gravura(_desc_grav, sessao_id=_sess_grav)
+                    except Exception:
+                        _url = None
+                    if not _url or _mg_grav != geracao:
+                        return
+                    try:
+                        with _cli_grav:
+                            ui.run_javascript(
+                                f"window.setGravura && window.setGravura({json.dumps(_url)})"
+                            )
+                    except Exception:
+                        pass   # cliente desconectou: a cena ja esta intacta, so nao pinta
+
+                background_tasks.create(_cair_gravura())
             # Combate Fatia 0: ao FIM do turno, re-le os vitais do banco e re-empurra
             # (espelho vivo). Pressao + atmosfera acima seguem como antes. So no /jogar-c
             # (guard) -> 1 query read-only por turno aqui, zero no /jogar de producao.
