@@ -36,8 +36,9 @@ configure_structlog()
 logger = structlog.get_logger()
 
 
-# === Sentry ===
-if settings.sentry_dsn:
+# === Sentry === (SO em producao: dev tem o DSN no .env, mas nao deve sujar o painel de prod
+# com eventos de teste/suite local. Prod: ENVIRONMENT ausente -> default "production" -> liga.)
+if settings.sentry_dsn and settings.environment == "production":
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
         traces_sample_rate=0.2,
@@ -45,6 +46,8 @@ if settings.sentry_dsn:
         release=f"nexus-api@{settings.api_version}",
     )
     logger.info("sentry_initialized")
+elif settings.sentry_dsn:
+    logger.info("sentry_skipped_dev", environment=settings.environment)
 
 
 # === Rate Limiter ===
