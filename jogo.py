@@ -39,6 +39,7 @@ from nicegui import ui, background_tasks
 from anthropic import AsyncAnthropic
 from cronista_prompt import CRONISTA_SYSTEM_PROMPT
 import gravura   # P3: pipeline da linha 'gravura:' (R2/fal lazy la dentro; import barato)
+import custos   # Tarefa 8: precos Opus 4.8 + custo de gravura + cambio; calculo PURO do gasto
 from campanha_protagonista import bloco_campanha_infancia
 from ui_helpers import aguardar_conexao_websocket
 from app.resolucao_2d10 import classificar_faixa, rolar_resolucao
@@ -1367,6 +1368,15 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .marg .ferida{ margin-left:auto; display:flex; align-items:center; gap:8px; border:1px solid var(--vida-esc); background:rgba(232,65,58,.10); padding:7px 12px; }
 .marg .ferida .fmark{ font-family:"IBM Plex Mono",monospace !important; font-size:11px; color:var(--vida); letter-spacing:.04em; }
 
+/* Tarefa 8: contador de gasto da sessao. Discreto, witcher-grey, baixa opacidade, SEM cor
+   de alarme. margin-left:auto encosta no canto direito da marg (atras da ferida, que so
+   aparece em combate). Acende um tom quando ja somou algo (.vivo). */
+.marg .custo{ margin-left:auto; display:flex; flex-direction:column; align-items:flex-end;
+  gap:2px; line-height:1.1; opacity:.5; text-align:right; }
+.marg .custo.vivo{ opacity:.78; }
+.marg .custo .ct-linha{ font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.06em; color:var(--osso2); white-space:nowrap; }
+.marg .custo .ct-turno{ font-family:"IBM Plex Mono",monospace; font-size:8px; letter-spacing:.08em; color:var(--ouro-esc); text-transform:uppercase; white-space:nowrap; min-height:8px; }
+
 /* base pronta pro combate (nao exibida hoje) */
 .stamps{ display:flex; gap:15px; flex-wrap:wrap; }
 .st{ display:flex; align-items:center; gap:6px; }
@@ -2661,6 +2671,13 @@ _BODY = """
       </div>
 
       <div class="ferida oculto" id="ferida"><span class="fmark" id="ferida-txt"></span></div>
+
+      <!-- Tarefa 8: contador de gasto REAL da sessao (texto Opus + gravuras). Discreto,
+           sobrio, sempre visivel, sem cor de alarme. window.setCusto o atualiza por turno. -->
+      <div class="custo" id="custo" title="Gasto real desta sess&atilde;o (texto + gravuras)">
+        <span class="ct-linha"><span id="custo-usd">US$&nbsp;0.00</span> &middot; <span id="custo-brl">~R$&nbsp;0.00</span></span>
+        <span class="ct-turno" id="custo-turno"></span>
+      </div>
     </div>
 
     <!-- MIOLO: a unica zona que rola (cena + narracao). -->
@@ -3408,6 +3425,28 @@ _PAUSA_JS = """
 """
 
 
+# Tarefa 8: instala window.setCusto(sessaoUsd, sessaoBrl, ultimoUsd) — escreve o gasto da
+# sessao e, menor, o ultimo turno no HUD. So LEITURA de numeros ja calculados no Python;
+# tolerante a valores tortos (NaN -> 0). Nao toca trava/layout: escreve textContent.
+_CUSTO_JS = """
+(function(){
+  window.setCusto = function(sessaoUsd, sessaoBrl, ultimoUsd){
+    var box = document.getElementById('custo');
+    if (!box) return;
+    var u = document.getElementById('custo-usd');
+    var b = document.getElementById('custo-brl');
+    var t = document.getElementById('custo-turno');
+    var nu = Number(sessaoUsd), nb = Number(sessaoBrl), nt = Number(ultimoUsd);
+    if (!isFinite(nu)) nu = 0; if (!isFinite(nb)) nb = 0; if (!isFinite(nt)) nt = 0;
+    if (u) u.textContent = 'US$\\u00A0' + nu.toFixed(2);
+    if (b) b.textContent = '~R$\\u00A0' + nb.toFixed(2);
+    if (t) t.textContent = nt > 0 ? ('\\u00FAltimo US$\\u00A0' + nt.toFixed(2)) : '';
+    box.classList.add('vivo');
+  };
+})();
+"""
+
+
 class EstadoTurno:
     """Fatia 1: estado mutavel que o motor de turno narrado le e atualiza."""
     __slots__ = ("historico", "pressao_atual", "sessao_atual", "modelo_atual", "resultado_pendente", "is_infancia")
@@ -3425,9 +3464,9 @@ class EstadoTurno:
 
 class ResultadoTurno:
     """Fatia 1: saida do motor de turno narrado."""
-    __slots__ = ("prosa", "pressao", "atmosfera", "teste", "resposta", "vestindo", "abortado", "opcoes", "gravura")
+    __slots__ = ("prosa", "pressao", "atmosfera", "teste", "resposta", "vestindo", "abortado", "opcoes", "gravura", "custo_texto")
 
-    def __init__(self, prosa, pressao, atmosfera, teste, resposta, vestindo, abortado, opcoes=None, gravura=None):
+    def __init__(self, prosa, pressao, atmosfera, teste, resposta, vestindo, abortado, opcoes=None, gravura=None, custo_texto=0.0):
         self.prosa = prosa
         self.pressao = pressao
         self.atmosfera = atmosfera
@@ -3437,6 +3476,7 @@ class ResultadoTurno:
         self.abortado = abortado
         self.opcoes = opcoes   # FASE FRONT: botoes de acao (list[str]|None); o narrar os empurra pra UI
         self.gravura = gravura   # P3: descricao da gravura desta cena (str|None); narrar dispara a imagem assincrona
+        self.custo_texto = custo_texto   # Tarefa 8: custo REAL do texto deste turno (US$, soma o usage do Opus + retry); 0.0 no mock
 
 
 class EstadoCombate:
@@ -3574,6 +3614,12 @@ async def executar_turno_narrado(estado, msg_usuario, mostrar_acao=True, *,
     # espaco pro validador (3b) corrigir antes de exibir. Fora de combate: streaming normal.
     _buffer = em_combate
 
+    # Tarefa 8: acumulador do custo do TEXTO deste turno (US$). Soma o usage de CADA
+    # chamada ao Opus (inclui o retry do validador ADR-008). MODO_MOCK nao tem usage -> 0.0.
+    # Lista (mutavel) capturada pelo closure _gerar. So MEDE: leitura em try/except, nunca
+    # quebra o turno — pior caso o custo deste turno fica 0.
+    _custo_acc = [0.0]
+
     # ADR-008 3b: a GERACAO (mock/Opus) extraida pra rodar 1x + ate 1 retry com correcao.
     # Recebe _msgs (permite injetar a correcao na 2a chamada). Fecha sobre ui/deve_abortar/
     # _buffer/estado. Devolve (resposta, abortado): abort vira ("", True) e o pai converte.
@@ -3621,6 +3667,13 @@ async def executar_turno_narrado(estado, msg_usuario, mostrar_acao=True, *,
                     b.text for b in final.content
                     if getattr(b, "type", None) == "text"
                 )
+                # Tarefa 8: le o usage REAL do fim do stream (input/output/cache) e soma o
+                # custo deste texto. So LEITURA — nao toca o stream. Defensivo: usage
+                # ausente/torto nao soma nada e NUNCA quebra o turno.
+                try:
+                    _custo_acc[0] += custos.custo_texto_usd(getattr(final, "usage", None))
+                except Exception:
+                    pass
         if deve_abortar():
             ui.stream_abortar()
             return ("", True)
@@ -3647,7 +3700,7 @@ async def executar_turno_narrado(estado, msg_usuario, mostrar_acao=True, *,
     _gravura = _extrair_gravura(resposta)
     # _opcoes (botoes de acao) ja vem parseado; a FASE FRONT o encaminha pro ResultadoTurno
     # e o `narrar` o empurra pra UI (window.setOpcoes) ao fim do turno.
-    return ResultadoTurno(prosa, nova_pressao, atmosfera, teste, resposta, _vestindo, False, opcoes=_opcoes, gravura=_gravura)
+    return ResultadoTurno(prosa, nova_pressao, atmosfera, teste, resposta, _vestindo, False, opcoes=_opcoes, gravura=_gravura, custo_texto=_custo_acc[0])
 
 
 def _armar_dado_js(tp: dict | None = None) -> str:
@@ -4049,6 +4102,11 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
     ocupado = False   # trava de turno: barra acao concorrente durante o await do Cronista
     geracao = 0       # token de geracao: recomecar incrementa e invalida narrar em voo
     pressao_atual = 0
+    # Tarefa 8: contador de gasto REAL DESTA sessao, em memoria (sem banco nesta versao).
+    # custo_sessao_usd = acumulado (texto Opus + gravuras nascidas); custo_ultimo_usd = o
+    # ultimo turno. Atualizam ao fim de cada turno e quando uma gravura nova nasce.
+    custo_sessao_usd = 0.0
+    custo_ultimo_usd = 0.0
     teste_pendente = None      # {intencao, mod, cd} aguardando rolagem
     resultado_pendente = None  # str "intencao — faixa" para o proximo [ESTADO]
     sessao_atual = await _resolver_sessao(personagem) if personagem is not None else SESSAO_ID   # personagem -> sessao dele; sem personagem -> SESSAO_ID (compat). Tier 6: rebinda no lifecycle.
@@ -4176,6 +4234,8 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
     ui.run_javascript(_GRAVURA_JS)
     # P4: instala o menu de pausa (botao fixo + overlay continuar/sair).
     ui.run_javascript(_PAUSA_JS)
+    # Tarefa 8: instala window.setCusto (contador de gasto da sessao no HUD).
+    ui.run_javascript(_CUSTO_JS)
 
     # RESUME (trava d): com o historico repintado, rola o #miolo pro FIM no load -> o
     # turno mais recente fica visivel, como numa conversa. rAF por ~1s: re-cola embaixo
@@ -4677,8 +4737,15 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
         acao = "remove" if on else "add"
         _js(f"document.getElementById('pondera') && document.getElementById('pondera').classList.{acao}('oculto')")
 
+    def _js_custo() -> str:
+        # Tarefa 8: monta a chamada window.setCusto(sessaoUsd, sessaoBrl, ultimoUsd) com
+        # os valores ATUAIS do contador. Le os nonlocals no momento da chamada. Cambio fixo.
+        _brl = custos.usd_para_brl(custo_sessao_usd)
+        return (f"window.setCusto && window.setCusto("
+                f"{custo_sessao_usd:.4f},{_brl:.2f},{custo_ultimo_usd:.4f})")
+
     async def narrar(msg_usuario: str, mostrar_acao: bool = True):
-        nonlocal pressao_atual, ocupado, geracao, sessao_atual, modelo_atual, teste_pendente, resultado_pendente, tensao_atual, inimigo, inimigos, acao_atual, via_atual, feridas_ativas, feridas_ja_usadas, _infeccao_pendente
+        nonlocal pressao_atual, ocupado, geracao, sessao_atual, modelo_atual, teste_pendente, resultado_pendente, tensao_atual, inimigo, inimigos, acao_atual, via_atual, feridas_ativas, feridas_ja_usadas, _infeccao_pendente, custo_sessao_usd, custo_ultimo_usd
         # trava de turno: se ja ha um turno em voo, ignora a nova acao ANTES de
         # tocar o historico - senao dois "user" seguidos quebram a alternancia.
         if ocupado:
@@ -4787,6 +4854,20 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
             # FASE FRONT: desenha os botoes de acao desta resposta (3-6) no rodape. Lista
             # vazia/None some o bloco. Clique preenche #cmd e foca; o jogador confirma.
             _js(f"window.setOpcoes && window.setOpcoes({json.dumps(_res.opcoes or [])})")
+            # Tarefa 8: contabiliza o custo REAL do TEXTO deste turno (ja medido no motor a
+            # partir do usage do Opus). O ultimo turno comeca com o texto; se uma gravura
+            # nova nascer abaixo, ela soma por cima (via on_custo). Defensivo: jamais quebra
+            # o turno — pior caso o contador nao atualiza.
+            try:
+                _ct = float(getattr(_res, "custo_texto", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                _ct = 0.0
+            custo_ultimo_usd = _ct
+            custo_sessao_usd += _ct
+            try:
+                _js(_js_custo())
+            except Exception:
+                pass
             # P3 GRAVURA (assincrono): a prosa ja streamou e selou acima. Se o Cronista
             # pediu 'gravura:', dispara a imagem EM BACKGROUND (cache-first + teto de
             # seguranca dentro de gravura.obter_gravura) e, quando pronta, cai na moldura
@@ -4803,9 +4884,19 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
                 _sess_grav = sessao_atual
                 _desc_grav = _res.gravura
 
+                def _somar_gravura():
+                    # Tarefa 8: chamado por obter_gravura SO quando uma gravura nova nasce
+                    # (cache hit nao chama -> soma 0). Soma o custo da imagem na sessao e no
+                    # ultimo turno. Stale (sessao recomecou) -> nao contamina. Defensivo.
+                    nonlocal custo_sessao_usd, custo_ultimo_usd
+                    if _mg_grav != geracao:
+                        return
+                    custo_sessao_usd += custos.USD_POR_GRAVURA
+                    custo_ultimo_usd += custos.USD_POR_GRAVURA
+
                 async def _cair_gravura():
                     try:
-                        _url = await gravura.obter_gravura(_desc_grav, sessao_id=_sess_grav)
+                        _url = await gravura.obter_gravura(_desc_grav, sessao_id=_sess_grav, on_custo=_somar_gravura)
                     except Exception:
                         _url = None
                     if not _url or _mg_grav != geracao:
@@ -4824,6 +4915,9 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
                             ui.run_javascript(
                                 f"window.setGravura && window.setGravura({json.dumps(_url)})"
                             )
+                            # Tarefa 8: a gravura nova ja somou no contador (via on_custo);
+                            # reflete no HUD agora que ela assentou. Defensivo dentro do try.
+                            ui.run_javascript(_js_custo())
                     except Exception:
                         pass   # cliente desconectou: a cena ja esta intacta, so nao pinta
 

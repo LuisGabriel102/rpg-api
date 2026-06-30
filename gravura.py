@@ -91,12 +91,16 @@ async def _gerar_fal_bytes(prompt: str) -> bytes:
     return buf.getvalue()
 
 
-async def obter_gravura(descricao: str, *, sessao_id) -> "str | None":
+async def obter_gravura(descricao: str, *, sessao_id, on_custo=None) -> "str | None":
     """Cache-first. Devolve a URL publica da gravura desta descricao, gerando UMA vez se
     ainda nao existe no R2. Devolve None quando: descricao vazia, teto de seguranca
     estourado, ou qualquer falha (a cena NUNCA quebra por causa da imagem).
 
-    LAZY: importa r2_storage aqui (sem credencial no import do modulo)."""
+    LAZY: importa r2_storage aqui (sem credencial no import do modulo).
+
+    on_custo (Tarefa 8, opcional): callback sem args chamado UMA vez quando uma gravura
+    NOVA e gerada (cache miss real). Cache hit / teto / falha -> nao chama. O chamador usa
+    pra somar o custo no contador da sessao; ausencia (None) mantem o comportamento antigo."""
     desc = " ".join((descricao or "").split())
     if not desc:
         return None
@@ -119,4 +123,12 @@ async def obter_gravura(descricao: str, *, sessao_id) -> "str | None":
     _geracoes_por_sessao[sid] = _geracoes_por_sessao.get(sid, 0) + 1
     img = await _gerar_fal_bytes(_prompt(desc))
     await upload_gravura(key, img)
+    # Tarefa 8: nasceu uma gravura NOVA (cache miss real). Sinaliza pro chamador somar o
+    # custo no contador da sessao. O cache hit retorna la em cima (linha ~110) e NUNCA
+    # chega aqui -> nao soma nada. Defensivo: o callback jamais quebra a imagem/cena.
+    if on_custo is not None:
+        try:
+            on_custo()
+        except Exception:
+            pass
     return url_gravura(key)
