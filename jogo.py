@@ -3064,13 +3064,9 @@ _DADO_JS = """
     }, 2600);
   };
 
-  // MOCK: tecla "d" arma a zona (gatilho de teste; nada visivel de debug).
-  document.addEventListener('keydown', function (e) {
-    if (e.key !== 'd' && e.key !== 'D') return;
-    var t = (e.target && e.target.tagName) || '';
-    if (/^(INPUT|TEXTAREA|SELECT)$/.test(t)) return;   // nao rouba digitacao
-    window.armarDado();
-  });
+  // (removido) gatilho de debug da tecla 'd': armava o card de dado de verdade na mao do
+  // jogador em prod -> rolagem nao solicitada (em combate, dano gravado). O arme legitimo
+  // segue pelo Cronista (server -> window.armarDado(...)); em dev, via console.
 })();
 """
 
