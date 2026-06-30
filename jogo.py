@@ -1620,6 +1620,23 @@ body.foco .pagina::after{ display:none; }
 .sair-foco:hover{ opacity:1; color:var(--brasa); }
 body.foco .sair-foco{ display:block; }
 
+/* CONFORTO DE LEITURA: cluster sobrio no topo-direita da area de leitura (A- / A+ /
+   modo leitura). Reusa o sistema de fonte (txt-nivel) e o modo foco; nao entra na lista
+   que o foco esconde -> SOBREVIVE ao modo leitura (pra dar pra sair). pointer-events so
+   nos botoes -> a faixa larga (sticky) nao bloqueia clique na prosa por baixo. */
+.leitura-ctrl{ position:sticky; top:6px; z-index:6; display:flex; justify-content:flex-end; gap:5px;
+  margin:0 0 4px; pointer-events:none; opacity:.32; transition:opacity .25s ease; }
+.leitura-ctrl:hover, .leitura-ctrl:focus-within{ opacity:1; }
+.leitura-ctrl button{ pointer-events:auto; font-family:"IM Fell English SC",serif !important;
+  letter-spacing:.06em; text-transform:lowercase; font-size:.72rem; color:var(--osso2);
+  background:rgba(14,11,8,.55); border:1px solid var(--regua); border-radius:5px; cursor:pointer;
+  min-width:30px; min-height:30px; padding:0 8px;
+  transition:color .2s ease, border-color .2s ease, background .2s ease; }
+.leitura-ctrl button:hover{ color:var(--brasa); border-color:var(--brasa); }
+.leitura-ctrl button:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; }
+.leitura-ctrl .lc-leitura.on{ color:var(--brasa); border-color:var(--brasa); background:rgba(198,122,51,.14); }
+@media (prefers-reduced-motion: reduce){ .leitura-ctrl{ transition:none; } }
+
 /* ===========================================================================
    ZONA DE DADOS (Balde 1): 2d10 + 2 criticos + 5 faixas. O Python e o cerebro; o
    dado so MOSTRA. Maquina: dormant(hidden) -> armed -> rolling -> resolved -> dormant.
@@ -2591,6 +2608,11 @@ _BODY = """
         </aside>
 
         <article class="leitura">
+          <div class="leitura-ctrl" role="group" aria-label="Conforto de leitura">
+            <button type="button" id="lc-menor" aria-label="Diminuir o texto" title="Texto menor">A&minus;</button>
+            <button type="button" id="lc-maior" aria-label="Aumentar o texto" title="Texto maior">A+</button>
+            <button type="button" id="lc-leitura" class="lc-leitura" aria-pressed="false" aria-label="Modo leitura" title="Modo leitura (esconde o HUD)">leitura</button>
+          </div>
           <figure class="plate">
             <div class="frame"><img src="/static/estampa_porta.webp" alt="Gravura: uma porta arqueada entreaberta, com uma fresta de luz e degraus de pedra"></div>
           </figure>
@@ -2885,6 +2907,8 @@ _CONFIG_JS = """
     document.body.classList.toggle('foco', on);
     if (toggle) { toggle.classList.toggle('on', on); toggle.setAttribute('aria-pressed', on ? 'true' : 'false'); }
     if (estado) estado.textContent = on ? 'Ligado' : 'Desligado';
+    var lcL = document.getElementById('lc-leitura');
+    if (lcL) { lcL.classList.toggle('on', on); lcL.setAttribute('aria-pressed', on ? 'true' : 'false'); }
   }
   aplicaFoco(localStorage.getItem('jogar_foco') === '1');
   if (toggle) toggle.addEventListener('click', function () {
@@ -2895,6 +2919,30 @@ _CONFIG_JS = """
   var sairFoco = document.getElementById('sair-foco');
   function saiFoco() { aplicaFoco(false); localStorage.setItem('jogar_foco', '0'); }
   if (sairFoco) sairFoco.addEventListener('click', saiFoco);
+
+  // CONFORTO DE LEITURA (cluster na area de leitura): A-/A+ reusa o sistema de fonte (txt-nivel),
+  // o toggle reusa o modo foco. Mesmos localStorage -> fica sincronizado com a tela de config.
+  function nivelCorrente() {
+    for (var i = 0; i < NIVEIS.length; i++)
+      if (document.body.classList.contains('txt-nivel-' + NIVEIS[i])) return i;
+    return 1;
+  }
+  function passoFonte(d) {
+    var i = Math.max(0, Math.min(NIVEIS.length - 1, nivelCorrente() + d));
+    aplicaTexto(NIVEIS[i]);
+    localStorage.setItem('jogar_txt_nivel', NIVEIS[i]);
+  }
+  var lcMenor = document.getElementById('lc-menor');
+  var lcMaior = document.getElementById('lc-maior');
+  var lcLeitura = document.getElementById('lc-leitura');
+  if (lcMenor) lcMenor.addEventListener('click', function () { passoFonte(-1); });
+  if (lcMaior) lcMaior.addEventListener('click', function () { passoFonte(1); });
+  if (lcLeitura) lcLeitura.addEventListener('click', function () {
+    var novo = !document.body.classList.contains('foco');
+    aplicaFoco(novo);
+    localStorage.setItem('jogar_foco', novo ? '1' : '0');
+  });
+
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     if (telaConfig && !telaConfig.classList.contains('oculto')) { voltaJogo(); return; }
