@@ -1614,15 +1614,31 @@ body.foco .sair-foco{ display:block; }
    nas animacoes; tom witcher-grey (lento, baixa amplitude), no espirito de plate-in/
    kenburns/arrive. Estados por data-estado; desenho do resultado por data-faixa.
    =========================================================================== */
-.dado-zona{ position:relative; z-index:2; max-width:min(520px,92%); margin:24px auto 6px;
-  display:flex; flex-direction:column; align-items:center; gap:12px;
-  padding:18px 18px 20px; border-top:1px solid var(--regua);
+/* card rico (porte do mock .card-dados): moldura + cantos dourados + info do teste
+   (rotulo / atributo · contra CD) + mod separado + linha de resultado. Os DADOS (losango
+   d10), as 5 faixas e o palco de fx (.dado-fx) seguem identicos abaixo — so a APARENCIA
+   ao redor mudou; a fiacao (window.armarDado/__resolverDado/data-faixa) e a MESMA. */
+.dado-zona{ position:relative; z-index:2; max-width:min(560px,94%); margin:22px auto 8px;
+  display:flex; align-items:center; flex-wrap:wrap; gap:clamp(12px,2.2vw,20px);
+  padding:14px clamp(16px,2.4vw,22px);
+  background:linear-gradient(180deg,var(--painel2),var(--painel)); border:1px solid var(--ouro-esc);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), inset 0 1px 0 rgba(231,196,104,.1), 0 10px 28px rgba(0,0,0,.5);
   animation:dado-in .5s ease both; }
 .dado-zona[hidden]{ display:none; }
-.dado-cue{ font-family:"IM Fell English",serif !important; font-style:italic; font-size:14px;
-  color:var(--osso2); letter-spacing:.02em; opacity:0; transition:opacity .6s ease; }
-.dado-zona[data-estado="armed"] .dado-cue{ opacity:.9; }
-.dado-par{ display:flex; gap:16px; }
+.dado-zona .cd-cantos span{ position:absolute; width:11px; height:11px; border:2px solid var(--ouro); }
+.dado-zona .cdc1{ top:5px; left:5px; border-right:none; border-bottom:none; }
+.dado-zona .cdc2{ top:5px; right:5px; border-left:none; border-bottom:none; }
+.dado-zona .cdc3{ bottom:5px; left:5px; border-right:none; border-top:none; }
+.dado-zona .cdc4{ bottom:5px; right:5px; border-left:none; border-top:none; }
+.dado-zona .cd-info{ display:flex; flex-direction:column; gap:4px; padding-right:clamp(12px,2vw,18px); border-right:1px solid var(--linha); }
+.dado-zona .cd-rotulo{ font-family:"Spectral",Georgia,serif !important; font-size:15px; color:var(--osso); line-height:1.15; }
+.dado-zona .cd-detalhe{ font-family:"JetBrains Mono",monospace !important; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--osso2); }
+.dado-zona .cd-detalhe b{ color:var(--brasa); font-weight:600; }
+.dado-zona .dado-op, .dado-zona .cd-mod{ font-family:"JetBrains Mono",monospace !important; color:var(--osso2); font-size:15px; }
+.dado-zona .cd-mod{ font-weight:600; color:var(--osso); }
+.dado-zona .cd-resultado{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.dado-zona .dado-btn{ margin-left:auto; }
+.dado-par{ display:flex; align-items:center; gap:12px; }
 /* DADO = losango d10 (escopado em .dado-zona; SEM classe .dado global colidente).
    clip-path corta borda E box-shadow -> os brilhos vao por filter:drop-shadow,
    que segue a forma do losango. Hex literais do prototipo, autorizados na zona. */
@@ -2580,14 +2596,22 @@ _BODY = """
       <!-- ZONA DE DADOS (Balde 1): so MOSTRA; o Python decide. Comeca oculta (dormant).
            O Cronista a "arma" (window.armarDado) -> botao libera. ids estaveis (JS depende). -->
       <div class="dado-zona" id="dado-zona" data-estado="dormant" aria-live="polite" hidden>
-        <div class="dado-cue" id="dado-cue">o momento pede um lance</div>
+        <span class="cd-cantos"><span class="cdc1"></span><span class="cdc2"></span><span class="cdc3"></span><span class="cdc4"></span></span>
+        <div class="cd-info">
+          <span class="cd-rotulo" id="dado-rotulo">o momento pede um lance</span>
+          <span class="cd-detalhe"><span id="dado-atributo">&mdash;</span> &middot; contra <b id="dado-cd">&mdash;</b></span>
+        </div>
         <div class="dado-par">
           <div class="dado" id="dado-1">&mdash;</div>
+          <span class="dado-op">+</span>
           <div class="dado" id="dado-2">&mdash;</div>
+          <span class="cd-mod" id="dado-mod">+0</span>
         </div>
-        <div class="dado-conta" id="dado-conta"></div>
-        <div class="dado-faixa" id="dado-faixa"></div>
-        <button class="dado-btn" id="dado-btn" type="button" aria-label="Rolar os dados" disabled>rolar</button>
+        <div class="cd-resultado">
+          <div class="dado-conta" id="dado-conta"></div>
+          <div class="dado-faixa" id="dado-faixa"></div>
+        </div>
+        <button class="dado-btn" id="dado-btn" type="button" aria-label="Rolar os dados" disabled>rolar 2d10</button>
         <div class="dado-fx" id="dado-fx" aria-hidden="true">
           <span class="fx-clarao"></span>
           <span class="fx-raio"></span>
@@ -2942,6 +2966,10 @@ _DADO_JS = """
   var d2el = document.getElementById('dado-2');
   var conta = document.getElementById('dado-conta');
   var faixaEl = document.getElementById('dado-faixa');
+  var rotEl = document.getElementById('dado-rotulo');
+  var atribEl = document.getElementById('dado-atributo');
+  var cdEl = document.getElementById('dado-cd');
+  var modEl = document.getElementById('dado-mod');
   if (!zona || !btn) return;
 
   var reduz = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2979,10 +3007,16 @@ _DADO_JS = """
   }
 
   // ARME: e isto que o Cronista vai chamar (hoje, no MOCK, pela tecla "d").
-  window.armarDado = function () {
+  window.armarDado = function (rotulo, atributo, cd, mod) {
     if (resolveTimer) { clearTimeout(resolveTimer); resolveTimer = null; }
     if (rollTimer) { clearInterval(rollTimer); rollTimer = null; }
     limpa();
+    // PASSO 2: o ARME ja mostra o que esta em jogo (campos que JA existem em teste_pendente).
+    // Defaults seguros se vier sem args (gatilho 'd' do mock / armes sinteticos antigos).
+    if (rotEl) rotEl.textContent = (rotulo != null && rotulo !== '') ? rotulo : 'o momento pede um lance';
+    if (atribEl) atribEl.textContent = (atributo != null && atributo !== '') ? atributo : '\\u2014';
+    if (cdEl) cdEl.textContent = (cd != null) ? cd : '\\u2014';
+    if (modEl) modEl.textContent = (mod != null) ? (mod >= 0 ? '+' + mod : String(mod)) : '+0';
     zona.hidden = false;
     setEstado('armed');
     btn.disabled = false;
@@ -3344,6 +3378,21 @@ async def executar_turno_narrado(estado, msg_usuario, mostrar_acao=True, *,
     return ResultadoTurno(prosa, nova_pressao, atmosfera, teste, resposta, _vestindo, False, opcoes=_opcoes)
 
 
+def _armar_dado_js(tp: dict | None = None) -> str:
+    """PASSO 2: monta window.armarDado(rotulo, atributo, cd, mod) com os campos que JA existem
+    em teste_pendente (intencao/atributo/cd/mod). So APRESENTACAO — nao decide nada da rolagem.
+    Sem tp -> arme nu (defaults no cliente). cd/mod viram numero (null se faltar; cliente trata)."""
+    if not tp:
+        return "window.armarDado && window.armarDado()"
+    return (
+        "window.armarDado && window.armarDado("
+        f"{json.dumps(tp.get('intencao') or '', ensure_ascii=False)},"
+        f"{json.dumps(tp.get('atributo') or '', ensure_ascii=False)},"
+        f"{json.dumps(tp.get('cd'))},"
+        f"{json.dumps(tp.get('mod'))})"
+    )
+
+
 async def resolver_dado(estado, *, modo="normal", sessao_id, com_ficha, js,
                         ler_fadiga, aplicar_dano_combate, drenar_vigor,
                         gastar_mp, ajustar_fadiga):
@@ -3697,7 +3746,7 @@ async def processar_combate(estado, *, resposta, teste, vestindo, com_ficha, ses
         _cd_fuga = CD_TIER.get(estado.inimigo.get("tier"), 12)
         _mod_fuga = await resolver_mod_atributo(sessao_id, "destreza")
         estado.teste_pendente = {"intencao": "fugir", "atributo": "destreza", "cd": _cd_fuga, "mod": _mod_fuga}
-        js("window.armarDado && window.armarDado()")
+        js(_armar_dado_js(estado.teste_pendente))
     elif teste:
         _mod_real = await resolver_mod_atributo(sessao_id, teste["atributo"])
         # Regua de crianca (Modo Infancia): a ficha adulta dorme -> o modificador do teste NAO
@@ -3706,7 +3755,7 @@ async def processar_combate(estado, *, resposta, teste, vestindo, com_ficha, ses
         # teste CONTINUA aparecendo (teste_pendente + armarDado). Fora da infancia: mod real.
         teste["mod"] = max(-1, min(1, _mod_real)) if is_infancia else _mod_real
         estado.teste_pendente = teste
-        js("window.armarDado && window.armarDado()")
+        js(_armar_dado_js(estado.teste_pendente))
     elif estado.acao_atual == "ataque" and estado.inimigo is not None and estado.inimigo.get("hp", 0) > 0 and not vestindo:
         # ARME SINTETICO (Fatia 2): atacar inimigo vivo SEM o Cronista pedir teste ->
         # o MOTOR arma o dado. Nenhum golpe resolve sem o dado; tira da IA o poder de
@@ -3716,7 +3765,7 @@ async def processar_combate(estado, *, resposta, teste, vestindo, com_ficha, ses
         # Fatia 1 itens: forca pura + bonus_ataque da arma equipada (0 se nada/erro).
         _mod_atk = await resolver_mod_atributo(sessao_id, "forca") + await bonus_ataque_equipado(sessao_id)
         estado.teste_pendente = {"intencao": "golpe", "atributo": "forca", "cd": _cd_atk, "mod": _mod_atk}
-        js("window.armarDado && window.armarDado()")
+        js(_armar_dado_js(estado.teste_pendente))
 
 
 async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
