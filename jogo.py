@@ -1202,6 +1202,10 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .config-scroll > .config-pane[data-pane="tela"]{ max-width:min(720px,96%); }
 @keyframes rise{ from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
 @keyframes arrive{ from{opacity:0;transform:translateY(9px)} to{opacity:1;transform:none} }
+/* B1: o turno AO VIVO assenta (tinta assentando) — fade de baixo pra cima no bloco que
+   esta streamando. Comeca em .45 (nao some o texto), so o container sobe/clareia; a
+   revelacao char-a-char roda por cima, intacta. O resume (.done/.eco) NAO usa isto. */
+@keyframes assenta{ from{opacity:.45;transform:translateY(7px)} to{opacity:1;transform:none} }
 @keyframes pulseglow{ 0%{opacity:.45} 40%{opacity:1} 100%{opacity:.85} }
 
 .head{ display:flex; align-items:center; gap:14px; position:relative; z-index:2; flex:none; }
@@ -1393,6 +1397,15 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 @keyframes plate-in{ from{opacity:0} to{opacity:1} }
 @keyframes kenburns{ from{transform:scale(1)} to{transform:scale(1.04)} }
 .plate .frame::after{ content:""; position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 64px 12px rgba(10,8,6,.82), inset 0 0 0 1px rgba(0,0,0,.5); }
+/* B2: grao levissimo (textura SVG estatica, sem asset novo) por cima da imagem — z-index
+   acima do <img> estatico, abaixo da vinheta. Atmosfera, nao efeito. */
+.plate .frame::before{ content:""; position:absolute; inset:0; z-index:3; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+/* B2: flicker de vela — camada quente por cima cujo brilho varia MUITO pouco, devagar e
+   meio irregular (so opacity, barato). Quase imperceptivel: luz tremendo de leve. */
+.plate::after{ content:""; position:absolute; inset:0; z-index:3; pointer-events:none; mix-blend-mode:screen;
+  background:radial-gradient(58% 50% at 50% 40%, rgba(240,170,80,.06), transparent 72%); animation:vela 7.3s ease-in-out infinite; }
+@keyframes vela{ 0%{opacity:.55} 18%{opacity:.86} 32%{opacity:.62} 51%{opacity:1} 67%{opacity:.7} 83%{opacity:.92} 100%{opacity:.58} }
 
 .corpo{ max-width:min(640px,64ch); margin:8px auto 0; padding:0 16px; position:relative; z-index:2;
   font-size:clamp(17px,1.25vw,19px); line-height:1.72; text-align:justify; hyphens:auto; -webkit-hyphens:auto;
@@ -1411,7 +1424,7 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 /* DIGITACAO ao vivo (stream): o texto escorre alinhado a esquerda e sem hifen (pra
    nao "dancar"); no fim o bloco vira .done e volta ao justify herdado do .corpo. O
    motor de revelacao vive no cliente (requestAnimationFrame). O caret pisca. */
-.corpo .glow.streaming{ white-space:pre-wrap; text-align:left; hyphens:none; -webkit-hyphens:none; animation:none; }
+.corpo .glow.streaming{ white-space:pre-wrap; text-align:left; hyphens:none; -webkit-hyphens:none; animation:assenta .55s ease both; }
 .corpo .glow.streaming p{ margin:0; }
 .caret{ display:inline-block; width:2px; height:1.05em; margin-left:1px; vertical-align:-2px;
   background:var(--brasa); animation:caretblink 1.05s steps(1,end) infinite; }
@@ -1718,12 +1731,12 @@ body.foco .sair-foco{ display:block; }
 }
 
 @media (prefers-reduced-motion:reduce){
-  .pagina, .corpo .glow.show{ animation:none; }
+  .pagina, .corpo .glow.show, .corpo .glow.streaming{ animation:none; }
   .caret{ animation:none; opacity:.7; }   /* o motor revela tudo de uma vez; caret estatico */
   .pondera .ret span{ animation:none; }
   .alderyn-stage::after{ animation:none; }
   /* atmosfera da tela do jogo: tudo PARADO no estado final */
-  .plate, .plate img, .bruma{ animation:none; }
+  .plate, .plate img, .plate::after, .bruma{ animation:none; }
   .tela-jogo .head .ttl::after{ animation:none; opacity:0; }
   /* ZONA DE DADOS: sem giro, sem clarao/sangue animados. Dados pulam pros valores
      (o JS nao gira em reduced); cada faixa vira ESTADO DE COR estatico + rotulo.
