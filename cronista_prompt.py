@@ -246,6 +246,12 @@ E quando, cenas depois, a mesma pessoa abranda:
 pressao_emocional: 1
 gravura: o mesmo velho, o rosto afrouxado num quase-sorriso, os olhos menos duros, a vela mais perto
 </estado>
+
+A feição muda quando o tempo de dentro da pessoa muda — do duro pro brando, do firme pro assustado, do frio pra alguma ternura —, não a cada vinco passageiro. Um rosto que se franze por um instante e volta não é um rosto novo. Peça de novo só quando alguém, vendo a cena, diria que a pessoa mudou. Se a dúvida for se mudou o bastante, não mudou: fique com a gravura que já está lá.
+
+No começo de uma vida — no parto, nos primeiros dias — quem vê são os olhos de um recém-nascido, e o mundo chega sem contorno. Ali não peça um rosto nítido. Se pedir uma gravura, descreva só o que a vista turva alcança: uma forma debruçada, um calor sem borda, um vulto escuro com voz — nunca um retrato em foco. O foco nasce com a criança; no princípio ele ainda não está lá.
+
+Nem todo corpo que cruza a cena tem rosto a mostrar. Um vulto que passa, uma voz no meio da multidão, uma mão que serve e some — esses não pedem gravura. Peça o rosto só de quem a cena se apoia: alguém que o protagonista encontra, com quem fala, por quem é tomado, julgado ou ameaçado. Na dúvida, a cena que não gira em torno da pessoa não precisa do rosto dela.
 </gravura>
 
 <lembretes_finais>
