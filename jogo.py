@@ -1327,6 +1327,14 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .marg .stat.dormente .num{ color:var(--osso2) !important; }
 .marg .stat.dormente .bar>i{ background:linear-gradient(90deg,#33302a,#514b42) !important; box-shadow:none !important; }
 .marg .stat.dormente .bar>i::after{ opacity:.22; }
+/* MARCO: quando um vital sai de DORMENTE -> VIVO (setVida/setMana removem .dormente), o JS
+   poe .despertou NO no daquele vital por ~1.2s. Um halo de osso fraco que sobe e ASSENTA
+   (a brasa que acende), sobrio, sem cor de doce, sem pulo de layout. So no vital que acordou. */
+@keyframes vital-desperta{ 0%{ box-shadow:0 0 0 0 rgba(205,191,159,0); }
+  28%{ box-shadow:0 0 12px 2px rgba(205,191,159,.30); }
+  100%{ box-shadow:0 0 0 0 rgba(205,191,159,0); } }
+.marg .stat.despertou{ animation:vital-desperta 1.1s ease both; }
+@media (prefers-reduced-motion:reduce){ .marg .stat.despertou{ animation:none; } }
 /* tensao — pips (vazios fora de combate, como combinado) */
 .marg .tensao .pips{ display:flex; gap:5px; }
 .marg .tensao .pips span{ width:12px; height:7px; background:#0a0806; border:1px solid var(--ouro-esc); }
@@ -3090,7 +3098,12 @@ window.setVida = function (v, vmax) {
   var mx = document.getElementById('vida-max');
   if (mx) mx.textContent = '' + vmax;
   var box = document.querySelector('.vital.vida');
-  if (box) { box.classList.toggle('baixa', pct <= 30); box.classList.remove('dormente'); }
+  if (box) {
+    var ac = box.classList.contains('dormente');   // estava DORMENTE -> vai acordar AGORA
+    box.classList.toggle('baixa', pct <= 30);
+    box.classList.remove('dormente');
+    if (ac) { box.classList.add('despertou'); setTimeout(function(){ box.classList.remove('despertou'); }, 1200); }
+  }
 };
 window.setMana = function (v, vmax) {
   v = Math.max(0, Math.round(v));
@@ -3103,7 +3116,12 @@ window.setMana = function (v, vmax) {
   var mx = document.getElementById('mana-max');
   if (mx) mx.textContent = '' + vmax;
   var box = document.querySelector('.vital.mana');
-  if (box) { box.classList.toggle('baixa', pct <= 25); box.classList.remove('dormente'); }
+  if (box) {
+    var ac = box.classList.contains('dormente');   // estava DORMENTE -> vai acordar AGORA
+    box.classList.toggle('baixa', pct <= 25);
+    box.classList.remove('dormente');
+    if (ac) { box.classList.add('despertou'); setTimeout(function(){ box.classList.remove('despertou'); }, 1200); }
+  }
 };
 window.setFerida = function (texto) {
   var box = document.getElementById('ferida');
