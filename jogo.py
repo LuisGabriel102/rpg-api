@@ -1397,8 +1397,21 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 /* P3: gravura da cena. Preenche a caixa de tamanho FIXO (aspect-ratio + max-height +
    overflow:hidden da .retrato-grande) -> object-fit:cover nunca muda a geometria da
    moldura (trava de layout intacta, com ou sem imagem). z-index 1 = sob vinheta/nome. */
-.retrato-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; }
+.retrato-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1;
+  opacity:0; transition:opacity .6s ease; }
+/* P3 polish: a gravura ASSENTA com fade sobrio ao carregar (e na troca de feicao). So opacity ->
+   nao mexe na geometria da caixa fixa (trava intacta). */
+.retrato-img.assentou{ opacity:1; }
 .retrato-img[hidden]{ display:none; }
+/* P3 polish: estado de CARREGAMENTO — sinal QUIETO enquanto a gravura gera (assincrono, alguns
+   segundos). Pulsa o losango placeholder (::before), witcher-grey, sem spinner. So opacity ->
+   geometria intacta. Apaga no onload (setGravura) / falha / timeout client-side (~25s). */
+@keyframes gravuraPulso{ 0%,100%{ opacity:.12; } 50%{ opacity:.30; } }
+.retrato-grande.carregando::before{ animation:gravuraPulso 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce){
+  .retrato-img{ transition:none; }                                    /* troca seca, sem fade */
+  .retrato-grande.carregando::before{ animation:none; opacity:.24; }  /* sinal estatico, sem pulsar */
+}
 .retrato-cantos span{ position:absolute; width:13px; height:13px; border:2px solid var(--ouro); z-index:4; }
 .rc1{ top:6px; left:6px; border-right:none; border-bottom:none; }
 .rc2{ top:6px; right:6px; border-left:none; border-bottom:none; }
@@ -3272,17 +3285,56 @@ window.setOpcoes = function (lista) {
 # carga -> esconde (volta ao estado sobrio). NUNCA mexe no tamanho da moldura (so preenche
 # uma caixa de tamanho fixo, overflow:hidden) -> a trava de layout fica intacta.
 _GRAVURA_JS = """
+// P3 polish helpers. __gravTimer: rede defensiva pra o "carregando" nunca travar pra sempre.
+window.__gravLimpaTimer = function () {
+  if (window.__gravTimer) { clearTimeout(window.__gravTimer); window.__gravTimer = null; }
+};
+// Estado QUIETO de carregamento: acende no PEDIDO (backend sabe que a gravura existe), apaga no
+// onload / falha / timeout. Pulsa o losango placeholder (CSS .carregando), sem spinner.
+window.gravuraCarregando = function (on) {
+  var box = document.getElementById('retrato');
+  if (!box) return;
+  window.__gravLimpaTimer();
+  if (on === false) { box.classList.remove('carregando'); return; }
+  box.classList.add('carregando');
+  // defensivo (~25s): se a imagem nunca cair, apaga o sinal -> volta ao vazio sobrio.
+  window.__gravTimer = setTimeout(function () {
+    box.classList.remove('carregando');
+    window.__gravTimer = null;
+  }, 25000);
+};
 window.setGravura = function (url) {
+  var box = document.getElementById('retrato');
   var img = document.getElementById('retratoImg');
   if (!img) return;
-  if (!url) { img.hidden = true; img.removeAttribute('src'); return; }
-  img.onload = function () { img.hidden = false; };
-  img.onerror = function () { img.hidden = true; img.removeAttribute('src'); };
+  if (!url) {                                   // falha/None -> apaga carregando, volta ao vazio sobrio
+    if (box) box.classList.remove('carregando');
+    window.__gravLimpaTimer();
+    img.hidden = true; img.removeAttribute('src'); img.classList.remove('assentou');
+    return;
+  }
+  img.onload = function () {
+    if (box) box.classList.remove('carregando');   // imagem chegou -> apaga o sinal
+    window.__gravLimpaTimer();
+    img.hidden = false;
+    // reinicia o fade mesmo numa TROCA de gravura (feicao mudou): tira a classe, reflow, recoloca.
+    img.classList.remove('assentou');
+    void img.offsetWidth;
+    img.classList.add('assentou');
+  };
+  img.onerror = function () {
+    if (box) box.classList.remove('carregando');
+    window.__gravLimpaTimer();
+    img.hidden = true; img.removeAttribute('src'); img.classList.remove('assentou');
+  };
   img.src = url;
 };
 window.limparGravura = function () {
+  var box = document.getElementById('retrato');
+  if (box) box.classList.remove('carregando');
+  window.__gravLimpaTimer();
   var img = document.getElementById('retratoImg');
-  if (img) { img.hidden = true; img.removeAttribute('src'); }
+  if (img) { img.hidden = true; img.removeAttribute('src'); img.classList.remove('assentou'); }
 };
 """
 
@@ -4671,6 +4723,10 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
             # NUNCA quebra por causa da imagem). Guarda de geracao: se a sessao recomecou
             # durante a geracao (minha_geracao != geracao), descarta o push (sem fantasma).
             if _res.gravura:
+                # P3 polish: acende o sinal QUIETO de "carregando" no MOMENTO do pedido (o backend ja
+                # sabe que _res.gravura existe), antes da geracao assincrona. Aditivo: nao toca a
+                # logica de geracao/cache. Apaga no onload (setGravura) / na falha / por timeout client.
+                _js("window.gravuraCarregando && window.gravuraCarregando()")
                 _cli_grav = ui.context.client
                 _mg_grav = minha_geracao
                 _sess_grav = sessao_atual
@@ -4682,6 +4738,15 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
                     except Exception:
                         _url = None
                     if not _url or _mg_grav != geracao:
+                        # falha real (nao stale) -> apaga o "carregando" ja, sem esperar o timeout.
+                        # stale (sessao recomecou) -> deixa o timeout client-side limpar (nao mexe no
+                        # estado de um turno novo que possa ter acendido o proprio carregando).
+                        if _mg_grav == geracao:
+                            try:
+                                with _cli_grav:
+                                    ui.run_javascript("window.gravuraCarregando && window.gravuraCarregando(false)")
+                            except Exception:
+                                pass
                         return
                     try:
                         with _cli_grav:
