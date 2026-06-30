@@ -1662,6 +1662,37 @@ body.foco .pagina::after{ display:none; }
 .sair-foco:hover{ opacity:1; color:var(--brasa); }
 body.foco .sair-foco{ display:block; }
 
+/* P4: PAUSA. Botao FIXO (fora de fluxo -> nao altera a geometria; trava intacta), SEMPRE visivel
+   (inclusive no modo leitura, que esconde o .head). Canto sup. esquerdo: nao compete com a
+   .leitura-ctrl (dir). Witcher-grey, baixa opacidade ate hover. */
+.btn-pausa{ position:fixed; top:14px; left:16px; z-index:60; width:30px; height:30px;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--osso2); background:rgba(14,11,8,.6); border:1px solid var(--regua); cursor:pointer;
+  opacity:.5; transition:opacity .25s ease, color .25s ease, border-color .25s ease; }
+.btn-pausa:hover{ opacity:1; color:var(--brasa); border-color:var(--brasa); }
+.btn-pausa:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; opacity:1; }
+.btn-pausa i{ font-size:16px; }
+
+/* P4: overlay de pausa. Cobre a tela e escurece o fundo (witcher-grey, sem cor de doce). z-index
+   acima de tudo. SO cobre: nao desmonta o jogo -> fechar restaura o #corpo/HUD identicos. */
+.pausa-overlay{ position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
+  background:rgba(8,6,4,.82); animation:pausaEntra .18s ease; }
+.pausa-overlay[hidden]{ display:none; }
+.pausa-painel{ text-align:center; padding:34px 46px; min-width:236px;
+  background:radial-gradient(120% 100% at 50% 0%, #221a12, #120d08 80%);
+  border:1px solid var(--ouro-esc); box-shadow:0 18px 50px rgba(0,0,0,.6); }
+.pausa-titulo{ margin:0 0 22px; font-family:"IM Fell English SC",serif !important; font-weight:400;
+  font-size:24px; letter-spacing:.14em; text-transform:lowercase; color:var(--osso); }
+.pausa-acoes{ display:flex; flex-direction:column; gap:12px; }
+.pausa-btn{ font-family:"IM Fell English SC",serif !important; font-size:15px; letter-spacing:.1em;
+  text-transform:lowercase; text-align:center; text-decoration:none;
+  padding:9px 22px; color:var(--osso2); background:rgba(20,16,12,.6); border:1px solid var(--ouro-esc);
+  cursor:pointer; transition:background .2s ease, color .2s ease, border-color .2s ease; }
+.pausa-btn:hover{ background:var(--brasa); color:#140d04; border-color:var(--brasa); }
+.pausa-btn:focus-visible{ outline:2px solid #f0e6d2; outline-offset:2px; }
+@keyframes pausaEntra{ from{ opacity:0; } to{ opacity:1; } }
+@media (prefers-reduced-motion: reduce){ .pausa-overlay{ animation:none; } }
+
 /* CONFORTO DE LEITURA: cluster sobrio no topo-direita da area de leitura (A- / A+ /
    modo leitura). Reusa o sistema de fonte (txt-nivel) e o modo foco; nao entra na lista
    que o foco esconde -> SOBREVIVE ao modo leitura (pra dar pra sair). pointer-events so
@@ -2765,6 +2796,21 @@ _BODY = """
   <!-- botao discreto pra sair do modo foco (alem do ESC). So aparece com body.foco. -->
   <button type="button" class="sair-foco" id="sair-foco" title="Sair do modo foco (ESC)">sair do foco</button>
 
+  <!-- P4: PAUSA. Botao FIXO (fora de fluxo -> nao toca a trava) SEMPRE visivel: sobrevive ao modo
+       leitura, que esconde o .head. Canto sup. esquerdo pra nao competir com .leitura-ctrl (dir). -->
+  <button type="button" class="btn-pausa" id="abrir-pausa" title="Pausa" aria-label="Pausa"><i class="ti ti-player-pause" aria-hidden="true"></i></button>
+
+  <!-- P4: overlay de pausa. SO cobre a tela (nao desmonta nada do jogo); fechar restaura tudo. -->
+  <div class="pausa-overlay" id="pausa-overlay" role="dialog" aria-modal="true" aria-label="Pausa" hidden>
+    <div class="pausa-painel">
+      <h2 class="pausa-titulo">pausa</h2>
+      <div class="pausa-acoes">
+        <button type="button" class="pausa-btn" id="pausa-continuar">continuar</button>
+        <a class="pausa-btn pausa-sair" id="pausa-sair" href="/oficina">sair</a>
+      </div>
+    </div>
+  </div>
+
 </div>
 """
 _BODY = _BODY.replace("@@FICHAS@@", _fichas_html())
@@ -3336,6 +3382,29 @@ window.limparGravura = function () {
   var img = document.getElementById('retratoImg');
   if (img) { img.hidden = true; img.removeAttribute('src'); img.classList.remove('assentou'); }
 };
+"""
+
+
+# P4 — menu de pausa. Abre/fecha um overlay que SO cobre a tela (nao desmonta nada do jogo ->
+# continuar/ESC restaura tudo identico). SAIR e um <a href="/oficina"> (mesmo destino do .head),
+# navega sozinho. ESC em CAPTURE + stopPropagation: quando o overlay esta aberto, fecha o overlay
+# e NAO deixa o ESC do modo foco disparar. Puro JS de cobertura: nao toca #corpo/stream/motor.
+_PAUSA_JS = """
+(function(){
+  var abrir = document.getElementById('abrir-pausa');
+  var overlay = document.getElementById('pausa-overlay');
+  var continuar = document.getElementById('pausa-continuar');
+  if (!abrir || !overlay || abrir.dataset.wired) return;
+  abrir.dataset.wired = '1';
+  function abrirPausa(){ overlay.hidden = false; if (continuar) continuar.focus(); }
+  function fecharPausa(){ overlay.hidden = true; if (abrir) abrir.focus(); }
+  abrir.addEventListener('click', abrirPausa);
+  if (continuar) continuar.addEventListener('click', fecharPausa);
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) fecharPausa(); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && !overlay.hidden){ e.preventDefault(); e.stopPropagation(); fecharPausa(); }
+  }, true);
+})();
 """
 
 
@@ -4105,6 +4174,8 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
     ui.run_javascript(_OPCOES_JS)
     # P3: instala window.setGravura (imagem de cena na moldura da esquerda).
     ui.run_javascript(_GRAVURA_JS)
+    # P4: instala o menu de pausa (botao fixo + overlay continuar/sair).
+    ui.run_javascript(_PAUSA_JS)
 
     # RESUME (trava d): com o historico repintado, rola o #miolo pro FIM no load -> o
     # turno mais recente fica visivel, como numa conversa. rAF por ~1s: re-cola embaixo
