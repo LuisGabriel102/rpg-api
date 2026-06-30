@@ -1090,6 +1090,8 @@ _CSS = """
   --mana:#36a6e0; --mana-esc:#1a4d68; --fadiga:#9286a8; --fadiga-esc:#433a52;
   --fogo:#f0902c; --ouro:#cba94f; --ouro-viv:#e7c468; --ouro-esc:#6b521f;
   --linha:rgba(203,169,79,.22);
+  /* A2: altura da gravura como FAIXA enxuta. Knob unico (o Gabriel ajusta no olho). */
+  --plate-h:clamp(120px,16vh,150px);
 }
 /* --- resets p/ vencer o Quasar/NiceGUI: APP-SHELL de tela cheia (pagina fixa) ---
    A pagina NAO rola: html/body/q-page travados em 100% e overflow:hidden. O
@@ -1309,6 +1311,14 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .marg .vida.baixa .bar>i{ filter:saturate(1.25) brightness(1.1); }
 .marg .vida.baixa .num{ color:var(--vida) !important; }
 .marg .mana.baixa .num{ color:var(--osso2) !important; }
+/* A1 — HUD dormente: vital sem valor real (—/—) sai CINZA apagado (sem cor viva). A classe
+   .dormente entra no markup (Vigor/Mana/Fadiga sempre dormentes em producao; Vida condicional via
+   @@VIDADORM@@) e os setters window.setVida/setMana a REMOVEM quando chega um numero real. */
+.marg .stat.dormente .ico{ color:var(--osso2) !important; filter:none !important; opacity:.5; }
+.marg .stat.dormente .nm{ color:var(--osso2) !important; }
+.marg .stat.dormente .num{ color:var(--osso2) !important; }
+.marg .stat.dormente .bar>i{ background:linear-gradient(90deg,#33302a,#514b42) !important; box-shadow:none !important; }
+.marg .stat.dormente .bar>i::after{ opacity:.22; }
 /* tensao — pips (vazios fora de combate, como combinado) */
 .marg .tensao .pips{ display:flex; gap:5px; }
 .marg .tensao .pips span{ width:12px; height:7px; background:#0a0806; border:1px solid var(--ouro-esc); }
@@ -1325,17 +1335,17 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .lz{ width:9px; height:9px; transform:rotate(45deg); border:0.9px solid var(--osso2); }
 .lz.on{ background:var(--brasa); border-color:var(--brasa); }
 
-.plate{ position:relative; z-index:2; margin:22px 0 6px; animation:plate-in 1.4s ease both; }
+.plate{ position:relative; z-index:2; margin:8px 0 6px; animation:plate-in 1.4s ease both; }
 .plate .frame{ position:relative; border:1px solid var(--regua2); overflow:hidden; background:#0a0806; }
 /* Ken Burns LENTISSIMO: scale 1 -> 1.04 num ciclo longo, ida e volta (transform-only,
    nao mexe no layout). O .frame ja tem overflow:hidden, entao o zoom nunca vaza. */
-.plate img{ display:block; width:100%; height:clamp(216px,36vh,380px); object-fit:cover; object-position:55% 38%; filter:saturate(.92) contrast(1.02);
+.plate img{ display:block; width:100%; height:var(--plate-h); object-fit:cover; object-position:55% 38%; filter:saturate(.92) contrast(1.02);
   transform-origin:52% 42%; animation:kenburns 26s ease-in-out 1s infinite alternate; will-change:transform; }
 @keyframes plate-in{ from{opacity:0} to{opacity:1} }
 @keyframes kenburns{ from{transform:scale(1)} to{transform:scale(1.04)} }
 .plate .frame::after{ content:""; position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 64px 12px rgba(10,8,6,.82), inset 0 0 0 1px rgba(0,0,0,.5); }
 
-.corpo{ max-width:min(720px,72ch); margin:22px auto 0; position:relative; z-index:2;
+.corpo{ max-width:min(640px,64ch); margin:16px auto 0; padding:0 16px; position:relative; z-index:2;
   font-size:clamp(17px,1.25vw,19px); line-height:1.72; text-align:justify; hyphens:auto; -webkit-hyphens:auto;
   font-family:"Spectral",Georgia,serif !important; color:var(--leitura); min-height:120px; }
 .corpo p{ font-family:"Spectral",Georgia,serif !important; }
@@ -2439,25 +2449,25 @@ _BODY = """
         <div class="quem"><b>&mdash;</b><span class="fase">vig&iacute;lia&nbsp;quebrada</span></div>
       </div>
 
-      <div class="stat vital vida @@VIDABAIXA@@" title="Vida">
+      <div class="stat vital vida @@VIDABAIXA@@ @@VIDADORM@@" title="Vida">
         <svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 20.5C7 17 3.5 13.6 3.5 9.6 3.5 7 5.4 5.2 7.8 5.2c1.5 0 2.9.8 3.7 2 .8-1.2 2.2-2 3.7-2 2.4 0 4.3 1.8 4.3 4.4 0 4-3.5 7.4-8.5 10.9z"/></svg>
         <div class="bloco"><div class="topo"><span class="nm">vida</span><span class="num"><b id="vida-num">@@VIDANUM@@</b><small>/<span id="vida-max">@@VIDAMAX@@</span></small></span></div>
           <span class="bar"><i style="width:@@VIDAPCT@@%"></i></span></div>
       </div>
 
-      <div class="stat vigor" title="Vigor">
+      <div class="stat vigor dormente" title="Vigor">
         <svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>
         <div class="bloco"><div class="topo"><span class="nm">vigor</span><span class="num">&mdash;<small>/&mdash;</small></span></div>
           <span class="bar"><i style="width:100%"></i></span></div>
       </div>
 
-      <div class="stat vital mana" title="Mana">
+      <div class="stat vital mana dormente" title="Mana">
         <svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l6 7-6 13-6-13 6-7z"/></svg>
         <div class="bloco"><div class="topo"><span class="nm">mana</span><span class="num"><b id="mana-num">&mdash;</b><small>/<span id="mana-max">&mdash;</span></small></span></div>
           <span class="bar"><i style="width:100%"></i></span></div>
       </div>
 
-      <div class="stat fadiga" title="Fadiga">
+      <div class="stat fadiga dormente" title="Fadiga">
         <svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 2h12v4l-4 6 4 6v4H6v-4l4-6-4-6V2zm2.5 2.2L12 9l3.5-4.8H8.5z"/></svg>
         <div class="bloco"><div class="topo"><span class="nm">fadiga</span><span class="num">&mdash;<small>/&mdash;</small></span></div>
           <span class="bar"><i style="width:0%"></i></span></div>
@@ -2963,7 +2973,7 @@ window.setVida = function (v, vmax) {
   var mx = document.getElementById('vida-max');
   if (mx) mx.textContent = '' + vmax;
   var box = document.querySelector('.vital.vida');
-  if (box) box.classList.toggle('baixa', pct <= 30);
+  if (box) { box.classList.toggle('baixa', pct <= 30); box.classList.remove('dormente'); }
 };
 window.setMana = function (v, vmax) {
   v = Math.max(0, Math.round(v));
@@ -2976,7 +2986,7 @@ window.setMana = function (v, vmax) {
   var mx = document.getElementById('mana-max');
   if (mx) mx.textContent = '' + vmax;
   var box = document.querySelector('.vital.mana');
-  if (box) box.classList.toggle('baixa', pct <= 25);
+  if (box) { box.classList.toggle('baixa', pct <= 25); box.classList.remove('dormente'); }
 };
 window.setFerida = function (texto) {
   var box = document.getElementById('ferida');
@@ -3709,11 +3719,15 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
     _tem_hist = bool(_hist)
     _portal_off = " oculto" if _tem_hist else ""
     _scrawl_off = "" if _tem_hist else " oculto"
+    # A1: a Vida fica CINZA (dormente) quando nao tem numero real (infancia, ou sem dado).
+    # Vigor/Mana/Fadiga ja entram dormente fixo no markup (sempre —/— em producao).
+    _v_dorm = "" if _v_num != "&mdash;" else "dormente"
     corpo = (_BODY
              .replace("@@VIDANUM@@", _v_num)
              .replace("@@VIDAMAX@@", _v_max)
              .replace("@@VIDAPCT@@", _v_pct)
              .replace("@@VIDABAIXA@@", _v_baixa)
+             .replace("@@VIDADORM@@", _v_dorm)
              .replace("@@HISTORICO@@", _hist)
              .replace("@@PORTAL_OFF@@", _portal_off)
              .replace("@@SCRAWL_OFF@@", _scrawl_off))
