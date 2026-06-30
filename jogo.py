@@ -1092,6 +1092,8 @@ _CSS = """
   --linha:rgba(203,169,79,.22);
   /* A2: altura da gravura como FAIXA enxuta. Knob unico (o Gabriel ajusta no olho). */
   --plate-h:clamp(120px,16vh,150px);
+  /* P2: largura da moldura do interlocutor (coluna ESQ do palco). Knob (ajustar no olho). */
+  --col-retrato:232px;
 }
 /* --- resets p/ vencer o Quasar/NiceGUI: APP-SHELL de tela cheia (pagina fixa) ---
    A pagina NAO rola: html/body/q-page travados em 100% e overflow:hidden. O
@@ -1334,6 +1336,46 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .tens .lab{ font-family:"IM Fell English SC",serif !important; font-size:11px; letter-spacing:.18em; color:var(--osso2); text-transform:lowercase; }
 .lz{ width:9px; height:9px; transform:rotate(45deg); border:0.9px solid var(--osso2); }
 .lz.on{ background:var(--brasa); border-color:var(--brasa); }
+
+/* ───── P2: palco de 2 colunas — moldura do interlocutor | leitura ─────
+   #miolo embrulha um grid: aside.interlocutor (ESQ, sticky) | article.leitura (DIR,
+   contem .plate + #corpo INTACTOS). Largura da moldura = knob --col-retrato. Fora de
+   combate a moldura e vazia/sobria (quadro + cantos, vinheta). Campos de combate ficam
+   no markup escondidos (P3 liga). CSS portado do mock jogar_definitiva_fatia5.html. */
+.palco{ display:grid; grid-template-columns:var(--col-retrato) 1fr; gap:clamp(20px,3vw,40px); align-items:start; }
+.interlocutor{ position:sticky; top:8px; }
+.retrato-grande{ position:relative; width:100%; aspect-ratio:4/5; overflow:hidden;
+  border:1px solid var(--ouro-esc);
+  background:radial-gradient(72% 55% at 50% 36%,#2c2319,#120d08 78%),
+    radial-gradient(40% 55% at 80% 26%, rgba(220,200,160,.10), transparent 60%);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), 0 12px 34px rgba(0,0,0,.5); }
+.retrato-grande::after{ content:""; position:absolute; inset:0; z-index:2; pointer-events:none;
+  background:radial-gradient(82% 72% at 50% 38%, transparent 42%, rgba(0,0,0,.72)); }
+.retrato-cantos span{ position:absolute; width:13px; height:13px; border:2px solid var(--ouro); z-index:4; }
+.rc1{ top:6px; left:6px; border-right:none; border-bottom:none; }
+.rc2{ top:6px; right:6px; border-left:none; border-bottom:none; }
+.rc3{ bottom:6px; left:6px; border-right:none; border-top:none; }
+.rc4{ bottom:6px; right:6px; border-left:none; border-top:none; }
+.retrato-nome{ position:absolute; left:0; right:0; bottom:0; z-index:3; padding:13px 13px 11px;
+  background:linear-gradient(0deg, rgba(0,0,0,.88), rgba(0,0,0,.4) 60%, transparent); }
+.retrato-nome[hidden]{ display:none; }
+.retrato-nome b{ display:block; font-family:"Fraunces",Georgia,serif; font-weight:600; font-size:16px; color:var(--osso); }
+.retrato-nome small{ font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--frio); }
+.inimigo-vida{ height:7px; background:#0a0806; border:1px solid var(--vida-esc); margin-bottom:8px; overflow:hidden; }
+.inimigo-vida[hidden]{ display:none; }
+.inimigo-vida i{ display:block; height:100%; width:100%;
+  background:linear-gradient(90deg,var(--vida-esc),var(--vida)); box-shadow:0 0 8px rgba(232,65,58,.5); transition:width .5s ease; }
+.retrato-grande.hostil{ border-color:rgba(232,65,58,.5);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), inset 0 0 50px rgba(232,65,58,.2), 0 12px 34px rgba(0,0,0,.5); }
+.retrato-grande.hostil .retrato-nome small{ color:var(--vida); }
+.leitura{ min-width:0; }
+/* estreito: 1 coluna; a moldura vira FAIXA (chip) em cima da prosa, sempre visivel. */
+@media (max-width: 860px){
+  .palco{ grid-template-columns:1fr; gap:18px; }
+  .interlocutor{ position:static; display:flex; flex-direction:row; align-items:center; gap:16px; }
+  .retrato-grande{ width:128px; flex:none; }
+}
 
 .plate{ position:relative; z-index:2; margin:8px 0 6px; animation:plate-in 1.4s ease both; }
 .plate .frame{ position:relative; border:1px solid var(--regua2); overflow:hidden; background:#0a0806; }
@@ -2484,17 +2526,35 @@ _BODY = """
 
     <!-- MIOLO: a unica zona que rola (cena + narracao). -->
     <div class="miolo" id="miolo">
-      <figure class="plate">
-        <div class="frame"><img src="/static/estampa_porta.webp" alt="Gravura: uma porta arqueada entreaberta, com uma fresta de luz e degraus de pedra"></div>
-      </figure>
+      <!-- P2: palco de 2 colunas. Moldura do interlocutor (ESQ, sticky) | leitura (DIR)
+           que CONTEM .plate + #corpo INTACTOS. #corpo NAO muda (id/conteudo/stream/resume). -->
+      <div class="palco">
+        <aside class="interlocutor">
+          <!-- moldura vazia sobria (um espaco quieto, a espera). Campos de combate prontos
+               no markup mas escondidos -> P3 liga (#retratoNome/#retratoEstado/#inimigoVida/.hostil). -->
+          <div class="retrato-grande" id="retrato">
+            <span class="retrato-cantos"><span class="rc1"></span><span class="rc2"></span><span class="rc3"></span><span class="rc4"></span></span>
+            <div class="retrato-nome" id="retrato-nome" hidden>
+              <div class="inimigo-vida" id="inimigoVida" hidden><i id="ivBar" style="width:100%"></i></div>
+              <b id="retratoNome"></b><small id="retratoEstado"></small>
+            </div>
+          </div>
+        </aside>
 
-      <div class="corpo" id="corpo">
-        <div class="portal@@PORTAL_OFF@@" id="portal">
-          <div class="portal-nome">Vig&iacute;lia Quebrada</div>
-          <div class="portal-traco"></div>
-          <button id="adentrar" class="adentrar">adentrar</button>
-        </div>
+        <article class="leitura">
+          <figure class="plate">
+            <div class="frame"><img src="/static/estampa_porta.webp" alt="Gravura: uma porta arqueada entreaberta, com uma fresta de luz e degraus de pedra"></div>
+          </figure>
+
+          <div class="corpo" id="corpo">
+            <div class="portal@@PORTAL_OFF@@" id="portal">
+              <div class="portal-nome">Vig&iacute;lia Quebrada</div>
+              <div class="portal-traco"></div>
+              <button id="adentrar" class="adentrar">adentrar</button>
+            </div>
 @@HISTORICO@@
+          </div>
+        </article>
       </div>
 
       <!-- ZONA DE DADOS (Balde 1): so MOSTRA; o Python decide. Comeca oculta (dormant).
