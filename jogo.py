@@ -1462,6 +1462,11 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
   transition:background .18s ease, border-color .18s ease, color .18s ease; }
 .opcao:hover{ background:rgba(140,140,140,.13); border-color:var(--osso2); color:var(--osso); }
 .opcao:focus-visible{ outline:2px solid var(--osso2); outline-offset:2px; }
+/* TATEIS: a opcao escolhida trava (realce sobrio, cinza-bruxo) e os IRMAOS desabilitam ate o
+   proximo turno redesenhar (setOpcoes). Anti-confusao: o clique so PRE-PREENCHE o #cmd; o
+   envio e o Enter/send (intocado). */
+.opcao.escolhida{ background:rgba(203,169,79,.14); border-color:var(--osso); color:var(--osso); }
+.opcoes.travada .opcao:not(.escolhida){ opacity:.4; pointer-events:none; }
 
 /* PORTAL DE ENTRADA (o ritual, no registro da Gravura) */
 .portal{ text-align:center; padding:7vh 0 5vh; transition:opacity .7s ease, transform .7s ease; }
@@ -3120,21 +3125,45 @@ _OPCOES_JS = """
 window.setOpcoes = function (lista) {
   var box = document.getElementById('opcoes');
   if (!box) return;
+  box.classList.remove('travada');             // novo turno redesenha -> destrava os irmaos
   box.innerHTML = '';
   if (!lista || lista.length === 0) { box.classList.add('oculto'); return; }
-  lista.forEach(function (texto) {
+  lista.forEach(function (texto, i) {
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'opcao';
     btn.textContent = texto;
+    btn.setAttribute('data-idx', i + 1);        // 1-9 para o atalho de teclado
     btn.onclick = function () {
+      // ENVIO INALTERADO: o clique so PRE-PREENCHE o #cmd e foca (jogador confirma com Enter).
       var cmd = document.getElementById('cmd');
       if (cmd) { cmd.value = texto; cmd.focus(); }
+      // trava visual ADITIVA: marca a escolhida + desabilita os irmaos ate o proximo setOpcoes.
+      btn.classList.add('escolhida');
+      box.classList.add('travada');
     };
     box.appendChild(btn);
   });
   box.classList.remove('oculto');
 };
+
+// ATALHO 1-9: dispara a Nth opcao (= MESMO clique: pre-preenche o #cmd). Guarda de input
+// (nao rouba digitacao, mesma do dado) + respeita a trava (box travada/oculta ou sem opcao
+// naquele numero -> nada). Sem modificadores (Ctrl/Cmd/Alt+1 = atalho do browser, deixa passar).
+(function () {
+  if (window.__opcoesHotkeys) return;
+  window.__opcoesHotkeys = true;
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key < '1' || e.key > '9') return;
+    var t = (e.target && e.target.tagName) || '';
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(t)) return;   // nao rouba digitacao
+    var box = document.getElementById('opcoes');
+    if (!box || box.classList.contains('oculto') || box.classList.contains('travada')) return;
+    var btn = box.querySelector('.opcao[data-idx="' + e.key + '"]');
+    if (btn) { e.preventDefault(); btn.click(); }
+  });
+})();
 """
 
 
