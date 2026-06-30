@@ -56,7 +56,7 @@ REALM = "Oficina do Mestre - Sistema Nexus"
 # local), estas rotas do jogo passam sem Basic Auth -> Gabriel/dev entram sem senha.
 # Flag ausente (producao) -> ficam protegidas como o resto. So a pagina do jogo entra
 # aqui; /oficina*, /oraculo etc. seguem exigindo auth.
-_JOGAR_PATHS: frozenset[str] = frozenset({"/jogar", "/jogar-c"})
+_JOGAR_PATHS: frozenset[str] = frozenset({"/jogar", "/jogar-c", "/jogar/log"})
 
 
 def _is_public(path: str) -> bool:

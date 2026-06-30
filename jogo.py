@@ -4868,6 +4868,33 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
                 _js(_js_custo())
             except Exception:
                 pass
+            # LOG (diagnostico): registra ESTE turno no buffer da sessao. So OBSERVA o que
+            # ja foi computado acima (acao, resposta CRUA, parse, custo). DEFENSIVO: todo o
+            # bloco em try/except — se o log falhar, o turno segue (pior caso: nao entra).
+            # A gravura (assincrona, abaixo) atualiza este mesmo registro quando resolve.
+            _log_reg = None
+            try:
+                _avisos_log = []
+                _ct_log = None
+                try:
+                    _ct_log = float(getattr(_res, "custo_texto", 0.0) or 0.0)
+                except (TypeError, ValueError):
+                    _avisos_log.append("custo_texto ausente/torto")
+                _log_reg = {
+                    "ts": time.strftime("%H:%M:%S"),
+                    "acao_jogador": msg_usuario,
+                    "estado_cru": _estado_cru(resposta),
+                    "pressao": pressao_atual,
+                    "teste": dict(_res.teste) if _res.teste else None,
+                    "opcoes": list(_res.opcoes) if _res.opcoes else None,
+                    "gravura_desc": _res.gravura,
+                    "gravura_resultado": "(pendente)" if _res.gravura else "(nao pediu)",
+                    "custo_turno": _ct_log,
+                    "avisos": _avisos_log,
+                }
+                _log_append(sessao_atual, _log_reg)
+            except Exception:
+                _log_reg = None   # log falhou: o turno segue normal
             # P3 GRAVURA (assincrono): a prosa ja streamou e selou acima. Se o Cronista
             # pediu 'gravura:', dispara a imagem EM BACKGROUND (cache-first + teto de
             # seguranca dentro de gravura.obter_gravura) e, quando pronta, cai na moldura
@@ -4883,12 +4910,28 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
                 _mg_grav = minha_geracao
                 _sess_grav = sessao_atual
                 _desc_grav = _res.gravura
+                _grav_nova = [False]   # LOG: marca True quando obter_gravura gera uma nova
+
+                def _log_grav(resultado, *, bump=False, aviso=None):
+                    # LOG (diagnostico) DEFENSIVO: atualiza o registro desta gravura, se houver.
+                    # Nunca quebra o fluxo da gravura/turno.
+                    try:
+                        if _log_reg is None:
+                            return
+                        _log_reg["gravura_resultado"] = resultado
+                        if bump and isinstance(_log_reg.get("custo_turno"), (int, float)):
+                            _log_reg["custo_turno"] += custos.USD_POR_GRAVURA
+                        if aviso:
+                            _log_reg.setdefault("avisos", []).append(aviso)
+                    except Exception:
+                        pass
 
                 def _somar_gravura():
                     # Tarefa 8: chamado por obter_gravura SO quando uma gravura nova nasce
-                    # (cache hit nao chama -> soma 0). Soma o custo da imagem na sessao e no
-                    # ultimo turno. Stale (sessao recomecou) -> nao contamina. Defensivo.
+                    # (cache hit nao chama -> soma 0). Marca p/ o log e soma o custo da imagem
+                    # na sessao e no ultimo turno. Stale (sessao recomecou) -> nao contamina.
                     nonlocal custo_sessao_usd, custo_ultimo_usd
+                    _grav_nova[0] = True   # nasceu imagem nova (independe de stale)
                     if _mg_grav != geracao:
                         return
                     custo_sessao_usd += custos.USD_POR_GRAVURA
@@ -4897,19 +4940,25 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
                 async def _cair_gravura():
                     try:
                         _url = await gravura.obter_gravura(_desc_grav, sessao_id=_sess_grav, on_custo=_somar_gravura)
-                    except Exception:
+                    except Exception as _ge:
                         _url = None
+                        _log_grav("falhou", aviso=f"gravura erro: {type(_ge).__name__}")
                     if not _url or _mg_grav != geracao:
                         # falha real (nao stale) -> apaga o "carregando" ja, sem esperar o timeout.
                         # stale (sessao recomecou) -> deixa o timeout client-side limpar (nao mexe no
                         # estado de um turno novo que possa ter acendido o proprio carregando).
                         if _mg_grav == geracao:
+                            if not _url:
+                                _log_grav("falhou", aviso="gravura sem url (falha/teto)")
                             try:
                                 with _cli_grav:
                                     ui.run_javascript("window.gravuraCarregando && window.gravuraCarregando(false)")
                             except Exception:
                                 pass
                         return
+                    # sucesso: distingue gravura nova (on_custo disparou) de cache hit.
+                    _log_grav("gerada nova (US$0.035)" if _grav_nova[0] else "cache hit",
+                              bump=_grav_nova[0])
                     try:
                         with _cli_grav:
                             ui.run_javascript(
@@ -5126,3 +5175,169 @@ async def pagina_jogar(personagem: int | None = None):
 async def pagina_jogar_c(personagem: int | None = None):
     # Mesma casca + ficha estilo C (slide-over), atras do flag FICHA_C.
     await _pagina_jogar(com_ficha=True, personagem=personagem)
+
+
+# ============================================================================
+# /jogar/log — LOG DE DIAGNOSTICO da sessao por turno. So OBSERVA o que ja passa
+# pelo turno (acao do jogador, o <estado> CRU do Cronista, o parse, a gravura, o
+# custo, avisos), pro Gabriel copiar e colar pro Op diagnosticar. NAO toca a
+# narracao, o motor, o parser, o pipeline/cache de gravura. O registro e SEMPRE
+# defensivo: se o log falhar, o TURNO segue normal (pior caso: o turno nao entra).
+# NUNCA loga segredo (FAL_KEY/ANTHROPIC_API_KEY/senha/DSN) — so dado de jogo.
+# A rota vive no app do backend (mesmo padrao do mount /static) -> protegida pelo
+# BasicAuthMiddleware; "/jogar/log" foi posto no _JOGAR_PATHS pra espelhar o /jogar
+# (aberto so no local com AUTH_OFF_JOGAR; 401 em prod).
+# ============================================================================
+_LOG_POR_SESSAO: "dict[str, list[dict]]" = {}
+_LOG_SEQ: "dict[str, int]" = {}     # contador de turno por sessao (estavel apesar do cap)
+_LOG_MAX_TURNOS = 200               # cap por sessao: descarta os mais antigos (protege memoria)
+
+
+def _estado_cru(resposta: str) -> str:
+    """Bloco <estado>...</estado> LITERAL (com as tags) que o Cronista emitiu, antes do
+    corte da prosa — a parte mais util pro diagnostico. Reusa a MESMA busca do parser
+    (tolera <estado> sem fechamento). "(sem <estado>)" se ausente. Nunca levanta."""
+    try:
+        m = _RE_ESTADO.search(resposta or "")
+        if not m:
+            m = _RE_ESTADO_ABERTO.search(resposta or "")
+        if not m:
+            return "(sem <estado>)"
+        return (m.group(0) or "").strip() or "(sem <estado>)"
+    except Exception:
+        return "(sem <estado>)"
+
+
+def _log_append(sessao_id, registro: dict) -> None:
+    """Aditivo + DEFENSIVO: poe um registro de turno no buffer da sessao, numera e aplica
+    o cap. Se QUALQUER coisa falhar, engole — o turno segue normal (pior caso: nao entra)."""
+    try:
+        sid = str(sessao_id)
+        _LOG_SEQ[sid] = _LOG_SEQ.get(sid, 0) + 1
+        registro["n"] = _LOG_SEQ[sid]
+        buf = _LOG_POR_SESSAO.setdefault(sid, [])
+        buf.append(registro)
+        if len(buf) > _LOG_MAX_TURNOS:
+            del buf[: len(buf) - _LOG_MAX_TURNOS]
+    except Exception:
+        pass
+
+
+def _render_um_turno(reg: dict) -> str:
+    """Um turno como TEXTO CRU (sem HTML). DEFENSIVO: campo torto vira marcador."""
+    n = reg.get("n", "?")
+    ts = reg.get("ts", "??:??:??")
+    linhas = [f"===== TURNO {n} — {ts} ====="]
+    linhas.append(f"acao: {reg.get('acao_jogador', '')}")
+    linhas.append("estado_cru:")
+    linhas.append(reg.get("estado_cru", "(sem <estado>)"))
+    teste = reg.get("teste")
+    if teste:
+        teste_str = (f"intencao={teste.get('intencao')} "
+                     f"atributo={teste.get('atributo')} cd={teste.get('cd')}")
+    else:
+        teste_str = "(nao pediu)"
+    opcoes = reg.get("opcoes")
+    opcoes_str = " | ".join(str(o) for o in opcoes) if opcoes else "(nenhuma)"
+    grav_desc = reg.get("gravura_desc") or "(nao pediu)"
+    linhas.append(f"parseado: pressao={reg.get('pressao')} | teste={teste_str} "
+                  f"| opcoes=[{opcoes_str}] | gravura={grav_desc}")
+    linhas.append(f"gravura_resultado: {reg.get('gravura_resultado', '(nao pediu)')}")
+    custo = reg.get("custo_turno")
+    custo_str = f"US$ {custo:.4f}" if isinstance(custo, (int, float)) else "n/d"
+    linhas.append(f"custo_turno: {custo_str}")
+    avisos = reg.get("avisos")
+    if avisos:
+        linhas.append("avisos: " + " ; ".join(str(a) for a in avisos))
+    return "\n".join(linhas)
+
+
+def _render_log_texto(sessao_id) -> str:
+    """Dump CRU da sessao inteira, MAIS RECENTE EM CIMA. DEFENSIVO: nunca levanta."""
+    try:
+        buf = list(_LOG_POR_SESSAO.get(str(sessao_id), []))
+    except Exception:
+        buf = []
+    if not buf:
+        return "(sem turnos registrados nesta sessao ainda)"
+    blocos = []
+    for reg in reversed(buf):   # mais recente em cima
+        try:
+            blocos.append(_render_um_turno(reg))
+        except Exception:
+            blocos.append("===== TURNO ? =====\n(registro ilegivel)")
+    return "\n\n".join(blocos)
+
+
+def _pagina_log_html(texto: str, personagem) -> str:
+    """Pagina sobria: barra com 'copiar tudo' + voltar, e a sessao inteira num <textarea>
+    mono, selecionavel. O texto vai escapado (vira .value limpo no clipboard)."""
+    conteudo = html.escape(texto)
+    voltar = f"/jogar?personagem={personagem}" if personagem is not None else "/jogar"
+    return (
+        "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<title>log de diagnostico — sessao</title><style>"
+        "*{box-sizing:border-box}"
+        "body{margin:0;background:#0e0b08;color:#cdbf9f;"
+        "font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace}"
+        ".barra{position:sticky;top:0;display:flex;gap:12px;align-items:center;"
+        "padding:10px 14px;background:#15110c;border-bottom:1px solid #6b521f;z-index:2}"
+        ".barra h1{font-size:13px;letter-spacing:.12em;text-transform:uppercase;"
+        "color:#cba94f;margin:0;font-weight:600}"
+        ".barra button,.barra a{font:inherit;font-size:11px;color:#cdbf9f;"
+        "background:#1d1710;border:1px solid #6b521f;padding:6px 12px;cursor:pointer;"
+        "text-decoration:none;letter-spacing:.06em}"
+        ".barra button:hover,.barra a:hover{border-color:#cba94f;color:#e7c468}"
+        ".barra .ok{color:#7faa6a;font-size:11px;letter-spacing:.08em}"
+        "textarea{width:100%;height:calc(100vh - 53px);border:0;resize:none;"
+        "background:#0e0b08;color:#dbcfb3;font-family:inherit;font-size:12px;"
+        "line-height:1.55;padding:14px;outline:none;white-space:pre;overflow:auto}"
+        "</style></head><body>"
+        "<div class='barra'>"
+        "<h1>log de diagnostico</h1>"
+        "<button id='copiar' type='button'>copiar tudo</button>"
+        f"<a href='{html.escape(voltar)}'>&larr; voltar ao jogo</a>"
+        "<span id='copiado' class='ok'></span>"
+        "</div>"
+        f"<textarea id='log' readonly spellcheck='false'>{conteudo}</textarea>"
+        "<script>(function(){"
+        "var b=document.getElementById('copiar'),t=document.getElementById('log'),"
+        "m=document.getElementById('copiado');"
+        "function ok(){m.textContent='copiado';setTimeout(function(){m.textContent='';},2000);}"
+        "b.addEventListener('click',function(){"
+        "t.focus();t.select();"
+        "if(navigator.clipboard&&navigator.clipboard.writeText){"
+        "navigator.clipboard.writeText(t.value).then(ok,function(){"
+        "try{document.execCommand('copy');ok();}catch(e){}});"
+        "}else{try{document.execCommand('copy');ok();}catch(e){}}"
+        "});})();</script>"
+        "</body></html>"
+    )
+
+
+# Registra a rota no app do backend (o que o uvicorn serve) — mesmo padrao do mount
+# /static acima: robusto e ja sob o BasicAuthMiddleware. try/except pra execucao
+# standalone (sem app.main) nao quebrar o import do modulo.
+try:
+    from app.main import app as _app_log
+    from fastapi.responses import HTMLResponse as _HTMLResponse
+
+    @_app_log.get("/jogar/log", include_in_schema=False)
+    async def _rota_jogar_log(personagem: int | None = None):
+        # Mesma resolucao de sessao do /jogar (personagem -> sessao; sem -> SESSAO_ID).
+        # So LE o buffer; nao toca turno/motor/parser/gravura/cache. Protegida pelo
+        # middleware (401 sem login em prod), igual ao /jogar.
+        if personagem is not None:
+            try:
+                sid = await _resolver_sessao(personagem)
+            except Exception:
+                sid = None
+            if sid is None:
+                return _HTMLResponse(_pagina_log_html(
+                    f"(sessao nao encontrada para personagem={personagem})", personagem))
+        else:
+            sid = SESSAO_ID
+        return _HTMLResponse(_pagina_log_html(_render_log_texto(sid), personagem))
+except Exception:
+    pass
