@@ -4660,6 +4660,13 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
         # (estado COMPARTILHADO com o parse do narrar). A trava/ocupado fica fora (no narrar).
         nonlocal teste_pendente, resultado_pendente, tensao_atual, inimigo, inimigos
         nonlocal acao_atual, via_atual, feridas_ativas, feridas_ja_usadas, _infeccao_pendente
+        # GUARDA DE SERVIDOR: so resolve se ha pedido pendente. Um emit cru de 'rolar_dado'
+        # (sem o Cronista/motor ter armado) e ignorado -> sem rolagem nao solicitada, sem dano
+        # nao pedido+gravado em combate. O pedido legitimo e consumido por resolver_dado
+        # (estado.teste_pendente=None, desempacotado abaixo), entao um 2o emit sem novo pedido
+        # tambem cai aqui -> mata o dano repetivel. So a existencia; nao toca o motor.
+        if not teste_pendente:
+            return
         _ec = EstadoCombate(
             teste_pendente, resultado_pendente, tensao_atual, inimigo, inimigos,
             acao_atual, via_atual, feridas_ativas, feridas_ja_usadas, _infeccao_pendente,
