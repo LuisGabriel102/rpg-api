@@ -1,0 +1,51 @@
+==========================================================================
+AUDITORIA DA SESSAO DE CALIBRACAO — 5 greps sobre as 8 prosas
+==========================================================================
+
+[a] ABERTURAS (primeiras 8 palavras de cada turno):
+   T1: Primeiro foi o som das vozes baixas —
+   T2: O guarda mais velho não tirou a mão
+   T3: O mascate parou de afofar o saco que
+   T4: A voz dele chegava antes do corpo —
+   T5: A pergunta caiu no meio dos três e
+   T6: O guarda velho ouviu o desafio e não
+   T7: O mascate ficou um tempo calado, mexendo a
+   T8: O pedido pousou nos três e cada um
+   -> 1a palavra repetida entre turnos: ['a', 'o']
+   -> 2 primeiras palavras repetidas: ['o guarda', 'o mascate']
+
+[b] LEXICO BANIDO / moldura espirita (alma|fantasma|espirito|demonio):
+   T3 <fantasma>: ...cedo demais, e fecharam com cara de quem viu fantasma. O velho ali" — apontou o queixo para o guar...
+   -> total de ocorrencias: 1  (REVISAR contexto)
+
+[c] NUMEROS CRUS na prosa (digito ligado a pressao/vida/mana, ou qualquer digito):
+   -> vazamento stat+numero: 0  (OK (zero))
+   -> digitos crus quaisquer na prosa: NENHUM (prosa escreve numeros por extenso)
+
+[d] ANTITESE 'nao X, mas Y' (por prosa) + cacoete entre turnos:
+   T1: 0 antitese(s)
+   T2: 1 antitese(s)
+        'não medo, mas'
+   T3: 1 antitese(s)
+        'Não é ouro, mas'
+   T4: 1 antitese(s)
+        'não ouvir, mas'
+   T5: 0 antitese(s)
+   T6: 0 antitese(s)
+   T7: 0 antitese(s)
+   T8: 0 antitese(s)
+   -> total de antiteses nas 8 prosas: 3 (media 0.38/prosa)
+
+[d2] FORMA-IRMA 'Nao era X; era Y / Nao era X. Era Y':
+   T4: 'Não é ordem nenhuma que fecha esse posto. É'
+   T7: 'não é comigo. É'
+   T8: 'não é pra ele. É'
+   T8: 'Não era desprezo; era'
+   T8: 'não é isso. É'
+   -> total da forma-irma nas 8 prosas: 5
+
+[e] FIDELIDADE estado<->prosa (heuristico — sinaliza p/ leitura humana):
+   -> nenhuma contradicao estado<->prosa detectada pela heuristica.
+   (NB: heuristico — a leitura final das 8 prosas e do Gabriel.)
+
+==========================================================================

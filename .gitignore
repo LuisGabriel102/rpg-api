@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.env
+.env.local
+.env.*
+.venv/
+venv/
+*.egg
+.pytest_cache/
+.ruff_cache/
+*.log
+
+# Deploy hygiene (monolito raiz -> GitHub LuisGabriel102/rpg-api -> Railway)
+# rpg-api-deploy/ e a COPIA VELHA com .git proprio dentro da raiz -> NUNCA vai junto.
+rpg-api-deploy/
+node_modules/
+.hypothesis/
+.claude/
+.DS_Store
+Thumbs.db

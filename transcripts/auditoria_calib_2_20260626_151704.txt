@@ -1,0 +1,49 @@
+==========================================================================
+AUDITORIA DA SESSAO DE CALIBRACAO — 5 greps sobre as 8 prosas
+==========================================================================
+
+[a] ABERTURAS (primeiras 8 palavras de cada turno):
+   T1: A porta cedeu sem fechadura — alguém já
+   T2: A cortina apodrecida abriu-se com um sussurro de
+   T3: O homem não respondeu logo. Pegou um pano
+   T4: O homem ficou olhando, e por um instante
+   T5: O homem ficou muito quieto. Depois soltou o
+   T6: O homem encarou-o um instante, e depois fez
+   T7: O olho bom sustentou o olhar mais tempo
+   T8: O velho não respondeu de pronto. O passo
+   -> 1a palavra repetida entre turnos: ['a', 'o']
+   -> 2 primeiras palavras repetidas: ['o homem']
+
+[b] LEXICO BANIDO / moldura espirita (alma|fantasma|espirito|demonio):
+   -> total de ocorrencias: 0  (OK (zero))
+
+[c] NUMEROS CRUS na prosa (digito ligado a pressao/vida/mana, ou qualquer digito):
+   -> vazamento stat+numero: 0  (OK (zero))
+   -> digitos crus quaisquer na prosa: NENHUM (prosa escreve numeros por extenso)
+
+[d] ANTITESE 'nao X, mas Y' (por prosa) + cacoete entre turnos:
+   T1: 0 antitese(s)
+   T2: 0 antitese(s)
+   T3: 0 antitese(s)
+   T4: 0 antitese(s)
+   T5: 1 antitese(s)
+        'não contra quem estava à frente dele, mas'
+   T6: 1 antitese(s)
+        'não um objeto, mas'
+   T7: 0 antitese(s)
+   T8: 0 antitese(s)
+   -> total de antiteses nas 8 prosas: 2 (media 0.25/prosa)
+
+[d2] FORMA-IRMA 'Nao era X; era Y / Nao era X. Era Y':
+   T4: 'Não foi o que estava escrito. Foi'
+   T4: 'Não é o que tu dás. É'
+   T4: 'não é teimosia minha. É'
+   T5: 'não é preço que eu te escondo. É'
+   T7: 'não é o que tu perdes. É'
+   -> total da forma-irma nas 8 prosas: 5
+
+[e] FIDELIDADE estado<->prosa (heuristico — sinaliza p/ leitura humana):
+   T8: [ESTADO] combate inativo mas prosa tem lexico de briga -> conferir
+   (NB: heuristico — a leitura final das 8 prosas e do Gabriel.)
+
+==========================================================================

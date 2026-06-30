@@ -1,0 +1,44 @@
+==========================================================================
+AUDITORIA DA SESSAO DE CALIBRACAO — 5 greps sobre as 8 prosas
+==========================================================================
+
+[a] ABERTURAS (primeiras 8 palavras de cada turno):
+   T1: O som chegava antes de tudo: água correndo
+   T2: A mulher virou os olhos para cima, na
+   T3: O frio mordeu antes da força — a
+   T4: O ombro encontrou a borda da caixa e
+   T5: A perna de trás encontrou o barranco e
+   T6: O joelho afundou no barro frio ao lado
+   T7: O rio não devolvia nada. Corria preto na
+   T8: O braço dela passou por cima do ombro,
+   -> 1a palavra repetida entre turnos: ['a', 'o']
+   -> 2 primeiras palavras repetidas: NENHUMA
+
+[b] LEXICO BANIDO / moldura espirita (alma|fantasma|espirito|demonio):
+   -> total de ocorrencias: 0  (OK (zero))
+
+[c] NUMEROS CRUS na prosa (digito ligado a pressao/vida/mana, ou qualquer digito):
+   -> vazamento stat+numero: 0  (OK (zero))
+   -> digitos crus quaisquer na prosa: NENHUM (prosa escreve numeros por extenso)
+
+[d] ANTITESE 'nao X, mas Y' (por prosa) + cacoete entre turnos:
+   T1: 0 antitese(s)
+   T2: 0 antitese(s)
+   T3: 0 antitese(s)
+   T4: 0 antitese(s)
+   T5: 0 antitese(s)
+   T6: 0 antitese(s)
+   T7: 0 antitese(s)
+   T8: 1 antitese(s)
+        'não impressionam mas'
+   -> total de antiteses nas 8 prosas: 1 (media 0.12/prosa)
+
+[d2] FORMA-IRMA 'Nao era X; era Y / Nao era X. Era Y':
+   T5: 'Não era acusação. Era'
+   -> total da forma-irma nas 8 prosas: 1
+
+[e] FIDELIDADE estado<->prosa (heuristico — sinaliza p/ leitura humana):
+   -> nenhuma contradicao estado<->prosa detectada pela heuristica.
+   (NB: heuristico — a leitura final das 8 prosas e do Gabriel.)
+
+==========================================================================

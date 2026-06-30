@@ -1,0 +1,59 @@
+===== TURNO A — COMBATE (estado inicial pressao_emocional: 4) =====
+O aço deixou a bainha com um silvo curto, e o homem à porta teve tempo de erguer os olhos, não os braços. O corredor era estreito, sem para onde ele recuar — só as tábuas atrás das costas e a fresta de luz que vinha do lado de fora, onde a rua respirava sem saber de nada.
+
+Ele abriu a boca. Talvez para um nome, talvez para um preço.
+
+A lâmina entrou antes da palavra, por baixo das costelas, e o som que saiu dele não foi de fala. As mãos largaram o que seguravam e foram ao ferro, como se pudessem empurrá-lo de volta. Não puderam. O joelho cedeu primeiro; o resto do corpo seguiu o joelho, escorregando pela parede até sentar-se no chão como quem cansou. O sangue veio escuro, sem pressa, encharcando a camisa e depois as tábuas.
+
+Ele continuou olhando para cima. A respiração fazia um ruído molhado, cada vez mais espaçado. Uma das botas tremeu, raspou a madeira, parou.
+
+Lá fora, a rua seguia. Um vendedor anunciava algo ao longe, a mesma frase repetida, indiferente. A fresta de luz na porta não mudou. O corredor cheirava agora a ferro quente e a algo mais fundo, o cheiro que os corpos guardam para o fim.
+
+A saída estava livre.
+
+<estado>
+pressao_emocional: 5
+</estado>
+===== FIM_TURNO =====
+
+===== TURNO B — CUSTO (estado inicial pressao_emocional: 3) =====
+O sangue ainda escorria entre os dedos, morno, indiferente ao aperto. Por baixo da palma a carne pulsava aberta, e cada batida do coração empurrava mais para fora do que ele conseguia segurar. Não havia tempo para o que era certo. Havia só o que estava à mão.
+
+E à mão estava a Dívida.
+
+Ele a chamou. Não houve palavra, não houve gesto — só a decisão de descer mais fundo do que da última vez, de pedir mais do que se devia pedir, sabendo que a conta já corria e que isto a engrossava.
+
+A resposta veio de dentro. Primeiro um zumbido baixo, surdo, como se algo respirasse no fundo dos ossos. Depois o frio — não o da perda de sangue, mas outro, mais antigo, subindo do peito para fora, contracorrente, indo aonde a vontade o mandava ir. A carne rasgada se fechou. Não como pele que cicatriza ao longo de dias; como tecido que se costura sozinho, fibra puxando fibra, com um estalo úmido e fino que se sentiu mais do que se ouviu. A dor cedeu. O sangue parou.
+
+E a Dívida cobrou, ali, antes mesmo de o ferimento sumir de todo.
+
+As veias do antebraço escureceram. Não de um golpe — devagar, como tinta caindo na água, espalhando-se do pulso para o cotovelo num desenho de raízes pretas sob a pele. A mão fechou-se e abriu-se, e os dedos obedeceram, mas tarde, com a lentidão de quem pergunta antes de cada movimento se ainda manda naquilo. O braço pesava mais do que um braço pesa. Não doía. Era pior do que doer: era alheio, como se alguém tivesse posto ali um membro que não combinava com o resto do corpo, e o resto do corpo soubesse.
+
+O ferimento agora era uma linha pálida, fechada, sem sangue.
+
+O antebraço, esse, ficou escuro. E ficou frio. E continuou olhando de volta, do jeito que uma coisa olha quando deixou de ser inteiramente sua.
+
+<estado>
+pressao_emocional: 4
+</estado>
+===== FIM_TURNO =====
+
+===== TURNO C — FIADOR (estado inicial pressao_emocional: 5) =====
+O ar adensou-se entre uma palavra e o seu próprio eco, e ele já estava ali — não veio, não entrou; estava, como se sempre tivesse estado e só agora você o notasse. Trazia a calma de quem tem tempo de sobra e a usa por gentileza.
+
+*— Ah. A pergunta certa, e cedo. Isso poupa muito sangue, com o tempo.* A voz tinha o peso morno de mel velho, e algo afiado por baixo. *— O que eu cobro depende do que tu pedes, claro. Eu não tenho tabela. Tenho balança.* 
+
+Ele moveu-se, e o movimento não levantou poeira nenhuma do chão.
+
+*— Mas já que perguntas em geral, em geral te respondo: cobro o que não te faz falta agora. Uma lembrança que pesa mais do que serve. O calor de uma mão que já soltou a tua. Um ano do fim, que tu não verias mesmo, ou veria mal. Coisas que tu carregas sem saber por quê.* Inclinou a cabeça, e o gesto tinha quase ternura. *— A regra é uma só, e nunca muda: o que se entrega não volta. Eu não empresto. E não minto sobre o preço — direi exatamente o que levo. O que eu não direi é o que aquilo te custará depois, porque isso, francamente, tu não saberias ouvir.*
+
+E sorriu — alegria de relojoeiro diante da peça certa.
+
+*— Então não me perguntes o preço no vazio. Dize-me o que queres. A balança decide sozinha.*
+
+Lá fora, ou onde quer que fosse o lado de fora daquele instante, alguma coisa de metal bateu contra pedra, uma vez, e não tornou a bater.
+
+<estado>
+pressao_emocional: 5
+</estado>
+===== FIM_TURNO =====

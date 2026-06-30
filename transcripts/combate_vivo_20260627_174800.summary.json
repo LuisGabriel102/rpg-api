@@ -1,0 +1,26 @@
+{
+  "_sumario": true,
+  "ts": "20260627_174800",
+  "mock": false,
+  "modelo": "claude-opus-4-8",
+  "total_turnos": 20,
+  "tokens": {
+    "input": 124305,
+    "output": 10779,
+    "cache_read": 319314,
+    "cache_write": 16806
+  },
+  "custo_estimado_usd": 3.4671,
+  "ramos_exercitados": {
+    "combate_iniciou": true,
+    "ferida_nasceu": true,
+    "curou": false,
+    "estancou": true,
+    "magico": true,
+    "combo": false,
+    "defesa": true,
+    "fuga": false,
+    "morte": false,
+    "bando_2plus": false
+  }
+}

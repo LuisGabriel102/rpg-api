@@ -1,0 +1,71 @@
+==========================================================================
+AUDITORIA ENTRE SESSOES — deriva trans-sessao
+==========================================================================
+
+[A2] Aberturas (6 palavras) por sessao:
+  -- S1 (Fatia 3 — claustro) --
+     T1: O ferro rangeu numa nota só,
+     T2: A nave abria-se além de uma
+     T3: A voz saiu baixa e o
+     T4: Da penumbra de uma das arcadas,
+     T5: O velho ficou parado um tempo
+     T6: A chama do coto pegou na
+     T7: O corredor lateral fugia da nave
+     T8: A porta abriu sem que mão
+  -- S2 (Fiador/B2) --
+     T1: A porta cedeu sem fechadura —
+     T2: A cortina apodrecida abriu-se com um
+     T3: O homem não respondeu logo. Pegou
+     T4: O homem ficou olhando, e por
+     T5: O homem ficou muito quieto. Depois
+     T6: O homem encarou-o um instante, e
+     T7: O olho bom sustentou o olhar
+     T8: O velho não respondeu de pronto.
+  -- S3 (Coral/B3) --
+     T1: Primeiro foi o som das vozes
+     T2: O guarda mais velho não tirou
+     T3: O mascate parou de afofar o
+     T4: A voz dele chegava antes do
+     T5: A pergunta caiu no meio dos
+     T6: O guarda velho ouviu o desafio
+     T7: O mascate ficou um tempo calado,
+     T8: O pedido pousou nos três e
+  -- S4 (Vitoria/B4) --
+     T1: O som chegava antes de tudo:
+     T2: A mulher virou os olhos para
+     T3: O frio mordeu antes da força
+     T4: O ombro encontrou a borda da
+     T5: A perna de trás encontrou o
+     T6: O joelho afundou no barro frio
+     T7: O rio não devolvia nada. Corria
+     T8: O braço dela passou por cima
+  -> 1a palavra (freq entre TODAS as sessoes): {'o': 20, 'a': 10, 'da': 1, 'primeiro': 1}
+  -> 2-palavras de abertura repetidas (entre/dentro de sessoes): {'a voz': 2, 'o velho': 2, 'a porta': 2, 'o homem': 4, 'o guarda': 2, 'o mascate': 2}
+
+[A1] Forma-irma 'Nao era X; era Y' por sessao (Fatia 3 achou ~3 na S1):
+     S1 (Fatia 3 — claustro): 3
+        'Não era ausência de som; era'
+        'não eram nomes. Eram'
+        'Não era acusação. Era'
+     S2 (Fiador/B2): 5
+        'Não foi o que estava escrito. Foi'
+        'Não é o que tu dás. É'
+        'não é teimosia minha. É'
+        'não é preço que eu te escondo. É'
+        'não é o que tu perdes. É'
+     S3 (Coral/B3): 5
+        'Não é ordem nenhuma que fecha esse posto. É'
+        'não é comigo. É'
+        'não é pra ele. É'
+        'Não era desprezo; era'
+        'não é isso. É'
+     S4 (Vitoria/B4): 1
+        'Não era acusação. Era'
+
+[custo] tokens por sessao (curva do historico):
+     S1 (Fatia 3 — claustro): in=36272 out=5283 cache_w=16704 cache_r=116928 | input_ultimo_turno=7500
+     S2 (Fiador/B2): in=39688 out=5851 cache_w=16704 cache_r=116928 | input_ultimo_turno=8582
+     S3 (Coral/B3): in=39710 out=6547 cache_w=0 cache_r=133632 | input_ultimo_turno=8812
+     S4 (Vitoria/B4): in=32383 out=4521 cache_w=0 cache_r=133632 | input_ultimo_turno=6959
+
+==========================================================================

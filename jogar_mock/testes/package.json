@@ -1,0 +1,10 @@
+{
+  "name": "jogar-mock-testes",
+  "private": true,
+  "type": "module",
+  "description": "Suite de testes da ficha do /jogar (estilo C). 7 jsdom + 8 Playwright/Chromium.",
+  "devDependencies": {
+    "jsdom": "^29.1.1",
+    "playwright-core": "^1.61.0"
+  }
+}

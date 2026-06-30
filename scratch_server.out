@@ -1,0 +1,118 @@
+INFO:     127.0.0.1:53228 - "GET /jogar HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50710 - "GET /jogar HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50710 - "GET /jogar HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50710 - "GET /_nicegui/3.12.1/static/fonts.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53755 - "GET /_nicegui/3.12.1/static/quasar.unimportant.prod.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53755 - "GET /_nicegui/3.12.1/static/nicegui.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50710 - "GET /_nicegui/3.12.1/static/quasar.important.prod.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65529 - "GET /_nicegui/3.12.1/static/nicegui.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50710 - "GET /_nicegui/3.12.1/static/socket.io.min.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53755 - "GET /_nicegui/3.12.1/static/vue.esm-browser.prod.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65529 - "GET /_nicegui/3.12.1/static/dompurify.mjs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50710 - "GET /_nicegui/3.12.1/static/lang/en-US.umd.prod.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51499 - "GET /_nicegui/3.12.1/static/tailwindcss.min.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58595 - "GET /_nicegui/3.12.1/static/quasar.umd.prod.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50710 - "GET /_nicegui/3.12.1/static/fonts/5f5fa57fb07d7e44.woff2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51499 - "GET /_nicegui/3.12.1/static/fonts/2474057f3040a08c.woff2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58595 - "GET /_nicegui/3.12.1/static/favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58595 - "GET /_nicegui/3.12.1/components/0ec95adc8fb901700a4e75b7add808d8/html.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58595 - "GET /static/estampa_porta.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51499 - "GET /static/jogar.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50710 - "GET /static/cenarios/atmosferas/ermo-3.webp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50710 - "GET /static/cenarios/entrada/tarelea_vespera.webp HTTP/1.1" 200 OK
+[memoria] turno gravado: sessao=2 papel=jogador numero_turno=12
+[memoria] === prompt do Cronista (ultima mensagem) ===
+[ESTADO]
+personagem: Doran Korven (Ladino Arcano, nível 15) — ativo
+vida: 80/80 (ileso)
+mana: 38/60 (desgastada)
+companheiros: nenhum
+combate: inativo
+dívida: 38 (tier 1 — Euforia), convicção: 15
+manifestações ativas: reflexo tardio generic (int 2) [oculta]; suor carmesim hemo (int 1); reflexo tardio generic (int 2) [oculta]; suor carmesim hemo (int 1); coracao segundo hemo (int 3); nome esquecido generic (int 3) [oculta]
+
+<contexto>
+## Compromissos e dívidas
+DÍVIDA ATIVA — 38 (tier 1). Origem recente: Dívida do Selo.
+PACTOS: nenhum pacto ativo.
+
+## O que se diz — boatos, nem tudo é verdade
+- **Um morto voltou de Voranthar**: Sussurram nas tavernas baixas que um homem que morreu numa expedição há quinze anos voltou andando, e que já não é bem um homem. _(distorcido)_
+- **Tem coisa enterrada nos túneis**: Pescador velho jura que na cheia, quando a água sobe nos túneis, sobe junto coisa que não devia, e que certos porões cheiram a papel queimado. _(parcial)_
+- **Em Mórven pode tudo, ninguém vê**: Dizem que nas três noites de Mórven, de máscara, pode-se fazer qualquer coisa, que ninguém põe nome no que viu. _(distorcido)_
+- **A Mareth vai perder a Sete**: Dizem na Doca dos Trinta que a Casa Mareth segurou a Ancoragem Sete por anos num aforamento vencido, e que a Vurel já tem a amarra praticamente ganha no Conselho — é só esperar a audiência. _(parcial)_
+- **A Mareth comprou a amarra com suborno**: Contam pela taverna que a Mareth manteve a Ancoragem Sete todos esses anos pagando por fora a quem registra a doca, e que agora foi finalmente pega. _(distorcido)_
+</contexto>
+
+<cauda_de_voz>
+Voz: terceira pessoa, passado, prosa contida. Varie a entrada — abra por som, gesto consumado, sensação no corpo ou mudança de luz.
+A contenção governa: o peso da cena decide a extensão, não um molde. Violência de rotina é factual e breve. As palavras mais duras usam o menor número delas.
+</cauda_de_voz>
+
+opa
+[memoria] === fim (contexto PRESENTE) ===
+[memoria] === resposta do Cronista (Opus) ===
+O ar da taverna baixa cheirava a sebo queimado e a cerveja azeda, e o rumor das conversas vinha abafado, como se cada um falasse para dentro do próprio copo. Uma fresta de luz cinzenta cortava o chão de tábuas pela porta entreaberta. Doran Korven estava sentado a uma mesa do fundo, as costas para a parede, de onde se via tudo o que entrava.
+
+Ninguém ali tinha pressa. O dia lá fora se arrastava no mesmo passo morno das marés.
+
+---
+
+Aqui é onde a história começa, Doran. A taverna, a cidade da água e das dívidas, os boatos que sobem dos túneis com a cheia. O que você faz?
+
+<estado>
+pressao_emocional: 1
+opcoes: Escutar a mesa ao lado | Chamar o estalajadeiro | Sair para a doca | Beber em silêncio e observar
+</estado>
+[memoria] === fim da resposta ===
+[memoria] turno gravado: sessao=2 papel=narrador numero_turno=13
+[memoria] turno gravado: sessao=2 papel=jogador numero_turno=14
+[memoria] === prompt do Cronista (ultima mensagem) ===
+[ESTADO]
+personagem: Doran Korven (Ladino Arcano, nível 15) — ativo
+vida: 80/80 (ileso)
+mana: 38/60 (desgastada)
+companheiros: nenhum
+combate: inativo
+dívida: 38 (tier 1 — Euforia), convicção: 15
+manifestações ativas: reflexo tardio generic (int 2) [oculta]; suor carmesim hemo (int 1); reflexo tardio generic (int 2) [oculta]; suor carmesim hemo (int 1); coracao segundo hemo (int 3); nome esquecido generic (int 3) [oculta]
+
+<contexto>
+## Compromissos e dívidas
+DÍVIDA ATIVA — 38 (tier 1). Origem recente: Dívida do Selo.
+PACTOS: nenhum pacto ativo.
+
+## O que se diz — boatos, nem tudo é verdade
+- **Um morto voltou de Voranthar**: Sussurram nas tavernas baixas que um homem que morreu numa expedição há quinze anos voltou andando, e que já não é bem um homem. _(distorcido)_
+- **Tem coisa enterrada nos túneis**: Pescador velho jura que na cheia, quando a água sobe nos túneis, sobe junto coisa que não devia, e que certos porões cheiram a papel queimado. _(parcial)_
+- **Em Mórven pode tudo, ninguém vê**: Dizem que nas três noites de Mórven, de máscara, pode-se fazer qualquer coisa, que ninguém põe nome no que viu. _(distorcido)_
+- **A Mareth vai perder a Sete**: Dizem na Doca dos Trinta que a Casa Mareth segurou a Ancoragem Sete por anos num aforamento vencido, e que a Vurel já tem a amarra praticamente ganha no Conselho — é só esperar a audiência. _(parcial)_
+- **A Mareth comprou a amarra com suborno**: Contam pela taverna que a Mareth manteve a Ancoragem Sete todos esses anos pagando por fora a quem registra a doca, e que agora foi finalmente pega. _(distorcido)_
+</contexto>
+
+<cauda_de_voz>
+Voz: terceira pessoa, passado, prosa contida. Não reabra como as últimas respostas:
+- "O ar da taverna baixa cheirava a sebo"
+Varie a entrada — abra por som, gesto consumado, sensação no corpo ou mudança de luz.
+A contenção governa: o peso da cena decide a extensão, não um molde. Violência de rotina é factual e breve. As palavras mais duras usam o menor número delas.
+</cauda_de_voz>
+
+Sair para a doca
+[memoria] === fim (contexto PRESENTE) ===
+[memoria] === resposta do Cronista (Opus) ===
+A luz crua da rua bateu nos olhos quando a porta se fechou às costas. Lá fora, o cheiro mudava — maresia, alcatrão, peixe que apodrecia em algum canto que ninguém limpava. As gaivotas brigavam por restos sobre os caixotes empilhados, e o vento trazia o ranger dos cabos e o bater surdo dos cascos contra as estacas.
+
+A doca se estendia por cima da água parda, tábuas escurecidas pela cheia recente. Homens carregavam fardos sem trocar palavra; uma fila de barcaças baixas esperava maré. Mais adiante, onde as ancoragens se numeravam em ferro fundido nas estacas, dois grupos de homens estavam parados frente a frente, e nenhum dos dois trabalhava.
+
+Um deles tinha o casaco da Casa Mareth — o nó azul no ombro. O outro grupo, sem brasão, ocupava o espaço como quem chegou para ficar. Entre as duas filas, na estaca, o número sete em ferro velho.
+
+Ninguém gritava ainda. Era o silêncio de antes, o que pesa mais que a briga.
+
+Um menino magro, descalço nas tábuas molhadas, encostou-se a um poste perto e ficou olhando os dois grupos com a atenção de quem já viu como isso costuma terminar.
+
+<estado>
+pressao_emocional: 1
+opcoes: Aproximar-se da Ancoragem Sete | Falar com o menino | Procurar o homem da Mareth | Manter distância e observar
+</estado>
+[memoria] === fim da resposta ===
+[memoria] turno gravado: sessao=2 papel=narrador numero_turno=15

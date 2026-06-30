@@ -1,0 +1,190 @@
+"""
+Escrita / canon do narrador — adapter ASYNC (driver SQLAlchemy/asyncpg da Oficina).
+====================================================================================
+
+Mesma lógica do `resolver_fatos_alderyn` (psycopg síncrono), portada pro
+`db.get_session()` async. Comportamento idêntico:
+
+  parse_haiku_output -> processar_fatos_haiku (resolve nomes->uuid, valida
+  predicates, chama enfileirar_fatos_sessao) -> commit_canon -> gravar_recap.
+
+O que não resolve (entidade não cadastrada/ambígua, predicate inválido) NÃO entra
+no banco — vai pra `nao_resolvidos`. O mundo não cria entidade sozinho.
+
+Reusa o vocabulário fechado e o parser do módulo puro (sem duplicar):
+`resolver_fatos_alderyn.PREDICATES_VALIDOS` e `.parse_haiku_output`.
+"""
+from __future__ import annotations
+
+import json
+from typing import Optional
+
+from sqlalchemy import text
+
+from db import get_session
+from resolver_fatos_alderyn import PREDICATES_VALIDOS, parse_haiku_output  # noqa: F401
+
+# re-exporta parse_haiku_output pra quem importar deste módulo (conveniência)
+__all__ = [
+    "parse_haiku_output",
+    "processar_fatos_haiku",
+    "commit_canon",
+    "gravar_recap",
+    "gravar_turno",
+]
+
+
+_SQL_NOME_EXATO = text("SELECT id FROM entities WHERE lower(name) = lower(:n)")
+_SQL_SLUG = text("SELECT id FROM entities WHERE slug IS NOT NULL AND lower(slug) = lower(:n)")
+_SQL_ALIAS = text(
+    "SELECT id FROM entities WHERE metadata ? 'aliases' AND EXISTS ("
+    " SELECT 1 FROM jsonb_array_elements_text(metadata->'aliases') a"
+    " WHERE lower(a) = lower(:n))"
+)
+_SQL_PARCIAL = text("SELECT id FROM entities WHERE name ILIKE :pat")
+
+_SQL_ENFILEIRAR = text("SELECT enfileirar_fatos_sessao(CAST(:t AS jsonb))")
+_SQL_COMMIT_CANON = text(
+    "SELECT * FROM canon_validation.commit_canon(CAST(:ids AS bigint[]), :force)"
+)
+_SQL_GRAVAR_RECAP = text("SELECT gravar_recap_sessao(:sid, CAST(:r AS jsonb))")
+
+# Insere um turno e calcula numero_turno = MAX+1 na MESMA instrução (atômico dentro
+# da transação: o SELECT do subquery e o INSERT correm no mesmo statement, então
+# não há janela entre ler o máximo e gravar). UNIQUE(sessao_id, numero_turno) é a
+# rede de segurança final contra colisão.
+_SQL_GRAVAR_TURNO = text(
+    "INSERT INTO sessao_turnos (sessao_id, numero_turno, papel, conteudo) "
+    "VALUES (:sid, "
+    "(SELECT COALESCE(MAX(numero_turno), 0) + 1 FROM sessao_turnos WHERE sessao_id = :sid), "
+    ":papel, :conteudo) "
+    "RETURNING numero_turno"
+)
+
+
+async def _resolver_nome(session, nome: str) -> Optional[str]:
+    """name exato -> slug -> alias -> parcial. >1 match em qualquer camada => None."""
+    nome = (nome or "").strip()
+    if not nome:
+        return None
+
+    rows = (await session.execute(_SQL_NOME_EXATO, {"n": nome})).all()
+    if len(rows) == 1:
+        return str(rows[0][0])
+    if len(rows) > 1:
+        return None  # ambíguo no nome — não arrisca
+
+    rows = (await session.execute(_SQL_SLUG, {"n": nome})).all()
+    if len(rows) == 1:
+        return str(rows[0][0])
+
+    rows = (await session.execute(_SQL_ALIAS, {"n": nome})).all()
+    if len(rows) == 1:
+        return str(rows[0][0])
+
+    rows = (await session.execute(_SQL_PARCIAL, {"pat": f"%{nome}%"})).all()
+    if len(rows) == 1:
+        return str(rows[0][0])
+
+    return None
+
+
+async def processar_fatos_haiku(haiku_json: dict) -> dict:
+    """
+    Resolve nomes, valida predicates, monta triples e enfileira como provisional.
+
+    Devolve {"enfileirados": {inseridos, pulados, ids_inseridos}, "nao_resolvidos": [...]}.
+    """
+    triples = []
+    nao_resolvidos = []
+
+    async with get_session() as session:
+        for f in haiku_json.get("fatos", []):
+            predicate = f.get("predicate")
+            if predicate not in PREDICATES_VALIDOS:
+                nao_resolvidos.append(
+                    {"motivo": f"predicate fora do vocabulario: {predicate!r}", "fato": f}
+                )
+                continue
+
+            subj = await _resolver_nome(session, f.get("subject", ""))
+            if subj is None:
+                nao_resolvidos.append({"motivo": "subject nao cadastrado/ambiguo", "fato": f})
+                continue
+
+            obj_id, obj_text = None, None
+            if f.get("object_tipo") == "entidade":
+                obj_id = await _resolver_nome(session, f.get("object", ""))
+                if obj_id is None:
+                    nao_resolvidos.append(
+                        {"motivo": "object (entidade) nao cadastrado/ambiguo", "fato": f}
+                    )
+                    continue
+            else:
+                obj_text = (f.get("object") or "").strip() or None
+
+            triples.append({
+                "subject_id": subj,
+                "predicate": predicate,
+                "object_id": obj_id,
+                "object_text": obj_text,
+                "reliability": f.get("confianca", 0.9),
+                "source_in_universe": f.get("fonte"),
+            })
+
+        resultado = {"inseridos": 0, "pulados": [], "ids_inseridos": []}
+        if triples:
+            res = await session.execute(_SQL_ENFILEIRAR, {"t": json.dumps(triples)})
+            resultado = res.scalar()
+            await session.commit()
+
+    return {"enfileirados": resultado, "nao_resolvidos": nao_resolvidos}
+
+
+async def commit_canon(fact_ids, force: bool = False) -> list[dict]:
+    """Promove os fatos provisional (>=0.6 canonical, <0.6 pending_review; force=true força)."""
+    if not fact_ids:
+        return []
+    # asyncpg tipa :ids como bigint[] (via o CAST no SQL) e exige uma LISTA Python,
+    # não a string-literal '{1,2}' do Postgres — passar a string levanta DataError.
+    ids = [int(i) for i in fact_ids]
+    async with get_session() as session:
+        res = await session.execute(_SQL_COMMIT_CANON, {"ids": ids, "force": force})
+        linhas = res.all()
+        await session.commit()
+    return [dict(r._mapping) for r in linhas]
+
+
+_PAPEIS_VALIDOS = ("jogador", "narrador", "sistema")
+
+
+async def gravar_turno(sessao_id: int, papel: str, conteudo: str) -> int:
+    """
+    Grava um turno em sessao_turnos com numero_turno crescente (MAX+1, atômico no
+    statement). `papel` ∈ {'jogador', 'narrador', 'sistema'} — o mesmo CHECK do
+    banco. Devolve o numero_turno gravado.
+
+    O conteúdo deve ser o texto limpo do turno: a fala do jogador ou a prosa do
+    narrador, SEM a maquinaria de prompt ([ESTADO], <contexto>, bloco <estado>).
+    """
+    if papel not in _PAPEIS_VALIDOS:
+        raise ValueError(f"papel inválido: {papel!r} (use um de {_PAPEIS_VALIDOS})")
+    async with get_session() as session:
+        res = await session.execute(
+            _SQL_GRAVAR_TURNO,
+            {"sid": sessao_id, "papel": papel, "conteudo": conteudo},
+        )
+        numero = res.scalar()
+        await session.commit()
+    return int(numero)
+
+
+async def gravar_recap(sessao_id: int, recap: dict) -> str:
+    """Grava/atualiza o recap da sessão (UPSERT). recap precisa de resumo_curto."""
+    async with get_session() as session:
+        res = await session.execute(
+            _SQL_GRAVAR_RECAP, {"sid": sessao_id, "r": json.dumps(recap)}
+        )
+        uid = res.scalar()
+        await session.commit()
+    return str(uid)

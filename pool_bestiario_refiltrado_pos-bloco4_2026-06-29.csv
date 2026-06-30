@@ -1,0 +1,122 @@
+id,nome,cr,tamanho,subtipo,origem,andar,hp,ca,forca,destreza,constituicao,inteligencia,sabedoria,carisma,idiomas,sentidos,resistencias,imunidades,vulnerabilidades,velocidades,acoes,tracos
+2047,Icewind Kobold Zombie,0.125,Pequeno,NULL,Cicatricial,Eco,19,9,8,6,16,3,6,3,understands Common and Draconic but can't speak,darkvision 60 ft.,NULL,{poison},NULL,"{""terrestre"": 6}",Dardo,Resistência Morto-Vivo | Unusual Nature
+517,Gnoll Witherling,0.25,Médio,NULL,Cicatricial,Eco,11,12,14,8,12,5,5,5,understands Gnoll but can't speak,visão no escuro 60 pés,NULL,{veneno},NULL,"{""terrestre"": 9}",Multiattack | Bite | Club,Rampage
+924,Giant Owl,0.25,Grande,NULL,Cicatricial,Clarão,19,12,13,15,12,10,14,10,"Celestial; understands Common, Elvish, and Sylvan but can't speak them",Darkvision 120 ft.,"{necrotic,radiant}",NULL,NULL,"{""voo"": 18, ""terrestre"": 2}",Talons,Flyby
+2452,Yellow Musk Zombie,0.25,Médio,NULL,Cicatricial,Eco,33,9,13,9,12,1,6,3,NULL,blindsight 30 ft.,NULL,NULL,NULL,"{""terrestre"": 6}",Golpe,Resistência Morto-Vivo
+1976,Skeletal Alchemist,0.5,Médio,NULL,Cicatricial,Eco,32,11,9,13,15,14,10,9,understands all languages it knew in life but can't speak,darkvision 60 ft.,NULL,{poison},{bludgeoning},"{""terrestre"": 9}",Ataque Múltiplo | Garras | Lob Acid,Resistência Mágica
+2093,Dwarf Skeleton,0.5,Médio,NULL,Cicatricial,Eco,26,13,16,10,15,6,8,5,understands Dwarvish but can't speak,darkvision 60 ft.,NULL,{poison},{bludgeoning},"{""terrestre"": 8}",Battleaxe,Pés Firmes
+903,Ghast,2.0,Médio,NULL,Cicatricial,Eco,36,13,16,17,10,11,10,8,Common,Darkvision 60 ft.,{necrotic},{poison},NULL,"{""terrestre"": 9}",Mordida | Garra,Stench
+917,Giant Elk,2.0,Enorme,NULL,Cicatricial,Clarão,42,14,19,18,14,7,14,10,"Celestial; understands Common, Elvish, and Sylvan but can't speak them",Darkvision 90 ft.,"{necrotic,radiant}",NULL,NULL,"{""terrestre"": 18}",Ram,NULL
+1065,Ogre Zombie,2.0,Grande,NULL,Cicatricial,Eco,85,8,19,6,18,3,6,5,understands Common and Giant but can't speak,Darkvision 60 ft.,NULL,{poison},NULL,"{""terrestre"": 9}",Golpe,Resistência Morto-Vivo
+2054,Kobold Vampire Spawn,3.0,Pequeno,NULL,Cicatricial,Eco,39,14,10,18,16,8,8,8,"Common, Draconic",darkvision 60 ft.,{necrotic},NULL,NULL,"{""escalada"": 6, ""terrestre"": 9}",Mordida,Táticas de Matilha | Regeneração | Unusual Nature | Vampire Weaknesses
+2354,Thunderbeast Skeleton,3.0,Enorme,NULL,Cicatricial,Eco,68,15,19,11,15,2,12,5,NULL,darkvision 60 ft.,NULL,{poison},{bludgeoning},"{""terrestre"": 9}",Mordida | Cauda,NULL
+2030,Frost Giant Skeleton,6.0,Enorme,NULL,Cicatricial,Eco,102,14,23,9,15,6,8,5,understands Giant but can't speak,darkvision 60 ft.,NULL,"{cold,poison}",{bludgeoning},"{""terrestre"": 12}",Ataque Múltiplo | Machadão | Freezing Stare,Unusual Nature
+2223,Nafik,6.0,Médio,NULL,Cicatricial,Eco,82,13,18,10,16,10,16,14,Common,darkvision 60 ft.,NULL,"{necrotic,poison}",{fire},"{""terrestre"": 6}",Ataque Múltiplo | Rotting Fist | Unholy Beam | Dreadful Glare,Legendary Resistance (2/Day) | Resistência Mágica | Rejuvenation
+2658,Zorak Lightdrinker,14.0,Médio,shapechanger,Cicatricial,Eco,144,18,18,18,18,17,15,18,"Common, Dwarvish",darkvision 120 ft.,"{necrotic,poison}",NULL,NULL,"{""terrestre"": 9}",Ataque Múltiplo | Dwarven Thrower | Multiattack (Vampire Form Only) | Unarmed Strike (Vampire Form Only) | Bite (Bat or Vampire Form Only) | Charm | Children of the Night (1/Day),Dwarven Resilience | Metamorfo | Legendary Resistance (3/Day) | Misty Escape | Regeneração | Escalar em Paredes | Vampire Weaknesses
+410,Vampire Warrior,15.0,Médio,shapechanger,Cicatricial,Eco,144,18,18,18,18,17,15,18,the languages it knew in life,visão no escuro 120 pés,"{necrótico,""contusão (não-mágico)"",""perfuração (não-mágico)"",""cortante (não-mágico)""}",NULL,NULL,"{""terrestre"": 9}",Multiattack | Multiattack (Vampire Form Only) | Unarmed Strike (Vampire Form Only) | Greatsword | Bite (Bat or Vampire Form Only) | Charm | Children of the Night (1/Day),Shapechanger | Legendary Resistance (3/Day) | Misty Escape | Regeneration | Spider Climb | Vampire Weaknesses
+868,Dracolich,17.0,Enorme,NULL,Cicatricial,Eco,225,20,25,10,23,19,15,21,"Common, Draconic","Blindsight 60 ft., Darkvision 120 ft.",NULL,"{necrotic,poison}",NULL,"{""voo"": 24, ""escavacao"": 9, ""terrestre"": 12}",Ataque Múltiplo | Rend | Sopro Necrótico (Recarrega em 5+),"Legendary Resistance (3/Day, or 4/Day in Lair) | Life Suppression | Resistência Mágica | Soul Gem"
+1900,Jenevere,17.0,Grande,NULL,Cicatricial,Clarão,216,20,18,22,26,18,20,24,"all, telepathy 120 ft.",truesight 120 ft.,{radiant},NULL,NULL,"{""voo"": 36, ""terrestre"": 12}",Ataque Múltiplo | Radiant Touch | Forgiveness (2/Day),Resistência Mágica
+766,Animal Lord,20.0,Médio,NULL,Cicatricial,Clarão,323,19,24,25,20,19,23,22,all,Truesight 120 ft.,"{cold,fire,necrotic,psychic,radiant}",NULL,NULL,"{""voo"": 18, ""natacao"": 18, ""terrestre"": 18}",Ataque Múltiplo | Rend | Radiant Ray | Animal Spirit,Animal Lordship | Legendary Resistance (4/Day) | Lordly Presence | Resistência Mágica
+1840,Grim Champion of Bloodshed,20.0,Médio,NULL,Cicatricial,Eco,280,18,23,12,18,10,17,21,Common,darkvision 60 ft.,"{cold,necrotic}",{poison},NULL,"{""terrestre"": 12}",Ataque Múltiplo | Blazing Morningstar | Blade Storm (Recarrega em 5+),Legendary Resistance (3/Day)
+1841,Grim Champion of Desolation,25.0,Médio,NULL,Cicatricial,Eco,416,18,22,23,18,12,20,19,"Common, Elvish",darkvision 60 ft.,"{cold,necrotic}",{poison},NULL,"{""terrestre"": 9}",Ataque Múltiplo | Leeching Blade | Hollow Void,Legendary Resistance (3/Day)
+544,Neogi Hatchling,0.125,Minúsculo,NULL,Marginal,Margem,7,11,3,13,10,6,10,9,Nenhum,visão no escuro 60 pés,NULL,NULL,NULL,"{""escalada"": 6, ""terrestre"": 6}",Bite,Mental Fortitude | Spider Climb
+511,Gauth,6.0,Médio,NULL,Marginal,Margem,67,15,10,14,16,15,15,13,"Fala Profunda, Língua Inferior",visão no escuro 120 pés,NULL,NULL,NULL,"{""voo"": 6, ""canHover"": true, ""terrestre"": 0}",Bite | Eye Rays,Stunning Gaze | Death Throes
+799,Beholder,13.0,Grande,NULL,Marginal,Margem,190,18,16,14,18,17,15,17,"Deep Speech, Undercommon",Darkvision 120 ft.,NULL,NULL,NULL,"{""voo"": 12, ""terrestre"": 2}",Ataque Múltiplo | Mordida | Eye Rays,"Legendary Resistance (3/Day, or 4/Day in Lair)"
+333,Quipper,0,Minúsculo,NULL,Natural,Superfície,1,13,2,16,9,1,7,2,Nenhum,visão no escuro 60 pés,NULL,NULL,NULL,"{""natacao"": 12}",Bite,Blood Frenzy | Water Breathing
+786,Badger,0.0,Minúsculo,NULL,Natural,Superfície,5,11,10,11,16,2,12,5,NULL,Darkvision 30 ft.,{poison},NULL,NULL,"{""escavacao"": 2, ""terrestre"": 6}",Mordida,NULL
+827,Cat,0.0,Minúsculo,NULL,Natural,Superfície,2,12,3,15,10,3,12,7,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""escalada"": 12, ""terrestre"": 12}",Scratch,Jumper
+844,Crab,0.0,Minúsculo,NULL,Natural,Superfície,3,11,6,11,12,1,8,2,NULL,Blindsight 30 ft.,NULL,NULL,NULL,"{""natacao"": 6, ""terrestre"": 6}",Garra,Anfíbio
+860,Deer,0.0,Médio,NULL,Natural,Superfície,4,13,11,16,11,2,14,5,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""terrestre"": 15}",Ram,Agile
+876,Eagle,0.0,Pequeno,NULL,Natural,Superfície,4,12,6,15,12,2,14,7,NULL,NULL,NULL,NULL,NULL,"{""voo"": 18, ""terrestre"": 3}",Talons,NULL
+918,Giant Fire Beetle,0.0,Pequeno,NULL,Natural,Superfície,4,13,8,10,12,1,7,3,NULL,Blindsight 30 ft.,{fire},NULL,NULL,"{""escalada"": 9, ""terrestre"": 9}",Mordida,Illumination
+950,Goat,0.0,Médio,NULL,Natural,Superfície,4,10,11,10,11,2,10,5,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""escalada"": 9, ""terrestre"": 12}",Ram,NULL
+976,Hawk,0.0,Minúsculo,NULL,Natural,Superfície,1,13,5,16,8,2,14,6,NULL,NULL,NULL,NULL,NULL,"{""voo"": 18, ""terrestre"": 3}",Talons,NULL
+991,Hyena,0.0,Médio,NULL,Natural,Superfície,5,11,11,13,12,2,12,5,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""terrestre"": 15}",Mordida,Táticas de Matilha
+999,Jackal,0.0,Pequeno,NULL,Natural,Superfície,3,12,8,15,11,3,12,6,NULL,Darkvision 90 ft.,NULL,NULL,NULL,"{""terrestre"": 12}",Mordida,NULL
+1017,Lizard,0.0,Minúsculo,NULL,Natural,Superfície,2,10,2,11,10,1,8,3,NULL,Darkvision 30 ft.,NULL,NULL,NULL,"{""escalada"": 6, ""terrestre"": 6}",Mordida,Escalar em Paredes
+1063,Octopus,0.0,Pequeno,NULL,Natural,Superfície,3,12,4,15,11,3,10,4,NULL,Darkvision 30 ft.,NULL,NULL,NULL,"{""natacao"": 9, ""terrestre"": 2}",Tentáculos,Compression | Water Breathing
+1069,Owl,0.0,Minúsculo,NULL,Natural,Superfície,1,11,3,13,8,2,12,7,NULL,Darkvision 120 ft.,NULL,NULL,NULL,"{""voo"": 18, ""terrestre"": 2}",Talons,Flyby
+1079,Piranha,0.0,Minúsculo,NULL,Natural,Superfície,1,13,2,16,9,1,7,2,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""natacao"": 12, ""terrestre"": 2}",Mordida,Water Breathing
+1103,Rat,0.0,Minúsculo,NULL,Natural,Superfície,1,10,2,11,9,2,10,4,NULL,Darkvision 30 ft.,NULL,NULL,NULL,"{""escalada"": 6, ""terrestre"": 6}",Mordida,Agile
+1104,Raven,0.0,Minúsculo,NULL,Natural,Superfície,2,12,2,14,10,5,13,6,NULL,NULL,NULL,NULL,NULL,"{""voo"": 15, ""terrestre"": 3}",Beak,Mimicry
+1125,Scorpion,0.0,Minúsculo,NULL,Natural,Superfície,1,11,2,11,8,1,8,2,NULL,Blindsight 10 ft.,NULL,NULL,NULL,"{""terrestre"": 3}",Sting,NULL
+1129,Seahorse,0.0,Minúsculo,NULL,Natural,Superfície,1,12,1,12,8,1,10,2,NULL,NULL,NULL,NULL,NULL,"{""natacao"": 6, ""terrestre"": 2}",Bubble Dash,Water Breathing
+1147,Spider,0.0,Minúsculo,NULL,Natural,Superfície,1,12,2,14,8,1,10,2,NULL,Darkvision 30 ft.,NULL,NULL,NULL,"{""escalada"": 6, ""terrestre"": 6}",Mordida,Escalar em Paredes | Andador de Teia
+1197,Vulture,0.0,Médio,NULL,Natural,Superfície,5,10,7,10,13,2,12,4,NULL,NULL,NULL,NULL,NULL,"{""voo"": 15, ""terrestre"": 3}",Beak,Táticas de Matilha
+1205,Weasel,0.0,Minúsculo,NULL,Natural,Superfície,1,13,3,16,8,2,12,3,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""escalada"": 9, ""terrestre"": 9}",Mordida,NULL
+2028,Fox,0.0,Minúsculo,NULL,Natural,Superfície,2,13,2,16,11,3,12,6,NULL,darkvision 60 ft.,NULL,NULL,NULL,"{""escavacao"": 2, ""terrestre"": 9}",Mordida,Audição Aguçada
+2051,Kingsport,0.0,Médio,NULL,Natural,Superfície,5,11,6,12,12,10,10,4,Common,blindsight 30 ft. (blind beyond this radius),NULL,NULL,NULL,"{""natacao"": 12, ""terrestre"": 6}",Beak,Prender Respiração
+2053,Knucklehead Trout,0.0,Pequeno,NULL,Natural,Superfície,7,12,14,14,11,1,6,1,NULL,darkvision 60 ft.,NULL,NULL,NULL,"{""natacao"": 9}",Mordida | Cauda,Water Breathing
+2397,Flying Monkey,0.0,Pequeno,NULL,Natural,Superfície,3,12,8,14,11,5,12,6,NULL,NULL,NULL,NULL,NULL,"{""voo"": 9, ""escalada"": 6, ""terrestre"": 9}",Mordida,Táticas de Matilha | Familiar
+2465,Awakened Rat,0.0,Minúsculo,NULL,Natural,Superfície,1,10,2,11,9,10,10,4,Common,darkvision 30 ft.,NULL,NULL,NULL,"{""terrestre"": 6}",Mordida,Olfato Aguçado
+320,Poisonous Snake,0.125,Minúsculo,NULL,Natural,Superfície,2,13,2,16,11,1,10,3,Nenhum,visão cega 10 pés,NULL,NULL,NULL,"{""natacao"": 9, ""terrestre"": 9}",Bite,NULL
+499,Dolphin,0.125,Médio,NULL,Natural,Superfície,11,12,14,13,13,6,12,7,Nenhum,visão cega 60 pés,NULL,NULL,NULL,"{""natacao"": 18, ""terrestre"": 0}",Slam,Charge | Hold Breath
+808,Blood Hawk,0.125,Pequeno,NULL,Natural,Superfície,7,12,6,14,10,3,14,5,NULL,NULL,NULL,NULL,NULL,"{""voo"": 18, ""terrestre"": 3}",Beak,Táticas de Matilha
+825,Camel,0.125,Grande,NULL,Natural,Superfície,17,10,15,8,17,2,11,5,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""terrestre"": 15}",Mordida,NULL
+914,Giant Crab,0.125,Médio,NULL,Natural,Superfície,13,15,13,13,11,1,9,3,NULL,Blindsight 30 ft.,NULL,NULL,NULL,"{""natacao"": 9, ""terrestre"": 9}",Garra,Anfíbio
+935,Giant Weasel,0.125,Médio,NULL,Natural,Superfície,9,13,11,17,10,4,12,5,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""escalada"": 9, ""terrestre"": 12}",Mordida,NULL
+1030,Mastiff,0.125,Médio,NULL,Natural,Superfície,5,12,13,14,12,3,12,7,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""terrestre"": 12}",Mordida,NULL
+1047,Mule,0.125,Médio,NULL,Natural,Superfície,11,10,14,10,13,2,10,5,NULL,NULL,NULL,NULL,NULL,"{""terrestre"": 12}",Hooves,Beast of Burden
+1090,Pony,0.125,Médio,NULL,Natural,Superfície,11,10,15,10,13,2,11,7,NULL,NULL,NULL,NULL,NULL,"{""terrestre"": 12}",Hooves,NULL
+2060,Mountain Goat,0.125,Médio,NULL,Natural,Superfície,13,11,14,12,14,2,10,5,NULL,NULL,NULL,NULL,NULL,"{""escalada"": 9, ""terrestre"": 12}",Ram,Investida | Pés Firmes
+180,Giant Poisonous Snake,0.25,Médio,NULL,Natural,Superfície,11,14,10,18,13,2,10,3,Nenhum,visão cega 10 pés,NULL,NULL,NULL,"{""natacao"": 9, ""terrestre"": 9}",Bite,NULL
+488,Cow,0.25,Grande,NULL,Natural,Superfície,15,10,18,10,14,2,10,4,Nenhum,NULL,NULL,NULL,NULL,"{""terrestre"": 9}",Gore,Charge
+493,Deep Rothé,0.25,Médio,NULL,Natural,Superfície,13,10,18,10,14,2,10,4,Nenhum,visão no escuro 60 pés,NULL,NULL,NULL,"{""terrestre"": 9}",Gore,Charge
+497,Dimetrodon,0.25,Médio,NULL,Natural,Superfície,19,12,14,10,15,2,10,5,Nenhum,NULL,NULL,NULL,NULL,"{""natacao"": 6, ""terrestre"": 9}",Bite,NULL
+553,Ox,0.25,Grande,NULL,Natural,Superfície,15,10,18,10,14,2,10,4,Nenhum,NULL,NULL,NULL,NULL,"{""terrestre"": 9}",Gore,Charge | Beast of Burden
+558,Rothé,0.25,Grande,NULL,Natural,Superfície,15,10,18,10,14,2,10,4,Nenhum,visão no escuro 30 pés,NULL,NULL,NULL,"{""terrestre"": 9}",Gore,Charge
+565,Stench Kow,0.25,Grande,NULL,Natural,Superfície,15,10,18,10,14,2,10,4,Nenhum,visão no escuro 60 pés,"{frio,fogo,veneno}",NULL,NULL,"{""terrestre"": 9}",Gore,Charge | Stench
+580,Velociraptor,0.25,Minúsculo,NULL,Natural,Superfície,10,13,6,14,13,4,12,6,Nenhum,NULL,NULL,NULL,NULL,"{""terrestre"": 9}",Multiattack | Bite | Claws,Pack Tactics
+811,Boar,0.25,Médio,NULL,Natural,Superfície,13,11,13,11,14,2,9,5,NULL,NULL,NULL,NULL,NULL,"{""terrestre"": 12}",Gore,Bloodied Fury
+841,Constrictor Snake,0.25,Grande,NULL,Natural,Superfície,13,13,15,14,12,1,10,3,NULL,Blindsight 10 ft.,NULL,NULL,NULL,"{""natacao"": 9, ""terrestre"": 9}",Mordida | Constricção,NULL
+869,Draft Horse,0.25,Grande,NULL,Natural,Superfície,15,10,18,10,15,2,11,7,NULL,NULL,NULL,NULL,NULL,"{""terrestre"": 12}",Hooves,NULL
+882,Elk,0.25,Grande,NULL,Natural,Superfície,11,10,16,10,11,2,10,6,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""terrestre"": 15}",Ram,NULL
+909,Giant Badger,0.25,Médio,NULL,Natural,Superfície,15,13,13,10,17,2,12,5,NULL,Darkvision 60 ft.,{poison},NULL,NULL,"{""escavacao"": 3, ""terrestre"": 9}",Mordida,NULL
+910,Giant Bat,0.25,Grande,NULL,Natural,Superfície,22,13,15,16,11,2,12,6,NULL,Blindsight 120 ft.,NULL,NULL,NULL,"{""voo"": 18, ""terrestre"": 3}",Mordida,NULL
+922,Giant Lizard,0.25,Grande,NULL,Natural,Superfície,19,12,15,12,13,2,10,5,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""escalada"": 12, ""terrestre"": 12}",Mordida,Escalar em Paredes
+932,Giant Venomous Snake,0.25,Médio,NULL,Natural,Superfície,11,14,10,18,13,2,10,3,NULL,Blindsight 10 ft.,NULL,NULL,NULL,"{""natacao"": 12, ""terrestre"": 12}",Mordida,NULL
+1096,Pteranodon,0.25,Médio,dinosaur,Natural,Superfície,13,13,12,15,10,2,9,5,NULL,NULL,NULL,NULL,NULL,"{""voo"": 18, ""terrestre"": 3}",Mordida,Flyby
+1111,Riding Horse,0.25,Grande,NULL,Natural,Superfície,13,11,16,13,12,2,11,7,NULL,NULL,NULL,NULL,NULL,"{""terrestre"": 18}",Hooves,NULL
+1159,Swarm of Bats,0.25,Grande,NULL,Natural,Superfície,11,12,5,15,10,2,12,4,NULL,Blindsight 60 ft.,"{bludgeoning,piercing,slashing}",NULL,NULL,"{""voo"": 9, ""terrestre"": 2}",Bites,Swarm
+1216,Wolf,0.25,Médio,NULL,Natural,Superfície,11,12,14,15,12,3,12,6,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""terrestre"": 12}",Mordida,Táticas de Matilha
+2080,Walrus,0.25,Grande,NULL,Natural,Superfície,22,9,15,9,14,3,11,4,NULL,NULL,NULL,NULL,NULL,"{""natacao"": 12, ""terrestre"": 6}",Tusks,Prender Respiração
+2508,Maxeene,0.25,Grande,NULL,Natural,Superfície,19,10,18,10,12,10,11,7,Common,NULL,NULL,NULL,NULL,"{""terrestre"": 12}",Hooves,NULL
+183,Giant Sea Horse,0.5,Grande,NULL,Natural,Superfície,16,13,12,15,11,2,12,5,Nenhum,NULL,NULL,NULL,NULL,"{""natacao"": 12, ""terrestre"": 0}",Ram,Charge | Water Breathing
+384,Swarm of Centipedes,0.5,Médio,NULL,Natural,Superfície,22,12,3,13,10,1,7,1,Nenhum,visão cega 10 pés,"{contusão,perfuração,cortante}",NULL,NULL,"{""escalada"": 6, ""terrestre"": 6}",Bites,Swarm
+391,Swarm of Wasps,0.5,Médio,NULL,Natural,Superfície,22,12,3,13,10,1,7,1,Nenhum,visão cega 10 pés,"{contusão,perfuração,cortante}",NULL,NULL,"{""voo"": 9, ""terrestre"": 2}",Bites,Swarm
+569,Swarm of Rot Grubs,0.5,Médio,NULL,Natural,Superfície,22,8,2,7,10,1,2,1,Nenhum,visão cega 10 pés,"{perfuração,cortante}",NULL,NULL,"{""escalada"": 2, ""terrestre"": 2}",Bites,Swarm
+773,Ape,0.5,Médio,NULL,Natural,Superfície,19,12,16,14,14,6,12,7,NULL,NULL,NULL,NULL,NULL,"{""escalada"": 9, ""terrestre"": 9}",Ataque Múltiplo | Fist | Rock (Recarrega),NULL
+920,Giant Goat,0.5,Grande,NULL,Natural,Superfície,19,11,17,13,12,3,12,6,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""escalada"": 9, ""terrestre"": 12}",Ram,NULL
+927,Giant Seahorse,0.5,Grande,NULL,Natural,Superfície,16,14,15,12,11,2,12,5,NULL,NULL,NULL,NULL,NULL,"{""natacao"": 12, ""terrestre"": 2}",Ram,Water Breathing
+1107,Reef Shark,0.5,Médio,NULL,Natural,Superfície,22,12,14,15,13,1,10,4,NULL,Blindsight 30 ft.,NULL,NULL,NULL,"{""natacao"": 9, ""terrestre"": 2}",Mordida,Táticas de Matilha | Water Breathing
+1162,Swarm of Insects,0.5,Médio,NULL,Natural,Superfície,19,11,3,13,14,1,7,1,NULL,Blindsight 30 ft.,"{bludgeoning,piercing,slashing}",NULL,NULL,"{""terrestre"": 6}",Bites,Escalar em Paredes | Swarm
+1181,Troll Limb,0.5,Pequeno,NULL,Natural,Superfície,14,13,18,12,10,1,9,1,NULL,Darkvision 60 ft.,NULL,NULL,NULL,"{""terrestre"": 6}",Rend,Regeneração | Troll Spawn
+1198,Warhorse,0.5,Grande,NULL,Natural,Superfície,19,11,18,12,13,2,12,7,NULL,NULL,NULL,NULL,NULL,"{""terrestre"": 18}",Hooves,NULL
+1937,Giant Sea Eel,0.5,Grande,NULL,Natural,Superfície,19,14,11,14,12,7,10,7,NULL,darkvision 60 ft.,NULL,NULL,NULL,"{""natacao"": 12}",Mordida,Water Breathing
+2370,Zaltember,1.0,Grande,NULL,Natural,Superfície,30,13,17,10,14,10,10,10,"Common, Giant",NULL,NULL,{fire},NULL,"{""terrestre"": 9}",Battleaxe | Dardo,NULL
+462,Aurochs,2.0,Grande,NULL,Natural,Superfície,38,11,20,10,19,2,12,5,Nenhum,NULL,NULL,NULL,NULL,"{""terrestre"": 15}",Gore,Charge
+691,Ogre Howdah,2.0,Grande,NULL,Natural,Superfície,59,13,19,8,16,5,7,7,"Comum, Gigante",visão no escuro 60 pés,NULL,NULL,NULL,"{""terrestre"": 12}",Mace,Howdah
+755,Allosaurus,2.0,Grande,dinosaur,Natural,Superfície,51,13,19,13,17,2,12,5,NULL,NULL,NULL,NULL,NULL,"{""terrestre"": 18}",Mordida | Garras,NULL
+911,Giant Boar,2.0,Grande,NULL,Natural,Superfície,42,13,17,10,16,2,7,5,NULL,NULL,NULL,NULL,NULL,"{""terrestre"": 12}",Gore,Bloodied Fury
+1064,Ogre,2.0,Grande,NULL,Natural,Superfície,68,11,19,8,16,5,7,7,"Common, Giant",Darkvision 60 ft.,NULL,NULL,NULL,"{""terrestre"": 12}",Greatclub | Dardo,NULL
+1087,Plesiosaurus,2.0,Grande,dinosaur,Natural,Superfície,68,13,18,15,16,2,12,5,NULL,NULL,NULL,NULL,NULL,"{""natacao"": 12, ""terrestre"": 6}",Mordida,Prender Respiração
+1088,Polar Bear,2.0,Grande,NULL,Natural,Superfície,42,12,20,14,16,2,13,7,NULL,Darkvision 60 ft.,{cold},NULL,NULL,"{""natacao"": 12, ""terrestre"": 12}",Ataque Múltiplo | Rend,NULL
+690,Ogre Chain Brute,3.0,Grande,NULL,Natural,Superfície,59,11,19,8,16,5,7,7,"Comum, Gigante",visão no escuro 60 pés,NULL,NULL,NULL,"{""terrestre"": 12}",Fist | Chain Sweep | Chain Smash {@recharge},NULL
+1003,Killer Whale,3.0,Enorme,NULL,Natural,Superfície,90,12,19,14,13,3,12,7,NULL,Blindsight 120 ft.,NULL,NULL,NULL,"{""natacao"": 18, ""terrestre"": 2}",Mordida,Prender Respiração
+564,Stegosaurus,4.0,Enorme,NULL,Natural,Superfície,76,13,20,9,17,2,11,5,Nenhum,NULL,NULL,NULL,NULL,"{""terrestre"": 12}",Tail,NULL
+2032,Giant Walrus,4.0,Enorme,NULL,Natural,Superfície,85,9,22,9,16,3,11,4,NULL,darkvision 60 ft.,NULL,NULL,NULL,"{""natacao"": 12, ""terrestre"": 6}",Ataque Múltiplo | Body Flop | Tusks,Prender Respiração
+2079,Verbeeg Marauder,4.0,Grande,NULL,Natural,Superfície,85,14,19,11,16,11,10,9,"Common, Giant",NULL,NULL,NULL,NULL,"{""terrestre"": 12}",Ataque Múltiplo | Lança,Simple Weapon Wielder
+980,Hill Giant,5.0,Enorme,NULL,Natural,Superfície,105,13,21,8,19,5,9,6,Giant,NULL,NULL,NULL,NULL,"{""terrestre"": 12}",Ataque Múltiplo | Tree Club | Trash Lob,NULL
+1178,Triceratops,5.0,Enorme,dinosaur,Natural,Superfície,114,14,22,9,17,2,11,5,NULL,NULL,NULL,NULL,NULL,"{""terrestre"": 15}",Ataque Múltiplo | Gore,NULL
+1180,Troll,5.0,Grande,NULL,Natural,Superfície,94,15,18,13,20,7,9,7,Giant,Darkvision 60 ft.,NULL,NULL,NULL,"{""terrestre"": 9}",Ataque Múltiplo | Rend,Loathsome Limbs (4/Day) | Regeneração
+2277,Chief Guh,5.0,Enorme,NULL,Natural,Superfície,160,9,21,1,19,5,9,6,"Common, Giant, Goblin",NULL,NULL,NULL,NULL,"{""terrestre"": 0}",Ataque Múltiplo | Greatclub | Unarmed Attack | Rock,NULL
+2519,Obliteros,5.0,Enorme,NULL,Natural,Superfície,126,13,23,11,21,10,10,5,Aquan,blindsight 60 ft.,NULL,NULL,NULL,"{""natacao"": 15}",Mordida,Blood Frenzy | Water Breathing
+541,Mouth of Grolantor,6.0,Enorme,hill giant,Natural,Superfície,105,14,21,10,18,5,7,5,Gigante,NULL,NULL,NULL,NULL,"{""terrestre"": 15}",Bite | Fist,Mouth of Madness
+1024,Mammoth,6.0,Enorme,NULL,Natural,Superfície,126,13,24,9,21,3,11,6,NULL,NULL,NULL,NULL,NULL,"{""terrestre"": 15}",Ataque Múltiplo | Gore,NULL
+2005,Trepsin,6.0,Grande,NULL,Natural,Superfície,84,15,18,13,20,7,9,7,Giant,darkvision 60 ft.,NULL,NULL,NULL,"{""terrestre"": 9}",Ataque Múltiplo | Mordida | Garra,Olfato Aguçado | Regeneração
+2073,Sperm Whale,8.0,Gigantesco,NULL,Natural,Superfície,189,13,26,8,17,3,12,5,NULL,blindsight 120 ft.,NULL,NULL,NULL,"{""natacao"": 18}",Ataque Múltiplo | Mordida | Cauda,Echolocation | Prender Respiração | Audição Aguçada
+2311,Jarl Storvald,8.0,Enorme,NULL,Natural,Superfície,189,15,23,9,21,9,16,16,"Common, Giant, Giant Owl",NULL,NULL,{cold},NULL,"{""terrestre"": 12}",Weighted Net | Ataque Múltiplo | Machadão | Rock,NULL
+836,Cloud Giant,9.0,Enorme,NULL,Natural,Superfície,200,14,27,10,22,12,16,16,"Common, Giant",NULL,NULL,NULL,NULL,"{""voo"": 6, ""terrestre"": 12}",Ataque Múltiplo | Thunderous Mace | Thundercloud,NULL
+890,Fire Giant,9.0,Enorme,NULL,Natural,Superfície,162,18,25,9,23,10,14,13,Giant,NULL,NULL,{fire},NULL,"{""terrestre"": 9}",Ataque Múltiplo | Flame Sword | Hammer Throw,NULL
+2301,Harshnag,9.0,Enorme,NULL,Natural,Superfície,204,21,23,9,21,9,10,12,"Common, Giant",NULL,NULL,{cold},NULL,"{""terrestre"": 12}",Weighted Net | Ataque Múltiplo | Gurt's Greataxe | Rock,Legendary Resistance (1/Day)
+649,Elder Tempest,23.0,Gigantesco,NULL,Ressonante,Superfície,264,19,23,28,23,2,21,18,Nenhum,visão no escuro 60 pés,"{""contusão (não-mágico)"",""perfuração (não-mágico)"",""cortante (não-mágico)""}","{raio,veneno,trovão}",NULL,"{""voo"": 36, ""canHover"": true, ""terrestre"": 0}",Multiattack | Thunderous Slam | Lightning Storm {@recharge},Air Form | Flyby | Legendary Resistance (3/Day) | Living Storm | Siege Monster

@@ -1,0 +1,40 @@
+==========================================================================
+AUDITORIA DA SESSAO DE CALIBRACAO — 5 greps sobre as 8 prosas
+==========================================================================
+
+[a] ABERTURAS (primeiras 8 palavras de cada turno):
+   T1: O ferro rangeu numa nota só, longa, e
+   T2: A nave abria-se além de uma porta sem
+   T3: A voz saiu baixa e o claustro a
+   T4: Da penumbra de uma das arcadas, onde antes
+   T5: O velho ficou parado um tempo longo demais,
+   T6: A chama do coto pegou na terceira tentativa
+   T7: O corredor lateral fugia da nave para a
+   T8: A porta abriu sem que mão alguma a
+   -> 1a palavra repetida entre turnos: ['a', 'o']
+   -> 2 primeiras palavras repetidas: NENHUMA
+
+[b] LEXICO BANIDO / moldura espirita (alma|fantasma|espirito|demonio):
+   -> total de ocorrencias: 0  (OK (zero))
+
+[c] NUMEROS CRUS na prosa (digito ligado a pressao/vida/mana, ou qualquer digito):
+   -> vazamento stat+numero: 0  (OK (zero))
+   -> digitos crus quaisquer na prosa: NENHUM (prosa escreve numeros por extenso)
+
+[d] ANTITESE 'nao X, mas Y' (por prosa) + cacoete entre turnos:
+   T1: 1 antitese(s)
+        'não do poço, mas'
+   T2: 0 antitese(s)
+   T3: 0 antitese(s)
+   T4: 0 antitese(s)
+   T5: 0 antitese(s)
+   T6: 0 antitese(s)
+   T7: 0 antitese(s)
+   T8: 0 antitese(s)
+   -> total de antiteses nas 8 prosas: 1 (media 0.12/prosa)
+
+[e] FIDELIDADE estado<->prosa (heuristico — sinaliza p/ leitura humana):
+   -> nenhuma contradicao estado<->prosa detectada pela heuristica.
+   (NB: heuristico — a leitura final das 8 prosas e do Gabriel.)
+
+==========================================================================
