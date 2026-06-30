@@ -1093,7 +1093,9 @@ _CSS = """
   /* A2: altura da gravura como FAIXA enxuta. Knob unico (o Gabriel ajusta no olho). */
   --plate-h:clamp(120px,16vh,150px);
   /* P2: largura da moldura do interlocutor (coluna ESQ do palco). Knob (ajustar no olho). */
-  --col-retrato:232px;
+  --col-retrato:155px;
+  /* P2 ajuste: cap de altura da moldura (knob) — sem isso o aspect 4/5 vira retangulo enorme. */
+  --retrato-h:clamp(180px,24vh,230px);
 }
 /* --- resets p/ vencer o Quasar/NiceGUI: APP-SHELL de tela cheia (pagina fixa) ---
    A pagina NAO rola: html/body/q-page travados em 100% e overflow:hidden. O
@@ -1344,11 +1346,16 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
    no markup escondidos (P3 liga). CSS portado do mock jogar_definitiva_fatia5.html. */
 .palco{ display:grid; grid-template-columns:var(--col-retrato) 1fr; gap:clamp(20px,3vw,40px); align-items:start; }
 .interlocutor{ position:sticky; top:8px; }
-.retrato-grande{ position:relative; width:100%; aspect-ratio:4/5; overflow:hidden;
+.retrato-grande{ position:relative; width:100%; aspect-ratio:4/5; max-height:var(--retrato-h); overflow:hidden;
   border:1px solid var(--ouro-esc);
   background:radial-gradient(72% 55% at 50% 36%,#2c2319,#120d08 78%),
     radial-gradient(40% 55% at 80% 26%, rgba(220,200,160,.10), transparent 60%);
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), 0 12px 34px rgba(0,0,0,.5); }
+/* marca de quadro a espera: losango ◇ fraco no centro, atras de tudo (mesmo gesto do .lz do
+   cabecalho). Quando o P3 puser imagem real (z-index >=1), ela cobre a marca. */
+.retrato-grande::before{ content:""; position:absolute; top:50%; left:50%; z-index:0; pointer-events:none;
+  width:34px; height:34px; transform:translate(-50%,-50%) rotate(45deg);
+  border:1px solid var(--osso2); opacity:.16; }
 .retrato-grande::after{ content:""; position:absolute; inset:0; z-index:2; pointer-events:none;
   background:radial-gradient(82% 72% at 50% 38%, transparent 42%, rgba(0,0,0,.72)); }
 .retrato-cantos span{ position:absolute; width:13px; height:13px; border:2px solid var(--ouro); z-index:4; }
@@ -1377,7 +1384,7 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
   .retrato-grande{ width:128px; flex:none; }
 }
 
-.plate{ position:relative; z-index:2; margin:8px 0 6px; animation:plate-in 1.4s ease both; }
+.plate{ position:relative; z-index:2; margin:0 0 6px; animation:plate-in 1.4s ease both; }
 .plate .frame{ position:relative; border:1px solid var(--regua2); overflow:hidden; background:#0a0806; }
 /* Ken Burns LENTISSIMO: scale 1 -> 1.04 num ciclo longo, ida e volta (transform-only,
    nao mexe no layout). O .frame ja tem overflow:hidden, entao o zoom nunca vaza. */
@@ -1387,7 +1394,7 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 @keyframes kenburns{ from{transform:scale(1)} to{transform:scale(1.04)} }
 .plate .frame::after{ content:""; position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 64px 12px rgba(10,8,6,.82), inset 0 0 0 1px rgba(0,0,0,.5); }
 
-.corpo{ max-width:min(640px,64ch); margin:16px auto 0; padding:0 16px; position:relative; z-index:2;
+.corpo{ max-width:min(640px,64ch); margin:8px auto 0; padding:0 16px; position:relative; z-index:2;
   font-size:clamp(17px,1.25vw,19px); line-height:1.72; text-align:justify; hyphens:auto; -webkit-hyphens:auto;
   font-family:"Spectral",Georgia,serif !important; color:var(--leitura); min-height:120px; }
 .corpo p{ font-family:"Spectral",Georgia,serif !important; }
