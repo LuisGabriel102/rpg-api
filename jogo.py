@@ -1638,7 +1638,7 @@ body.foco .sair-foco{ display:block; }
 .dado-zona .cd-mod{ font-weight:600; color:var(--osso); }
 .dado-zona .cd-resultado{ display:flex; flex-direction:column; gap:2px; min-width:0; }
 .dado-zona .dado-btn{ margin-left:auto; }
-.dado-par{ display:flex; align-items:center; gap:12px; }
+.dado-par{ position:relative; display:flex; align-items:center; gap:12px; }
 /* DADO = losango d10 (escopado em .dado-zona; SEM classe .dado global colidente).
    clip-path corta borda E box-shadow -> os brilhos vao por filter:drop-shadow,
    que segue a forma do losango. Hex literais do prototipo, autorizados na zona. */
@@ -2606,18 +2606,20 @@ _BODY = """
           <span class="dado-op">+</span>
           <div class="dado" id="dado-2">&mdash;</div>
           <span class="cd-mod" id="dado-mod">+0</span>
+          <!-- palco de fx ANCORADO nos dados (.dado-par): clarao/raio do critico e sangue da
+               falha critica batem onde os dados pousam, nao no card largo. -->
+          <div class="dado-fx" id="dado-fx" aria-hidden="true">
+            <span class="fx-clarao"></span>
+            <span class="fx-raio"></span>
+            <span class="fx-fio"></span>
+            <span class="fx-sangue"></span>
+          </div>
         </div>
         <div class="cd-resultado">
           <div class="dado-conta" id="dado-conta"></div>
           <div class="dado-faixa" id="dado-faixa"></div>
         </div>
         <button class="dado-btn" id="dado-btn" type="button" aria-label="Rolar os dados" disabled>rolar 2d10</button>
-        <div class="dado-fx" id="dado-fx" aria-hidden="true">
-          <span class="fx-clarao"></span>
-          <span class="fx-raio"></span>
-          <span class="fx-fio"></span>
-          <span class="fx-sangue"></span>
-        </div>
       </div>
 
       <div class="pondera oculto" id="pondera">o Cronista pondera<span class="ret"><span>.</span><span>.</span><span>.</span></span></div>

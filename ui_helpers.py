@@ -88,7 +88,10 @@ async def aguardar_conexao_websocket(titulo: str = "Carregando...") -> None:
     # - Fase 2 (abaixo): WebSocket aberto, mudancas vao por ele sem timeout
     await ui.context.client.connected()
 
-    placeholder.delete()
+    try:
+        placeholder.delete()
+    except (ValueError, KeyError):
+        pass  # cliente reconectou/re-renderizou durante connected(): placeholder ja saiu da arvore
 
 
 _VITRAL_NAV_CSS = """
