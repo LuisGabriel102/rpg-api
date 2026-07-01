@@ -567,16 +567,19 @@ _SQL_ESTADO = (
 )
 
 # Roster de NPCs no LOCAL ATUAL da campanha (contexto do turno, espelho do _resumo_bando de
-# combate). Rota JOIN (verificavel pelo schema): sessoes -> campanha_estado_atual.local_atual_id
-# -> location_npcs.location_id -> npcs. Devolve id+nome pra montar 'NPCs em cena: id=Nome'.
-# Escolhida em vez de campanha_estado_atual.npcs_importantes_sessao (ARRAY) porque o conteudo
-# do array nao e verificavel sem consultar o banco; o JOIN e deterministico e chaveado por id.
+# combate). campanha_estado_atual.local_atual_id e FK de ref_locais(id) — NAO de locations —,
+# entao a tabela de ligacao correta e ref_locais_npcs (local_id -> ref_locais, npc_id -> npcs).
+# JOIN: sessoes -> campanha_estado_atual.local_atual_id -> ref_locais_npcs.local_id -> npcs
+# (id, nome). NAO uso location_npcs (liga a locations, outro espaco de id -> traria vazio ou NPC
+# errado por colisao de id), nem npcs_importantes_sessao (ARRAY de conteudo nao verificavel).
+# ref_locais_npcs pode nao existir ainda (migracao roda no pgAdmin do Gabriel) -> o caminho e
+# defensivo em _roster_npcs_em_cena (tabela ausente -> None, o [ESTADO] nao quebra).
 _SQL_NPCS_CENA = (
     "SELECT n.id AS nid, n.nome AS nnome "
     "FROM sessoes sx "
     "JOIN campanha_estado_atual ce ON ce.campanha_id = sx.campanha_id "
-    "JOIN location_npcs ln ON ln.location_id = ce.local_atual_id "
-    "JOIN npcs n ON n.id = ln.npc_id "
+    "JOIN ref_locais_npcs rln ON rln.local_id = ce.local_atual_id "
+    "JOIN npcs n ON n.id = rln.npc_id "
     "WHERE sx.id = :sid "
     "ORDER BY n.id"
 )
@@ -690,7 +693,7 @@ async def _montar_estado_safe(sessao_id: int, pressao_atual: int, resultado_test
                     except Exception as exc:  # noqa: BLE001
                         print(f"[estado] divida falhou: {type(exc).__name__}: {exc}")
                 # NPCs em cena: roster do local atual (campanha_estado_atual.local_atual_id ->
-                # location_npcs JOIN npcs). Injeta 'NPCs em cena: id=Nome, ...' no [ESTADO], como
+                # ref_locais_npcs JOIN npcs). Injeta 'NPCs em cena: id=Nome, ...' no [ESTADO], como
                 # _resumo_bando faz com o bando de combate. SO contexto (o Cronista passa a VER o
                 # roster); nao muda o prompt do Cronista nem o parser. Defensivo: erro/vazio -> sem linha.
                 _ln_npcs = await _roster_npcs_em_cena(s, sessao_id)
