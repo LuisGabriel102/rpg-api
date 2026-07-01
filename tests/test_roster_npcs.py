@@ -73,3 +73,16 @@ def test_roster_query_sem_npcs_some():
 def test_roster_query_erro_nao_quebra():
     s = _FakeSession(erro=RuntimeError("banco caiu"))
     assert asyncio.run(jogo._roster_npcs_em_cena(s, 3)) is None   # degrada -> None, sem levantar
+
+
+# ------------------------------------------------------------- guarda de tabela (regressao)
+
+def test_sql_junta_por_ref_locais_npcs_nao_location_npcs():
+    """O local da campanha (campanha_estado_atual.local_atual_id) e FK de ref_locais, entao o
+    roster TEM que juntar por ref_locais_npcs. location_npcs (FK locations) traria vazio/errado.
+    Guarda contra reverter pra tabela errada."""
+    sql = jogo._SQL_NPCS_CENA
+    assert "ref_locais_npcs" in sql
+    assert "location_npcs" not in sql
+    assert "rln.local_id = ce.local_atual_id" in sql
+    assert "n.id = rln.npc_id" in sql

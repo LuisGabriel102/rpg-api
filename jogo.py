@@ -704,7 +704,7 @@ async def _montar_estado_safe(sessao_id: int, pressao_atual: int, resultado_test
             #   - fadiga (atual/max): nenhuma coluna no schema.
             #   - clima / luz / hora do dia: nao persistido (atmosfera vem do output do narrador).
             #   - Tensao de combate (0-5, ADR-004): combate_ativo guarda estado/rodada, nao a metrica.
-            #   (NPCs em cena: AGORA ligado acima — roster via location_npcs + local_atual_id.)
+            #   (NPCs em cena: AGORA ligado acima — roster via ref_locais_npcs + local_atual_id.)
     except Exception as exc:  # noqa: BLE001
         print(f"[estado] FALHA ao montar estado: {type(exc).__name__}: {exc}")
     bloco = re.sub(r"\n{2,}", "\n", "[ESTADO]\n" + "\n".join(linhas))  # defesa final
