@@ -1170,9 +1170,9 @@ _CSS = """
   /* A2: altura da gravura como FAIXA enxuta. Knob unico (o Gabriel ajusta no olho). */
   --plate-h:clamp(120px,16vh,150px);
   /* P2: largura da moldura do interlocutor (coluna ESQ do palco). Knob (ajustar no olho). */
-  --col-retrato:155px;
+  --col-retrato:300px;   /* REDESIGN: retrato como ancora da cena (era 155px miniatura) */
   /* P2 ajuste: cap de altura da moldura (knob) — sem isso o aspect 4/5 vira retangulo enorme. */
-  --retrato-h:clamp(180px,24vh,230px);
+  --retrato-h:clamp(300px,44vh,380px);   /* REDESIGN: retrato 300px 4/5 -> ~375px de altura (ancora, nao faixa) */
 }
 /* --- resets p/ vencer o Quasar/NiceGUI: APP-SHELL de tela cheia (pagina fixa) ---
    A pagina NAO rola: html/body/q-page travados em 100% e overflow:hidden. O
@@ -1442,8 +1442,17 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
    contem .plate + #corpo INTACTOS). Largura da moldura = knob --col-retrato. Fora de
    combate a moldura e vazia/sobria (quadro + cantos, vinheta). Campos de combate ficam
    no markup escondidos (P3 liga). CSS portado do mock jogar_definitiva_fatia5.html. */
-.palco{ display:grid; grid-template-columns:var(--col-retrato) 1fr; gap:clamp(20px,3vw,40px); align-items:start; }
-.interlocutor{ position:sticky; top:8px; }
+/* REDESIGN (2 situacoes aprovadas). B (padrao, SEM gravura): coluna UNICA -> a prosa e o
+   heroi, centralizada no card com respiro simetrico; a coluna do retrato SOME (mata o
+   vazio de ~2878px). A (.tem-gravura, HA gravura): retrato --col-retrato (~300px, ancora)
+   + prosa min(640,64ch); o bloco das duas colunas centralizado (justify-content:center),
+   sem deriva, sem vao. Alterna pela classe .tem-gravura no .palco, ligada por
+   window.setGravura/limparGravura (so troca de classe; nao toca pipeline/parser/banco). */
+.palco{ display:grid; grid-template-columns:min(640px,64ch); justify-content:center;
+  gap:clamp(20px,3vw,40px); align-items:start; }
+.palco.tem-gravura{ grid-template-columns:var(--col-retrato) min(640px,64ch); }
+.interlocutor{ position:sticky; top:8px; display:none; }
+.palco.tem-gravura .interlocutor{ display:block; }
 .retrato-grande{ position:relative; width:100%; aspect-ratio:4/5; max-height:var(--retrato-h); overflow:hidden;
   border:1px solid var(--ouro-esc);
   background:radial-gradient(72% 55% at 50% 36%,#2c2319,#120d08 78%),
@@ -1495,8 +1504,9 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
 .leitura{ min-width:0; }
 /* estreito: 1 coluna; a moldura vira FAIXA (chip) em cima da prosa, sempre visivel. */
 @media (max-width: 860px){
-  .palco{ grid-template-columns:1fr; gap:18px; }
-  .interlocutor{ position:static; display:flex; flex-direction:row; align-items:center; gap:16px; }
+  .palco, .palco.tem-gravura{ grid-template-columns:1fr; gap:18px; justify-content:stretch; }
+  /* B segue coluna unica (interlocutor display:none herdado); so .tem-gravura mostra a faixa. */
+  .palco.tem-gravura .interlocutor{ position:static; display:flex; flex-direction:row; align-items:center; gap:16px; }
   .retrato-grande{ width:128px; flex:none; }
 }
 
@@ -3404,6 +3414,13 @@ _GRAVURA_JS = """
 window.__gravLimpaTimer = function () {
   if (window.__gravTimer) { clearTimeout(window.__gravTimer); window.__gravTimer = null; }
 };
+// REDESIGN: alterna a coluna do retrato. .tem-gravura no .palco -> situacao A (retrato+prosa);
+// ausente -> situacao B (coluna unica, prosa centralizada). SO troca de classe -> nao toca
+// pipeline/parser/banco, e nao mexe em geometria contida (grid-template-columns via CSS).
+window.__temGravura = function (on) {
+  var pl = document.querySelector('.palco');
+  if (pl) pl.classList.toggle('tem-gravura', on !== false);
+};
 // Estado QUIETO de carregamento: acende no PEDIDO (backend sabe que a gravura existe), apaga no
 // onload / falha / timeout. Pulsa o losango placeholder (CSS .carregando), sem spinner.
 window.gravuraCarregando = function (on) {
@@ -3425,12 +3442,14 @@ window.setGravura = function (url) {
   if (!url) {                                   // falha/None -> apaga carregando, volta ao vazio sobrio
     if (box) box.classList.remove('carregando');
     window.__gravLimpaTimer();
+    window.__temGravura(false);                    // sem imagem -> situacao B (coluna unica)
     img.hidden = true; img.removeAttribute('src'); img.classList.remove('assentou');
     return;
   }
   img.onload = function () {
     if (box) box.classList.remove('carregando');   // imagem chegou -> apaga o sinal
     window.__gravLimpaTimer();
+    window.__temGravura(true);                      // imagem real assentou -> situacao A (2 colunas)
     img.hidden = false;
     // reinicia o fade mesmo numa TROCA de gravura (feicao mudou): tira a classe, reflow, recoloca.
     img.classList.remove('assentou');
@@ -3440,6 +3459,7 @@ window.setGravura = function (url) {
   img.onerror = function () {
     if (box) box.classList.remove('carregando');
     window.__gravLimpaTimer();
+    window.__temGravura(false);                     // erro de carga -> situacao B
     img.hidden = true; img.removeAttribute('src'); img.classList.remove('assentou');
   };
   img.src = url;
@@ -3448,6 +3468,7 @@ window.limparGravura = function () {
   var box = document.getElementById('retrato');
   if (box) box.classList.remove('carregando');
   window.__gravLimpaTimer();
+  window.__temGravura(false);                        // reset/limpeza -> situacao B
   var img = document.getElementById('retratoImg');
   if (img) { img.hidden = true; img.removeAttribute('src'); img.classList.remove('assentou'); }
 };
