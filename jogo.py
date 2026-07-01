@@ -40,6 +40,7 @@ from anthropic import AsyncAnthropic
 from cronista_prompt import CRONISTA_SYSTEM_PROMPT
 import gravura   # P3: pipeline da linha 'gravura:' (R2/fal lazy la dentro; import barato)
 import custos   # Tarefa 8: precos Opus 4.8 + custo de gravura + cambio; calculo PURO do gasto
+import sentry_sdk   # diagnostico: capture_exception no except da gravura (no-op se Sentry off/dev)
 from campanha_protagonista import bloco_campanha_infancia
 from ui_helpers import aguardar_conexao_websocket
 from app.resolucao_2d10 import classificar_faixa, rolar_resolucao
@@ -4942,7 +4943,20 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
                         _url = await gravura.obter_gravura(_desc_grav, sessao_id=_sess_grav, on_custo=_somar_gravura)
                     except Exception as _ge:
                         _url = None
-                        _log_grav("falhou", aviso=f"gravura erro: {type(_ge).__name__}")
+                        # DIAGNOSTICO: o aviso passa a carregar a MENSAGEM real, nao so o tipo
+                        # (antes gravava so type(_ge).__name__ -> cegava o log). str(_ge) vazio
+                        # (RuntimeError sem texto) -> cai no nome do tipo como fallback.
+                        _msg_ge = str(_ge).strip()
+                        _aviso_ge = (f"gravura erro: {type(_ge).__name__}: {_msg_ge}"
+                                     if _msg_ge else f"gravura erro: {type(_ge).__name__}")
+                        _log_grav("falhou", aviso=_aviso_ge)
+                        # Sentry (so-prod) ve o traceback completo. SEM relancar: a gravura NUNCA
+                        # quebra o turno (trava preservada). Defensivo: o proprio Sentry jamais
+                        # derruba o fluxo (no-op quando desligado em dev).
+                        try:
+                            sentry_sdk.capture_exception(_ge)
+                        except Exception:
+                            pass
                     if not _url or _mg_grav != geracao:
                         # falha real (nao stale) -> apaga o "carregando" ja, sem esperar o timeout.
                         # stale (sessao recomecou) -> deixa o timeout client-side limpar (nao mexe no
