@@ -566,6 +566,21 @@ _SQL_ESTADO = (
     "WHERE s.id = :sid"
 )
 
+# Roster de NPCs no LOCAL ATUAL da campanha (contexto do turno, espelho do _resumo_bando de
+# combate). Rota JOIN (verificavel pelo schema): sessoes -> campanha_estado_atual.local_atual_id
+# -> location_npcs.location_id -> npcs. Devolve id+nome pra montar 'NPCs em cena: id=Nome'.
+# Escolhida em vez de campanha_estado_atual.npcs_importantes_sessao (ARRAY) porque o conteudo
+# do array nao e verificavel sem consultar o banco; o JOIN e deterministico e chaveado por id.
+_SQL_NPCS_CENA = (
+    "SELECT n.id AS nid, n.nome AS nnome "
+    "FROM sessoes sx "
+    "JOIN campanha_estado_atual ce ON ce.campanha_id = sx.campanha_id "
+    "JOIN location_npcs ln ON ln.location_id = ce.local_atual_id "
+    "JOIN npcs n ON n.id = ln.npc_id "
+    "WHERE sx.id = :sid "
+    "ORDER BY n.id"
+)
+
 
 def _uma_linha(v) -> str:
     """Texto livre do banco -> UMA linha: \\n,\\r,\\t e espacos multiplos viram um
@@ -574,6 +589,33 @@ def _uma_linha(v) -> str:
     if v is None:
         return ""
     return " ".join(str(v).split())
+
+
+def _linha_npcs_em_cena(rows) -> "str | None":
+    """PURO (testavel sem banco): rows (mappings/dicts com nid/nnome) -> 'NPCs em cena:
+    id=Nome, id=Nome' ou None quando vazio. Pula linha sem id ou sem nome. Nome passa por
+    _uma_linha (nunca parte o [ESTADO]). Vazio -> None (a linha some, nao escreve rotulo vazio)."""
+    pares = []
+    for r in (rows or []):
+        nid = r.get("nid") if hasattr(r, "get") else r["nid"]
+        nome = _uma_linha(r.get("nnome") if hasattr(r, "get") else r["nnome"])
+        if nid is not None and nome:
+            pares.append(f"{nid}={nome}")
+    if not pares:
+        return None
+    return "NPCs em cena: " + ", ".join(pares)
+
+
+async def _roster_npcs_em_cena(sessao_db, sessao_id: int) -> "str | None":
+    """Query (_SQL_NPCS_CENA) + formata (_linha_npcs_em_cena) o roster do local atual.
+    DEFENSIVO: qualquer erro -> None (o [ESTADO] nunca quebra por causa do roster). SO leitura."""
+    try:
+        from sqlalchemy import text as _t
+        rows = (await sessao_db.execute(_t(_SQL_NPCS_CENA), {"sid": sessao_id})).mappings().all()
+        return _linha_npcs_em_cena(rows)
+    except Exception as exc:  # noqa: BLE001 - roster nunca derruba o estado
+        print(f"[estado] roster npcs falhou: {type(exc).__name__}: {exc}")
+        return None
 
 
 async def _montar_estado_safe(sessao_id: int, pressao_atual: int, resultado_teste: str | None = None) -> str:
@@ -647,13 +689,19 @@ async def _montar_estado_safe(sessao_id: int, pressao_atual: int, resultado_test
                                 linhas.append("manifestações ativas: " + "; ".join(desc))
                     except Exception as exc:  # noqa: BLE001
                         print(f"[estado] divida falhou: {type(exc).__name__}: {exc}")
+                # NPCs em cena: roster do local atual (campanha_estado_atual.local_atual_id ->
+                # location_npcs JOIN npcs). Injeta 'NPCs em cena: id=Nome, ...' no [ESTADO], como
+                # _resumo_bando faz com o bando de combate. SO contexto (o Cronista passa a VER o
+                # roster); nao muda o prompt do Cronista nem o parser. Defensivo: erro/vazio -> sem linha.
+                _ln_npcs = await _roster_npcs_em_cena(s, sessao_id)
+                if _ln_npcs:
+                    linhas.append(_ln_npcs)
             # TODO: campos NAO rastreados no banco (nao inventar; ficam de fora do bloco):
             #   - vigor (atual/max): nenhuma coluna no schema.
             #   - fadiga (atual/max): nenhuma coluna no schema.
             #   - clima / luz / hora do dia: nao persistido (atmosfera vem do output do narrador).
             #   - Tensao de combate (0-5, ADR-004): combate_ativo guarda estado/rodada, nao a metrica.
-            #   - NPCs presentes na cena: derivavel de campanha_estado_atual.local_atual_id +
-            #     location_npcs; nao ligado aqui (so 'companheiros' via personagem_aliados_ativos).
+            #   (NPCs em cena: AGORA ligado acima — roster via location_npcs + local_atual_id.)
     except Exception as exc:  # noqa: BLE001
         print(f"[estado] FALHA ao montar estado: {type(exc).__name__}: {exc}")
     bloco = re.sub(r"\n{2,}", "\n", "[ESTADO]\n" + "\n".join(linhas))  # defesa final
