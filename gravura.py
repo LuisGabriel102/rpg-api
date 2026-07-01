@@ -1,7 +1,13 @@
 """
-Pipeline da linha 'gravura:' (P3) — Cronista pede, o backend gera UMA imagem de cena
-com o LoRA de ESTILO do Alderyn (fal-ai/flux-lora), cacheia no R2 por key estavel, e
-serve a URL publica. A moldura da esquerda (.interlocutor / #retrato) mostra.
+Pipeline da linha 'gravura:' (P3) — a moldura da esquerda (.interlocutor / #retrato).
+
+FASE 2 (imagem-mae, SPEC_gravura_imagem_mae_admin_npcs_v1): em TEMPO DE JOGO a gravura
+e uma LEITURA PURA — url_imagem_mae(npc_id) le npcs.imagem_url (a canonica aprovada) e
+serve. ZERO geracao, zero fal, zero cache proprio no jogo.
+
+O caminho de GERACAO abaixo (obter_gravura + fal-ai/flux-lora + tradutor Haiku + cache
+R2 + teto) fica MANTIDO no modulo, mas SEM call site no jogo: o admin de NPCs (Fase 4)
+reusa tudo pra gerar CANDIDATAS. Nao remover.
 
 DESENHO (comecar SIMPLES):
 - CACHE-FIRST (protege dinheiro): key estavel por CONTEUDO da descricao. Antes de gerar,
@@ -54,6 +60,31 @@ def chave_gravura(descricao: str) -> str:
     norm = " ".join((descricao or "").lower().split())
     h = hashlib.sha256(norm.encode("utf-8")).hexdigest()[:24]
     return f"gravuras/cena/{h}.webp"
+
+
+async def url_imagem_mae(npc_id) -> "str | None":
+    """FASE 2 (imagem-mae): a URL da identidade visual APROVADA do NPC — leitura pura.
+
+    Le npcs.imagem_url, o ponteiro denormalizado da canonica (SPEC secao 4: 'o jogo le
+    daqui pra ser rapido'; a integridade com npc_imagens.status='canonica' e mantida
+    pelo admin). Sem imagem-mae / NPC inexistente / qualquer erro -> None (a moldura
+    fica vazia; a cena NUNCA quebra por causa da imagem). LAZY: importa db aqui — o
+    import do modulo segue sem exigir credencial."""
+    if not npc_id:
+        return None
+    try:
+        from sqlalchemy import text as _t
+        from db import get_session
+        async with get_session() as _s:
+            _url = (await _s.execute(
+                _t("SELECT imagem_url FROM npcs WHERE id = :nid"),
+                {"nid": int(npc_id)},
+            )).scalar()
+        _url = (_url or "").strip()
+        return _url or None
+    except Exception as exc:  # noqa: BLE001 - leitura nunca derruba o turno
+        print(f"[gravura] imagem-mae npc={npc_id} falhou: {type(exc).__name__}: {exc}")
+        return None
 
 
 def _prompt(descricao: str) -> str:

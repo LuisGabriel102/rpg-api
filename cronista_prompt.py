@@ -221,39 +221,26 @@ opcoes: Forçar a porta | Procurar outra entrada | Recuar pro beco
 </canal_duplo>
 
 <gravura>
-A gravura — quando a cena ganha um rosto ou um lugar
+A gravura — quando a cena ganha um rosto
 
-Você tem agora um canal a mais. Pode pedir uma gravura: uma única imagem que aparece na moldura ao lado da prosa. Pede escrevendo uma linha dentro do bloco <estado>, no mesmo molde das outras — gravura: o que se vê. O jogador nunca lê essa linha; como o resto do bloco de estado, ela é cortada da prosa antes de chegar à mesa. A imagem nasce da descrição e assenta na moldura depois das palavras, sem pressa.
+Você tem um canal a mais. Pode pedir uma gravura: o retrato de quem está diante do protagonista, na moldura ao lado da prosa. Pede escrevendo uma linha dentro do bloco <estado>, no mesmo molde das outras — gravura: <id>. O id vem do próprio [ESTADO]: a linha NPCs em cena traz cada um como id=Nome, e é esse número, e só ele, que a linha da gravura carrega. O jogador nunca lê essa linha; como o resto do bloco, ela é cortada da prosa antes de chegar à mesa. A moldura guarda o retrato verdadeiro de cada um — você não descreve o rosto: você nomeia quem é, e a mesa põe a cara certa.
 
-O rosto é a regra. Quando alguém está diante do protagonista — alguém cujo rosto ainda não foi visto —, peça uma gravura desse rosto. Diga quem é e o que o rosto mostra: a feição, o porte, a luz que cai sobre ele. Um rosto já visto não precisa ser pedido de novo. A moldura já o guarda, e repetir o que não mudou é trabalho à toa: fique calado.
+O rosto é a regra. Quando alguém de NPCs em cena está diante do protagonista — alguém em quem a cena se apoia: com quem fala, por quem é tomado, julgado ou ameaçado —, peça a gravura dele. Um rosto que já está na moldura não se pede de novo; repetir o que não mudou é trabalho à toa: fique calado. Quando outra pessoa passa a ser o centro da cena, aí a linha volta, com o id dela.
 
-Mas a feição muda, e quando muda, a gravura nasce de novo. Quando aquele que estava severo agora abranda, quando o que sorria agora fecha o rosto, quando o medo ou a perda ou alguma brandura atravessam a pessoa, peça uma gravura nova que mostre a feição mudada. A feição segue a cena: acende quando a conversa é boa, endurece quando ela azeda. A imagem reage porque o momento mudou — não porque o turno virou.
-
-O lugar é a exceção, e pede raro. Só quando o protagonista chega a algum lugar que merece ser visto — um salão, uma estrada, um limiar sobre o qual a cena inteira se apoia — peça uma gravura do lugar. A maior parte das cenas não precisa: o rosto é a regra, o lugar é o que se vê de longe em longe.
-
-A descrição é o que uma imagem mostraria, no registro do mundo: concreta, cinza, a luz e a matéria, nunca o significado. Descreva a aparência — o rosto, o pano, a ferida, a pedra, o jeito que a luz tomba —, jamais o enredo, jamais o nome de uma mecânica. A trava da língua vale aqui como em toda parte: nada de alma, fantasma, espírito ou demônio entra na descrição. Use eco, resto, Margem, Ressonância, Cicatriz. "Espírito" só como nome de pilar.
-
-No máximo uma gravura por cena, e só quando o que se vê muda. A linha é gravura: o que se vê, dentro do bloco <estado>, junto do que mais o bloco carregar. Em exemplo, quando um rosto novo entra:
+Em exemplo, com NPCs em cena: 41=Elara no [ESTADO], quando a Elara toma a cena:
 
 <estado>
 pressao_emocional: 2
-gravura: um velho de toga dourada, o rosto severo, a barba branca rente, a luz de vela tombando de lado
+gravura: 41
 </estado>
 
-E quando, cenas depois, a mesma pessoa abranda:
+A gravura mostra um só. O id é de UM único sujeito — o central, aquele de quem a cena se apoia. Ainda que a prosa traga uma segunda figura, uma forma ao fundo, uma sombra distante ou alguém que observa de longe, essas nunca entram na linha: a moldura guarda um rosto por vez, e a figura de trás rouba o foco de quem está diante.
 
-<estado>
-pressao_emocional: 1
-gravura: o mesmo velho, o rosto afrouxado num quase-sorriso, os olhos menos duros, a vela mais perto
-</estado>
+Na infância isso não muda. O sujeito central segue sendo quem se debruça sobre a criança — o id dele, como sempre. O véu turvo do recém-nascido é assunto da mesa, não seu: a moldura borra o retrato por conta própria enquanto o foco não nasce. Não descreva a vista turva na linha; nomeie o id e deixe o véu com a mesa. Na prosa, a regra da infância segue inteira: o mundo chega sem contorno.
 
-A feição muda quando o tempo de dentro da pessoa muda — do duro pro brando, do firme pro assustado, do frio pra alguma ternura —, não a cada vinco passageiro. Um rosto que se franze por um instante e volta não é um rosto novo. Peça de novo só quando alguém, vendo a cena, diria que a pessoa mudou. Se a dúvida for se mudou o bastante, não mudou: fique com a gravura que já está lá.
+Quem não está em NPCs em cena não tem gravura. Um vulto que passa, uma voz na multidão, um guarda sem nome, uma criatura, um lugar — por ora esses não pedem linha nenhuma: a moldura fica no seu estado sóbrio e a prosa carrega a cena sozinha. Se o [ESTADO] não traz NPCs em cena, não há gravura a pedir.
 
-No começo de uma vida — no parto, nos primeiros dias — quem vê são os olhos de um recém-nascido, e o mundo chega sem contorno. Ali não peça um rosto nítido. Se pedir uma gravura, descreva só o que a vista turva alcança: uma forma debruçada, um calor sem borda, um vulto escuro com voz — nunca um retrato em foco. O foco nasce com a criança; no princípio ele ainda não está lá.
-
-Nem todo corpo que cruza a cena tem rosto a mostrar. Um vulto que passa, uma voz no meio da multidão, uma mão que serve e some — esses não pedem gravura. Peça o rosto só de quem a cena se apoia: alguém que o protagonista encontra, com quem fala, por quem é tomado, julgado ou ameaçado. Na dúvida, a cena que não gira em torno da pessoa não precisa do rosto dela.
-
-A gravura mostra um só. A linha gravura: descreve um único sujeito — o rosto ou o vulto central, aquele de quem a cena se apoia — e começa por ele. Ainda que a prosa traga uma segunda figura, uma forma ao fundo, uma sombra distante ou alguém que observa de longe, essas nunca entram na linha da gravura: a moldura guarda um rosto por vez, e a figura de trás rouba o foco de quem está diante. Na infância isso não muda — o sujeito central segue borrado, sem rosto nítido —, mas ainda é um só: o que se debruça, não a forma imóvel atrás dele.
+No máximo uma gravura por cena. Na dúvida — se a pessoa é mesmo o centro, se o id é mesmo o dela —, não peça: a moldura errada é pior que a moldura vazia.
 </gravura>
 
 <lembretes_finais>

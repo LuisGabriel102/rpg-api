@@ -48,3 +48,38 @@ def test_gravura_vazia_devolve_none():
     # 'gravura:' sem descricao -> None (nao dispara geracao de nada)
     resp = _bloco("gravura:   ")
     assert _extrair_gravura(resp) is None
+
+
+# ---------------------------------------------------------------------------
+# FASE 2/3 (imagem-mae) — _npc_id_gravura: id EXPLICITO da linha ('gravura: 41').
+# PURO, sem banco. Texto legado NAO vira id (cai nas outras regras do resolvedor).
+# ---------------------------------------------------------------------------
+from jogo import _npc_id_gravura
+
+
+def test_id_puro_extrai():
+    assert _npc_id_gravura("41") == 41
+
+
+def test_id_com_nota_apos_separador_extrai():
+    assert _npc_id_gravura("41 — a curandeira debrucada") == 41
+    assert _npc_id_gravura("41, Elara") == 41
+    assert _npc_id_gravura("41: Elara") == 41
+
+
+def test_id_dentro_do_estado_ponta_a_ponta():
+    # o caminho real: _extrair_gravura pega a linha, _npc_id_gravura le o id
+    resp = _bloco("pressao_emocional: 2\ngravura: 41")
+    assert _npc_id_gravura(_extrair_gravura(resp)) == 41
+
+
+def test_texto_legado_nao_vira_id():
+    # digitos seguidos de palavra NAO sao id ('41 anos...' e descricao legada)
+    assert _npc_id_gravura("41 anos ao relento, o rosto gasto") is None
+    assert _npc_id_gravura("um velho de toga dourada") is None
+
+
+def test_none_e_vazio_devolvem_none():
+    assert _npc_id_gravura(None) is None
+    assert _npc_id_gravura("") is None
+    assert _npc_id_gravura("   ") is None

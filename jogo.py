@@ -621,6 +621,42 @@ async def _roster_npcs_em_cena(sessao_db, sessao_id: int) -> "str | None":
         return None
 
 
+async def _ids_npcs_em_cena(sessao_id: int) -> "list[int]":
+    """FASE 2 (imagem-mae): ids do roster do local atual — MESMA _SQL_NPCS_CENA do [ESTADO],
+    sessao propria (roda em background task, fora do turno). DEFENSIVO: qualquer erro ->
+    lista vazia (a gravura degrada pra moldura vazia; nunca quebra a cena)."""
+    try:
+        from sqlalchemy import text as _t
+        from db import get_session
+        async with get_session() as _s:
+            rows = (await _s.execute(_t(_SQL_NPCS_CENA), {"sid": sessao_id})).mappings().all()
+        return [r["nid"] for r in rows if r["nid"] is not None]
+    except Exception as exc:  # noqa: BLE001 - roster nunca derruba a gravura
+        print(f"[gravura] roster p/ imagem-mae falhou: {type(exc).__name__}: {exc}")
+        return []
+
+
+async def _resolver_npc_gravura(desc: "str | None", sessao_id: int) -> "int | None":
+    """FASE 2 (imagem-mae): decide QUAL NPC catalogado a moldura mostra. Regras travadas
+    (Gabriel, 01/07/2026) — SEM heuristica por nome (pintar o NPC errado e inaceitavel):
+
+    1. id EXPLICITO na linha ('gravura: 41'), validado contra o roster quando o roster
+       existe — id fora do roster e alucinacao do Cronista -> None (moldura vazia).
+       Roster vazio/indisponivel -> aceita o id (o SELECT da imagem-mae ainda filtra).
+    2. roster-de-1: sem id, se ha EXATAMENTE um NPC em cena, ele e o central.
+    Sem match -> None -> moldura vazia (SPEC secao 3: sem imagem-mae, nao exibe)."""
+    ids = await _ids_npcs_em_cena(sessao_id)
+    nid = _npc_id_gravura(desc)
+    if nid is not None:
+        if not ids or nid in ids:
+            return nid
+        print(f"[gravura] id {nid} fora do roster {ids} -> sem imagem")
+        return None
+    if len(ids) == 1:
+        return ids[0]
+    return None
+
+
 async def _montar_estado_safe(sessao_id: int, pressao_atual: int, resultado_teste: str | None = None) -> str:
     """Bloco [ESTADO] do USER message: consciencia situacional do turno, puxada do
     banco (sessao -> personagem). Vai SEMPRE no USER message, nunca no system (nao
@@ -1060,6 +1096,21 @@ def _extrair_gravura(resposta: str) -> "str | None":
     return desc or None
 
 
+# FASE 2/3 (imagem-mae): id EXPLICITO no comeco da linha gravura. So digitos seguidos de
+# fim-de-linha ou separador contam ('41' ou '41 — nota' sim; '41 anos ao relento' NAO —
+# texto legado segue sendo texto e cai nas outras regras do resolvedor).
+_RE_GRAVURA_ID = re.compile(r"^\s*(\d+)\s*(?:$|[—–:,\-])")
+
+
+def _npc_id_gravura(desc: "str | None") -> "int | None":
+    """PURO (testavel sem banco): id explicito da linha gravura ('gravura: 41') ou None.
+    O formato com id e a Fase 3 (cronista_prompt emite o id do roster 'NPCs em cena')."""
+    if not desc:
+        return None
+    m = _RE_GRAVURA_ID.match(desc)
+    return int(m.group(1)) if m else None
+
+
 def _prosa_para_html(texto: str) -> str:
     """Prosa segura pra injetar via window.Jogar.arrive (vai pra innerHTML).
     Escapa HTML (a prosa vem do LLM) e converte paragrafos (linha em branco)
@@ -1474,6 +1525,11 @@ body, .q-page, .q-page-container, .nicegui-content{ background: var(--ground) !i
    nao mexe na geometria da caixa fixa (trava intacta). */
 .retrato-img.assentou{ opacity:1; }
 .retrato-img[hidden]{ display:none; }
+/* FASE 2 (imagem-mae) + Modo Infancia: o borrado e uma CAMADA DE EXIBICAO (SPEC secao 3) —
+   a imagem-mae nitida segue a fonte unica; na infancia a moldura mostra a mae DESFOCADA
+   (blur fixo ~10px, decisao D1 MVP; 'o foco nasce com a crianca'). So filtro no <img> ->
+   geometria da caixa fixa intacta (trava de layout preservada). */
+.palco.modo-infancia .retrato-img{ filter:blur(10px); }
 /* P3 polish: estado de CARREGAMENTO — sinal QUIETO enquanto a gravura gera (assincrono, alguns
    segundos). Pulsa o losango placeholder (::before), witcher-grey, sem spinner. So opacity ->
    geometria intacta. Apaga no onload (setGravura) / falha / timeout client-side (~25s). */
@@ -4305,6 +4361,14 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
     ui.run_javascript(_OPCOES_JS)
     # P3: instala window.setGravura (imagem de cena na moldura da esquerda).
     ui.run_javascript(_GRAVURA_JS)
+    # FASE 2 (imagem-mae) + Modo Infancia: liga a camada de blur da moldura. SO uma classe
+    # no .palco (o CSS .modo-infancia .retrato-img faz o desfoque) -> setGravura/limparGravura
+    # e todo o front seguem intocados. is_infancia ja foi resolvido no load desta pagina.
+    if is_infancia:
+        ui.run_javascript(
+            "var _pl=document.querySelector('.palco');"
+            "_pl && _pl.classList.add('modo-infancia');"
+        )
     # P4: instala o menu de pausa (botao fixo + overlay continuar/sair).
     ui.run_javascript(_PAUSA_JS)
     # Tarefa 8: instala window.setCusto (contador de gasto da sessao no HUD).
@@ -4968,12 +5032,13 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
                 _log_append(sessao_atual, _log_reg)
             except Exception:
                 _log_reg = None   # log falhou: o turno segue normal
-            # P3 GRAVURA (assincrono): a prosa ja streamou e selou acima. Se o Cronista
-            # pediu 'gravura:', dispara a imagem EM BACKGROUND (cache-first + teto de
-            # seguranca dentro de gravura.obter_gravura) e, quando pronta, cai na moldura
-            # via window.setGravura. Falha/None -> moldura fica no estado sobrio (a cena
-            # NUNCA quebra por causa da imagem). Guarda de geracao: se a sessao recomecou
-            # durante a geracao (minha_geracao != geracao), descarta o push (sem fantasma).
+            # FASE 2 GRAVURA = IMAGEM-MAE (assincrono): a prosa ja streamou e selou acima.
+            # Se o Cronista pediu 'gravura:', resolve o NPC central EM BACKGROUND (id
+            # explicito da Fase 3 ou roster-de-1; SEM heuristica por nome) e LE a imagem-mae
+            # aprovada (npcs.imagem_url). ZERO geracao em tempo de jogo — o fal (SPEC secao 5)
+            # vive so no admin. Sem NPC / sem imagem-mae / falha -> moldura fica no estado
+            # sobrio (a cena NUNCA quebra por causa da imagem). Guarda de geracao: se a sessao
+            # recomecou durante o lookup (minha_geracao != geracao), descarta o push.
             if _res.gravura:
                 # P3 polish: acende o sinal QUIETO de "carregando" no MOMENTO do pedido (o backend ja
                 # sabe que _res.gravura existe), antes da geracao assincrona. Aditivo: nao toca a
@@ -4983,36 +5048,28 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
                 _mg_grav = minha_geracao
                 _sess_grav = sessao_atual
                 _desc_grav = _res.gravura
-                _grav_nova = [False]   # LOG: marca True quando obter_gravura gera uma nova
 
-                def _log_grav(resultado, *, bump=False, aviso=None):
+                def _log_grav(resultado, *, aviso=None):
                     # LOG (diagnostico) DEFENSIVO: atualiza o registro desta gravura, se houver.
-                    # Nunca quebra o fluxo da gravura/turno.
+                    # Nunca quebra o fluxo da gravura/turno. (FASE 2: sem bump de custo — a
+                    # imagem-mae e leitura, custo de imagem em jogo = 0.)
                     try:
                         if _log_reg is None:
                             return
                         _log_reg["gravura_resultado"] = resultado
-                        if bump and isinstance(_log_reg.get("custo_turno"), (int, float)):
-                            _log_reg["custo_turno"] += custos.USD_POR_GRAVURA
                         if aviso:
                             _log_reg.setdefault("avisos", []).append(aviso)
                     except Exception:
                         pass
 
-                def _somar_gravura():
-                    # Tarefa 8: chamado por obter_gravura SO quando uma gravura nova nasce
-                    # (cache hit nao chama -> soma 0). Marca p/ o log e soma o custo da imagem
-                    # na sessao e no ultimo turno. Stale (sessao recomecou) -> nao contamina.
-                    nonlocal custo_sessao_usd, custo_ultimo_usd
-                    _grav_nova[0] = True   # nasceu imagem nova (independe de stale)
-                    if _mg_grav != geracao:
-                        return
-                    custo_sessao_usd += custos.USD_POR_GRAVURA
-                    custo_ultimo_usd += custos.USD_POR_GRAVURA
-
                 async def _cair_gravura():
+                    # FASE 2 (imagem-mae): resolve o NPC central e le npcs.imagem_url.
+                    # gravura.obter_gravura (fal/cache/teto) NAO e mais chamado aqui —
+                    # fica no modulo pro admin (Fase 4).
+                    _npc_grav = None
                     try:
-                        _url = await gravura.obter_gravura(_desc_grav, sessao_id=_sess_grav, on_custo=_somar_gravura)
+                        _npc_grav = await _resolver_npc_gravura(_desc_grav, _sess_grav)
+                        _url = (await gravura.url_imagem_mae(_npc_grav)) if _npc_grav else None
                     except Exception as _ge:
                         _url = None
                         # DIAGNOSTICO: o aviso passa a carregar a MENSAGEM real, nao so o tipo
@@ -5035,24 +5092,25 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
                         # estado de um turno novo que possa ter acendido o proprio carregando).
                         if _mg_grav == geracao:
                             if not _url:
-                                _log_grav("falhou", aviso="gravura sem url (falha/teto)")
+                                # FASE 2: sem NPC resolvido, id fora do roster, NPC sem
+                                # imagem-mae — todos degradam pra moldura vazia, sem erro.
+                                _log_grav("sem imagem",
+                                          aviso=("gravura sem url (npc nao resolvido)"
+                                                 if _npc_grav is None
+                                                 else f"gravura sem url (npc {_npc_grav} sem imagem-mae)"))
                             try:
                                 with _cli_grav:
                                     ui.run_javascript("window.gravuraCarregando && window.gravuraCarregando(false)")
                             except Exception:
                                 pass
                         return
-                    # sucesso: distingue gravura nova (on_custo disparou) de cache hit.
-                    _log_grav("gerada nova (US$0.035)" if _grav_nova[0] else "cache hit",
-                              bump=_grav_nova[0])
+                    # sucesso: a imagem-mae aprovada do NPC central assenta na moldura.
+                    _log_grav(f"imagem-mae (npc {_npc_grav})")
                     try:
                         with _cli_grav:
                             ui.run_javascript(
                                 f"window.setGravura && window.setGravura({json.dumps(_url)})"
                             )
-                            # Tarefa 8: a gravura nova ja somou no contador (via on_custo);
-                            # reflete no HUD agora que ela assentou. Defensivo dentro do try.
-                            ui.run_javascript(_js_custo())
                     except Exception:
                         pass   # cliente desconectou: a cena ja esta intacta, so nao pinta
 
