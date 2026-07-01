@@ -32,6 +32,14 @@ ENDPOINT = "fal-ai/flux-lora"
 LORA_SCALE = 1.0
 IMAGE_SIZE = "portrait_4_3"      # ~ moldura 4/5; o custo arredonda a 1MP de qualquer jeito
 NUM_INFERENCE_STEPS = 28
+GUIDANCE_SCALE = 3.5             # explicito (antes ficava no default do fal). Ajuste fino depois.
+# Negative prompt fixo (Causa 2b): barra o dia/cartoon/animais/rosto-nitido que vazaram do
+# FLUX base quando o LoRA nao dominou. Ajuste fino depois. NOTA: FLUX.1 dev e guidance-distilled,
+# entao negative_prompt/guidance tem efeito mais SUAVE que num modelo CFG puro.
+NEGATIVE_PROMPT = (
+    "bright daylight, cartoon, saturated colors, cheerful, animals, horse, castle, "
+    "sharp focus, clear face, modern, illustration"
+)
 
 # TETO DE SEGURANCA: maximo de geracoes NOVAS por sessao (cache nao conta). Conservador
 # de proposito; ajustavel aqui. Protege dinheiro contra um bug que pedisse imagem em loop.
@@ -56,6 +64,50 @@ def _prompt(descricao: str) -> str:
     return f"{trigger}, {desc}" if desc else trigger
 
 
+# Tradutor PT->EN via Haiku (o FLUX precisa de EN; a desc do Cronista vem em PT). Espelha o
+# padrao de _chamar_haiku_validador (jogo.py): cliente SYNC lazy, rodado via asyncio.to_thread.
+# LAZY de proposito (importar gravura NAO exige ANTHROPIC_API_KEY). NUNCA ecoa chave.
+_haiku_tradutor_client = None
+
+_TRADUTOR_SYSTEM = (
+    "You translate a scene description from Portuguese to English for a text-to-image model. "
+    "Output ONLY the English translation on a single line: no preamble, no quotes, no notes. "
+    "Preserve the mood, lighting, framing and every detail; do not add or remove content."
+)
+
+
+def _chamar_haiku_tradutor(desc_pt: str) -> str:
+    """Traduz a desc PT->EN via Haiku 4.5 (SINCRONO — rode via asyncio.to_thread). Cliente
+    lazy: so instancia no 1o uso real. Espelha _chamar_haiku_validador do jogo.py."""
+    global _haiku_tradutor_client
+    if _haiku_tradutor_client is None:
+        from anthropic import Anthropic
+        _haiku_tradutor_client = Anthropic()
+    resp = _haiku_tradutor_client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=300,
+        system=_TRADUTOR_SYSTEM,
+        messages=[{"role": "user", "content": desc_pt}],
+    )
+    return resp.content[0].text
+
+
+async def _traduzir_para_ingles(desc_pt: str) -> str:
+    """desc PT -> EN pro FLUX. FAIL-OPEN: vazio/qualquer erro (inclui 401 local) -> devolve a
+    desc ORIGINAL (a gravura NUNCA quebra por causa da traducao). Haiku sync via to_thread pra
+    nao travar o event loop. So e chamado no cache-miss (o cache hit retorna antes -> 0 Haiku)."""
+    desc_pt = " ".join((desc_pt or "").split())
+    if not desc_pt:
+        return desc_pt
+    try:
+        en = await asyncio.to_thread(_chamar_haiku_tradutor, desc_pt)
+        en = " ".join((en or "").split())
+        return en or desc_pt
+    except Exception as exc:  # noqa: BLE001 - degrada sem quebrar
+        print(f"[gravura] traducao Haiku falhou: {type(exc).__name__}: {exc}")
+        return desc_pt
+
+
 async def _gerar_fal_bytes(prompt: str) -> bytes:
     """Chama fal-ai/flux-lora com o LoRA treinado e devolve os bytes da imagem em WEBP
     (padrao do projeto). LAZY: importa fal_client/httpx/PIL aqui. Sync subscribe rodado
@@ -70,7 +122,9 @@ async def _gerar_fal_bytes(prompt: str) -> bytes:
         "image_size": IMAGE_SIZE,
         "num_images": 1,
         "num_inference_steps": NUM_INFERENCE_STEPS,
+        "guidance_scale": GUIDANCE_SCALE,
         "loras": [{"path": lora_url, "scale": LORA_SCALE}],
+        "negative_prompt": NEGATIVE_PROMPT,
         "output_format": "jpeg",
         "enable_safety_checker": True,
     }
@@ -121,7 +175,10 @@ async def obter_gravura(descricao: str, *, sessao_id, on_custo=None) -> "str | N
     # 3) gera UMA vez, salva no R2, serve a URL. Conta ANTES de gerar: uma falha tambem
     #    consome a cota (protege dinheiro contra retry as cegas em loop).
     _geracoes_por_sessao[sid] = _geracoes_por_sessao.get(sid, 0) + 1
-    img = await _gerar_fal_bytes(_prompt(desc))
+    # FLUX precisa de EN; a desc do Cronista vem em PT. Traduz SO aqui (cache-miss real);
+    # a key/cache acima segue na desc PT (nao muda o cache). Fail-open -> desc original.
+    desc_en = await _traduzir_para_ingles(desc)
+    img = await _gerar_fal_bytes(_prompt(desc_en))
     await upload_gravura(key, img)
     # Tarefa 8: nasceu uma gravura NOVA (cache miss real). Sinaliza pro chamador somar o
     # custo no contador da sessao. O cache hit retorna la em cima (linha ~110) e NUNCA
