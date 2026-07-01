@@ -20,6 +20,7 @@ VARIAVEIS .env USADAS:
 
 import asyncio
 import os
+import secrets
 from datetime import datetime, timezone
 
 import boto3
@@ -117,9 +118,12 @@ def _upload_sync(
     """Upload sync — usado por asyncio.to_thread."""
     ext = _validar(file_bytes, content_type)
 
-    # Nome unico com timestamp — multiplas versoes do mesmo NPC coexistem
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
-    filename = f"npc_{npc_id}_{timestamp}.{ext}"
+    # Nome unico com timestamp em MILISSEGUNDOS + sufixo aleatorio — dois uploads no
+    # mesmo instante (double-click) NUNCA colidem na key. Fecha o furo da auditoria
+    # 01/07/2026 (timestamp de 1s permitia sobrescrita silenciosa, contradizendo o
+    # invariante "versoes NUNCA sao sobrescritas" do docstring do modulo).
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S-%f")[:-3]
+    filename = f"npc_{npc_id}_{timestamp}_{secrets.token_hex(3)}.{ext}"
 
     try:
         _client.put_object(

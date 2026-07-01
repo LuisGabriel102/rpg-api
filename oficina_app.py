@@ -54,6 +54,7 @@ from ui_helpers import aguardar_conexao_websocket, barra_nav, barra_nav_alderyn
 from tema_oficina import CSS_VITRAL, CSS_PERGAMINHO
 from oficina_npcs_42 import pagina_lista_npcs_rica, pagina_npc_detalhe
 from pages.atelie import pagina_atelie
+from pages.admin_npcs import pagina_admin_npcs, pagina_admin_npc_detalhe
 from pages.bestiario import pagina_lista_bestiario, pagina_criatura_detalhe, contar_criaturas_canonizadas
 
 
@@ -1397,6 +1398,16 @@ async def pagina_npc_detalhe_route(npc_id: int):
 async def pagina_atelie_route(npc_id: int):
     """Ateliê de Geração de Imagens (Módulo 4.6.4)."""
     await pagina_atelie(npc_id)
+
+@ui.page("/oficina/admin/npcs")
+async def pagina_admin_npcs_route():
+    """Central de Admin — Aba NPCs, lista (Onda 1)."""
+    await pagina_admin_npcs()
+
+@ui.page("/oficina/admin/npcs/{npc_id}")
+async def pagina_admin_npc_detalhe_route(npc_id: int):
+    """Central de Admin — Aba NPCs, detalhe: imagem-mae + candidatas (Onda 1)."""
+    await pagina_admin_npc_detalhe(npc_id)
 
 
 # ====================================================================
