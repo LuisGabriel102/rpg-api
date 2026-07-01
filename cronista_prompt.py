@@ -252,6 +252,8 @@ A feição muda quando o tempo de dentro da pessoa muda — do duro pro brando, 
 No começo de uma vida — no parto, nos primeiros dias — quem vê são os olhos de um recém-nascido, e o mundo chega sem contorno. Ali não peça um rosto nítido. Se pedir uma gravura, descreva só o que a vista turva alcança: uma forma debruçada, um calor sem borda, um vulto escuro com voz — nunca um retrato em foco. O foco nasce com a criança; no princípio ele ainda não está lá.
 
 Nem todo corpo que cruza a cena tem rosto a mostrar. Um vulto que passa, uma voz no meio da multidão, uma mão que serve e some — esses não pedem gravura. Peça o rosto só de quem a cena se apoia: alguém que o protagonista encontra, com quem fala, por quem é tomado, julgado ou ameaçado. Na dúvida, a cena que não gira em torno da pessoa não precisa do rosto dela.
+
+A gravura mostra um só. A linha gravura: descreve um único sujeito — o rosto ou o vulto central, aquele de quem a cena se apoia — e começa por ele. Ainda que a prosa traga uma segunda figura, uma forma ao fundo, uma sombra distante ou alguém que observa de longe, essas nunca entram na linha da gravura: a moldura guarda um rosto por vez, e a figura de trás rouba o foco de quem está diante. Na infância isso não muda — o sujeito central segue borrado, sem rosto nítido —, mas ainda é um só: o que se debruça, não a forma imóvel atrás dele.
 </gravura>
 
 <lembretes_finais>
