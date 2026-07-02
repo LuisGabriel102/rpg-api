@@ -35,7 +35,9 @@ nao exige credencial R2 (a suite coleta sem .env completo).
 from __future__ import annotations
 
 import os
+import re
 import traceback
+import unicodedata
 from typing import Optional
 
 import asyncpg
@@ -74,17 +76,37 @@ _CHIP_BG = "rgba(166,124,61,0.15)"
 _CHIP_FG = "#cbb087"
 _LINK = "#bd9a52"      # reservado pra links do dossiê (ondas futuras)
 
-# tipo de vínculo (valor do banco, sem acento) -> cor viva; desconhecido cai
-# no fallback sem quebrar
+# tipo de vínculo -> cor (chave = valor CRU do banco, sem acento; os 13
+# DISTINCT confirmados em 2026-07-02). Witcher-grey, sem neon. Tipo futuro
+# fora da lista cai no fallback sem quebrar.
 _COR_TIPO_VINCULO = {
     "amor": "#d15b74",
-    "familiar": "#6b93c4",
-    "manipulacao": "#a678d4",
-    "manipulação": "#a678d4",  # tolera a grafia acentuada, se um dia entrar
     "amizade": "#6bb06b",
+    "lealdade": "#c9a45c",
+    "protecao": "#5aa39a",
+    "mentoria": "#7fa86b",
+    "familiar": "#6b93c4",
+    "respeito": "#8a93b0",
+    "divida": "#a08a5e",
+    "manipulacao": "#a678d4",
     "rivalidade": "#d98a4a",
+    "inimizade": "#c25a4a",
+    "medo": "#8a6db0",
+    "neutro": "#8a8a8a",
 }
 _COR_TIPO_FALLBACK = "#b8934a"
+
+# tipo cru -> rótulo PT da pill (só 3 precisam de acento; os outros 10 já são
+# palavras corretas). A COR continua vindo do tipo cru.
+_ROTULO_TIPO_VINCULO = {
+    "manipulacao": "manipulação",
+    "protecao": "proteção",
+    "divida": "dívida",
+}
+
+# stopwords da chave de dedupe dos chips (regra fechada pelo Op em 2026-07-02:
+# lower, sem acento, sem pontuação, sem a/de/da/do)
+_CHIP_STOPWORDS = {"a", "de", "da", "do"}
 _COR_VIVO = "#6bb06b"
 _COR_MORTO = "#8a8a8a"
 
@@ -161,6 +183,31 @@ def _cor_tipo_vinculo(tipo: Optional[str]) -> str:
     return _COR_TIPO_VINCULO.get((tipo or "").strip().lower(), _COR_TIPO_FALLBACK)
 
 
+def _rotulo_tipo_vinculo(tipo: Optional[str]) -> str:
+    """PURO: rótulo PT da pill. 3 tipos ganham acento (manipulação/proteção/
+    dívida); os demais conhecidos já são palavras corretas e ficam como estão;
+    tipo futuro fora do mapa volta capitalizado. NÃO toca o dado."""
+    t = (tipo or "").strip().lower()
+    if not t:
+        return ""
+    if t in _ROTULO_TIPO_VINCULO:
+        return _ROTULO_TIPO_VINCULO[t]
+    if t in _COR_TIPO_VINCULO:
+        return t
+    return t.capitalize()
+
+
+def _normalizar_chip(texto: str) -> str:
+    """PURO: chave de dedupe dos chips — lower, sem acento, sem pontuação,
+    sem stopwords (a/de/da/do). 'A Cátedra, Namiri' e 'Cátedra de Namiri'
+    colidem; 'Clã Varekhor' sobrevive."""
+    s = unicodedata.normalize("NFKD", (texto or "").casefold())
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = re.sub(r"[^\w\s]", " ", s)
+    palavras = [p for p in s.split() if p not in _CHIP_STOPWORDS]
+    return " ".join(palavras)
+
+
 def _cor_status_parente(status: Optional[str]) -> str:
     """PURO: vivo = verde; morto (ou status desconhecido/NULL) = cinza."""
     return _COR_VIVO if (status or "").strip().lower() == "vivo" else _COR_MORTO
@@ -194,19 +241,30 @@ def _subtitulo_familia(parentes: list[dict]) -> str:
 
 
 def _chips_identidade(npc: dict) -> list[str]:
-    """PURO: chips do card 'Quem é' — só o que tem valor."""
+    """PURO: chips do card 'Quem é' — só o que tem valor, sem quase-repetidos
+    (dedupe por _normalizar_chip; identidade entra antes de facção, então o
+    local vence a facção homônima)."""
     chips: list[str] = []
+    vistos: set[str] = set()
+
+    def _add(texto: str) -> None:
+        chave = _normalizar_chip(texto)
+        if chave and chave in vistos:
+            return
+        vistos.add(chave)
+        chips.append(texto)
+
     if npc.get("raca"):
-        chips.append(str(npc["raca"]))
+        _add(str(npc["raca"]))
     if npc.get("idade_aparente") is not None:
-        chips.append(f"{npc['idade_aparente']} anos")
+        _add(f"{npc['idade_aparente']} anos")
     if npc.get("localizacao_atual"):
-        chips.append(str(npc["localizacao_atual"]))
+        _add(str(npc["localizacao_atual"]))
     for faccao in (npc.get("facoes") or []):
         if faccao:
-            chips.append(str(faccao))
+            _add(str(faccao))
     if npc.get("arc_phase"):
-        chips.append(f"arco {npc['arc_phase']}")
+        _add(f"arco {npc['arc_phase']}")
     return chips
 
 
@@ -620,7 +678,8 @@ def _render_card_vinculos(vinculos: list[dict]) -> None:
                 with ui.row(wrap=False).classes("w-full items-center gap-2"):
                     ui.label(lv["nome"]).classes("text-zinc-100 text-sm")
                     if lv["tipo"]:
-                        ui.label(str(lv["tipo"])).classes(
+                        # pill mostra o rótulo PT; a cor vem do tipo cru
+                        ui.label(_rotulo_tipo_vinculo(lv["tipo"])).classes(
                             "text-xs rounded-full px-2"
                         ).style(f"background:{cor};color:#1c1917")
                     if lv["direcao"]:
@@ -633,15 +692,43 @@ def _render_card_vinculos(vinculos: list[dict]) -> None:
                 if lv["intensidade"]:
                     _, valor_i = lv["intensidade"]
                     largura = max(0, min(100, int(valor_i)))
-                    # micro-barra sóbria: fundo surface, preenchimento na cor
-                    with ui.element("div").classes("w-full rounded").style(
-                        "height:4px;background:#3f3f46"
+                    # barra curta (teto 120px) à direita, perto do número:
+                    # reforço visual — o número é quem diz o valor
+                    with ui.element("div").classes("rounded self-end").style(
+                        "height:4px;width:120px;background:#3f3f46"
                     ):
                         ui.element("div").classes("rounded").style(
                             f"height:4px;width:{largura}%;background:{cor}"
                         )
                 if lv["nota"]:
                     ui.label(lv["nota"]).classes("text-zinc-500 text-xs italic")
+
+
+def _render_card_aparencia(npc: dict) -> None:
+    """Card 'Aparência' (somente leitura — editor é Onda 2): campos curtos da
+    âncora + 'Ver descrição completa' recolhida (só a PT; a EN fica no banco,
+    query intacta). Regra de ouro: sem nenhum campo, o card não existe."""
+    campos = [
+        (rotulo, str(npc[campo]))
+        for campo, rotulo in _ROTULOS_ANCORA.items() if npc.get(campo)
+    ]
+    descricao_pt = npc.get("descricao_ancora_pt")
+    if not (campos or descricao_pt):
+        return
+    with _card_dossie("Aparência", "face", "somente leitura"):
+        for rotulo, valor in campos:
+            with ui.row().classes("gap-2 items-baseline"):
+                ui.label(rotulo + ":").classes(
+                    "text-zinc-500 text-sm w-40 flex-none"
+                )
+                ui.label(valor).classes("text-zinc-200 text-sm")
+        if descricao_pt:
+            with ui.expansion("Ver descrição completa").classes(
+                "w-full text-zinc-300"
+            ).props("dense"):
+                ui.label(str(descricao_pt)).classes(
+                    "text-zinc-300 text-sm italic"
+                )
 
 
 async def pagina_admin_npcs() -> None:
@@ -785,30 +872,10 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                     _render_card_quem_e(npc)
                     _render_card_familia(familia)
                     _render_card_vinculos(vinculos)
-
-                    ui.label("Aparência · somente leitura").classes(
-                        "text-xs uppercase tracking-widest text-zinc-500 mt-2"
-                    )
-                    for campo, rotulo in _ROTULOS_ANCORA.items():
-                        valor = npc.get(campo)
-                        if valor:
-                            with ui.row().classes("gap-2 items-baseline"):
-                                ui.label(rotulo + ":").classes(
-                                    "text-zinc-500 text-sm w-40 flex-none"
-                                )
-                                ui.label(str(valor)).classes("text-zinc-200 text-sm")
-                    # descricao longa RECOLHIDA por padrao. So a PT vai pra tela;
-                    # descricao_ancora_en continua no banco (query intacta).
-                    if npc.get("descricao_ancora_pt"):
-                        with ui.expansion("Ver descrição completa").classes(
-                            "w-full text-zinc-300 mt-4"
-                        ).props("dense"):
-                            ui.label(str(npc["descricao_ancora_pt"])).classes(
-                                "text-zinc-300 text-sm italic"
-                            )
+                    _render_card_aparencia(npc)
 
                     ui.label("Galeria (não-canônicas)").classes(
-                        "text-xs uppercase tracking-widest text-zinc-500 mt-6"
+                        "text-xs uppercase tracking-widest text-zinc-500 mt-2"
                     )
                     if not galeria:
                         ui.label(

@@ -23,8 +23,10 @@ from pages.admin_npcs import (
     _intensidade_dominante,
     _linhas_perfil,
     _nome_outro_lado,
+    _normalizar_chip,
     _r2_key_da_url,
     _rotulo_parentesco,
+    _rotulo_tipo_vinculo,
     _subtitulo_familia,
     _validar_upload,
 )
@@ -112,11 +114,26 @@ def test_parentesco_desconhecido_fica_cru():
 # ── dossiê: cores ───────────────────────────────────────────────────────────
 
 def test_cor_tipo_vinculo_mapa_e_fallback():
+    # mapa completo (13 DISTINCT do banco, escolha b do Op em 2026-07-02)
     assert _cor_tipo_vinculo("amor") == "#d15b74"
+    assert _cor_tipo_vinculo("lealdade") == "#c9a45c"
+    assert _cor_tipo_vinculo("respeito") == "#8a93b0"
+    assert _cor_tipo_vinculo("neutro") == "#8a8a8a"
     assert _cor_tipo_vinculo("manipulacao") == "#a678d4"
     assert _cor_tipo_vinculo("AMIZADE") == "#6bb06b"      # case-insensitive
     assert _cor_tipo_vinculo("obsessao") == "#b8934a"     # fora do mapa
     assert _cor_tipo_vinculo(None) == "#b8934a"           # NULL nao quebra
+
+
+def test_rotulo_tipo_vinculo_acentos_e_fallback():
+    # so 3 ganham acento; conhecidos ficam como estao; futuro capitaliza
+    assert _rotulo_tipo_vinculo("manipulacao") == "manipulação"
+    assert _rotulo_tipo_vinculo("protecao") == "proteção"
+    assert _rotulo_tipo_vinculo("divida") == "dívida"
+    assert _rotulo_tipo_vinculo("respeito") == "respeito"
+    assert _rotulo_tipo_vinculo("lealdade") == "lealdade"
+    assert _rotulo_tipo_vinculo("obsessao") == "Obsessao"  # fora do mapa
+    assert _rotulo_tipo_vinculo(None) == ""                # NULL nao quebra
 
 
 def test_cor_status_parente():
@@ -169,6 +186,30 @@ def test_chips_identidade_so_preenchidos():
 
 def test_chips_identidade_npc_pelado_vira_vazio():
     assert _chips_identidade({}) == []
+
+
+def test_normalizar_chip_colide_local_e_faccao():
+    # a regra fechada pelo dado real da Elara
+    assert _normalizar_chip("A Cátedra, Namiri") == _normalizar_chip("Cátedra de Namiri")
+    assert _normalizar_chip("Clã Varekhor") != _normalizar_chip("Cátedra de Namiri")
+    assert _normalizar_chip("") == ""
+
+
+def test_chips_dedupe_local_vence_faccao_homonima():
+    chips = _chips_identidade({
+        "localizacao_atual": "A Cátedra, Namiri",
+        "facoes": ["Clã Varekhor", "Cátedra de Namiri"],
+    })
+    # identidade antes de facção; Clã Varekhor (distinto) sobrevive
+    assert chips == ["A Cátedra, Namiri", "Clã Varekhor"]
+
+
+def test_chips_dedupe_nao_apaga_distintos():
+    chips = _chips_identidade({
+        "localizacao_atual": "Namiri",
+        "facoes": ["Clã Varekhor", "Cátedra de Namiri"],
+    })
+    assert chips == ["Namiri", "Clã Varekhor", "Cátedra de Namiri"]
 
 
 def test_linhas_perfil_pula_vazios():
