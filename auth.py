@@ -48,6 +48,8 @@ _PUBLIC_PREFIXES: tuple[str, ...] = (
     "/static/",   # Arquivos estaticos da Oficina
     "/api/v1",    # BACKEND: tem auth Bearer proprio; fora do Basic Auth da Oficina
     "/cache",     # endpoints de cache do backend
+    "/npc-imagem/",  # imagem do NPC servida do banco (GET-only, leitura publica —
+                     # mesmo nivel do dominio R2; o <img> do jogo nao manda senha)
 )
 
 REALM = "Oficina do Mestre - Sistema Nexus"

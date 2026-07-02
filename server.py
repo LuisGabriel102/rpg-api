@@ -117,6 +117,43 @@ async def pagina_sistema():
 
 
 # ---------------------------------------------------------------------------
+# 5d. Migracao de storage (Bloco 1): serve a imagem do NPC direto do banco
+#     (npc_imagens.imagem_bytes, BYTEA). Coexiste com o R2 ate o fim da
+#     migracao: bytes NULL (imagem ainda so no R2) = 404 limpo, esperado.
+#     GET-only, leitura publica ("/npc-imagem/" na whitelist do auth.py —
+#     mesmo nivel do dominio publico R2; o <img> do jogo nao manda senha).
+#     Usa o pool psycopg3 do backend, ja aberto: nada de conexao nova por
+#     request. Upload e leitura do jogo NAO mudam neste bloco.
+# ---------------------------------------------------------------------------
+from fastapi import HTTPException, Response
+
+
+def _media_type(mime: "str | None") -> str:
+    """PURO: media type da imagem servida do banco. mime gravado -> usa;
+    NULL/vazio -> image/webp (formato padrao do pipeline de imagens)."""
+    return (mime or "").strip() or "image/webp"
+
+
+@app.get("/npc-imagem/{imagem_id}", include_in_schema=False)
+async def npc_imagem(imagem_id: int) -> Response:
+    async with _backend_pool.connection() as conn:
+        cur = await conn.execute(
+            "SELECT imagem_bytes, imagem_mime FROM npc_imagens WHERE id = %s",
+            (imagem_id,),
+        )
+        row = await cur.fetchone()
+    if row is None or row[0] is None:
+        # id inexistente OU imagem ainda so no R2 (fase de coexistencia)
+        raise HTTPException(status_code=404, detail="Imagem nao encontrada no banco.")
+    return Response(
+        content=bytes(row[0]),
+        media_type=_media_type(row[1]),
+        # a imagem-mae nao muda toda hora; 1h de cache alivia o banco
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+# ---------------------------------------------------------------------------
 # 6. Montar o NiceGUI no app do monolito (UMA vez). storage_secret assina os
 #    cookies de sessao do NiceGUI.
 # ---------------------------------------------------------------------------
