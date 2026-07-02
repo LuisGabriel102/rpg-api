@@ -87,6 +87,61 @@ async def url_imagem_mae(npc_id) -> "str | None":
         return None
 
 
+async def url_imagem_oficial(npc_id, fase=None, cena=None) -> "str | None":
+    """Modelo fase+cena: a URL da OFICIAL do NPC pro momento pedido — leitura pura.
+
+    Fallback a+b (shape Gabriel), desenho (b): a query cobre os degraus 1-3 e
+    o degrau 4 e SEMPRE o ponteiro npcs.imagem_url (= a PADRAO, virada de
+    conceito) — a padrao real ganha de uma oficial aleatoria:
+      0 exato (fase e cena)          1 'normal' da mesma fase
+      2 qualquer da mesma fase       3 mesma cena, outra fase
+      4 ponteiro (via url_imagem_mae) — inclui os NPCs legados sem marcacao.
+    Empate no degrau: e_padrao ganha, depois a mais recente (deterministico).
+
+    fase=None E cena=None -> ponteiro direto: comportamento IDENTICO ao
+    url_imagem_mae (equivalencia no pior caso; nao deixa o slot vazio ('','')
+    de um legado "casar exato" com um pedido sem momento).
+
+    Contrato de gravura.py preservado: QUALQUER erro degrada (cai no ponteiro;
+    no pior caso None) com print de diagnostico — a cena NUNCA quebra por
+    causa da imagem. LAZY: importa db aqui, import do modulo segue sem
+    credencial. url_imagem_mae NAO foi tocada (rede de seguranca)."""
+    if not npc_id:
+        return None
+    if fase is None and cena is None:
+        return await url_imagem_mae(npc_id)
+    try:
+        from sqlalchemy import text as _t
+        from db import get_session
+        _sql = _t(
+            "SELECT url FROM ("
+            "  SELECT url, e_padrao, criado_em, CASE"
+            "    WHEN COALESCE(fase,'') = COALESCE(:fase,'')"
+            "     AND COALESCE(cena,'') = COALESCE(:cena,'') THEN 0"
+            "    WHEN COALESCE(fase,'') = COALESCE(:fase,'')"
+            "     AND COALESCE(cena,'') = 'normal' THEN 1"
+            "    WHEN COALESCE(fase,'') = COALESCE(:fase,'') THEN 2"
+            "    WHEN COALESCE(cena,'') = COALESCE(:cena,'') THEN 3"
+            "    ELSE 4 END AS degrau"
+            "  FROM npc_imagens"
+            "  WHERE npc_id = :nid AND status = 'canonica'"
+            ") t WHERE degrau <= 3 "
+            "ORDER BY degrau, e_padrao DESC, criado_em DESC LIMIT 1"
+        )
+        async with get_session() as _s:
+            _url = (await _s.execute(
+                _sql, {"nid": int(npc_id), "fase": fase, "cena": cena},
+            )).scalar()
+        _url = (_url or "").strip()
+        if _url:
+            return _url
+    except Exception as exc:  # noqa: BLE001 - leitura nunca derruba o turno
+        print(f"[gravura] oficial npc={npc_id} ({fase},{cena}) falhou: "
+              f"{type(exc).__name__}: {exc}")
+    # degrau 4: o ponteiro (a padrao) — tambem a rede de seguranca pos-erro
+    return await url_imagem_mae(npc_id)
+
+
 def _prompt(descricao: str) -> str:
     """Prompt de geracao = trigger do LoRA + a descricao do Cronista (ele decide o
     assunto: rosto quando ha alguem, lugar quando chega num lugar)."""

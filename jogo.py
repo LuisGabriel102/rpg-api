@@ -5048,6 +5048,11 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
                 _mg_grav = minha_geracao
                 _sess_grav = sessao_atual
                 _desc_grav = _res.gravura
+                # fase+cena do momento (snapshot no pedido, como os _grav acima):
+                # is_infancia -> jovem; tensao ativa -> combate (mesmo criterio
+                # do em_combate ADR-008). velha/ferida/formal: sem fonte ainda.
+                _fase_grav = "jovem" if is_infancia else "adulta"
+                _cena_grav = "combate" if (tensao_atual is not None) else "normal"
 
                 def _log_grav(resultado, *, aviso=None):
                     # LOG (diagnostico) DEFENSIVO: atualiza o registro desta gravura, se houver.
@@ -5069,7 +5074,8 @@ async def _pagina_jogar(com_ficha: bool = False, personagem: int | None = None):
                     _npc_grav = None
                     try:
                         _npc_grav = await _resolver_npc_gravura(_desc_grav, _sess_grav)
-                        _url = (await gravura.url_imagem_mae(_npc_grav)) if _npc_grav else None
+                        _url = (await gravura.url_imagem_oficial(
+                            _npc_grav, _fase_grav, _cena_grav)) if _npc_grav else None
                     except Exception as _ge:
                         _url = None
                         # DIAGNOSTICO: o aviso passa a carregar a MENSAGEM real, nao so o tipo
