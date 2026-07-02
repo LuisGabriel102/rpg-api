@@ -66,6 +66,55 @@ _ROTULOS_ANCORA = {
     "iluminacao_tematica": "iluminação temática",
 }
 
+# ── paleta do dossiê (Onda 1): base marrom/âmbar; cor viva SÓ no tipo de
+# vínculo e no status vivo/morto. Witcher-grey: nada de neon. ──
+_DOURADO = "#c9a45c"   # títulos e ícones de destaque
+_BRONZE = "#b8823c"    # molduras
+_CHIP_BG = "rgba(166,124,61,0.15)"
+_CHIP_FG = "#cbb087"
+_LINK = "#bd9a52"      # reservado pra links do dossiê (ondas futuras)
+
+# tipo de vínculo (valor do banco, sem acento) -> cor viva; desconhecido cai
+# no fallback sem quebrar
+_COR_TIPO_VINCULO = {
+    "amor": "#d15b74",
+    "familiar": "#6b93c4",
+    "manipulacao": "#a678d4",
+    "manipulação": "#a678d4",  # tolera a grafia acentuada, se um dia entrar
+    "amizade": "#6bb06b",
+    "rivalidade": "#d98a4a",
+}
+_COR_TIPO_FALLBACK = "#b8934a"
+_COR_VIVO = "#6bb06b"
+_COR_MORTO = "#8a8a8a"
+
+# grau_parentesco cru do banco -> rótulo legível (fallback = valor cru;
+# mae_filho resolve por sexo em _rotulo_parentesco)
+_GRAU_PARENTESCO = {
+    "filho_mae": "mãe",
+    "filho_pai": "pai",
+    "conjuges": "cônjuge",
+    "irmaos": "irmão(ã)",
+}
+
+# "Ver perfil completo": rótulo PT -> coluna de npcs (nomes confirmados no
+# information_schema; campo vazio não renderiza)
+_CAMPOS_PERFIL = (
+    ("medo principal", "medo_principal"),
+    ("desejo oculto", "desejo_oculto"),
+    ("linha que não cruza", "linha_que_nao_cruza"),
+    ("maior arrependimento", "maior_arrependimento"),
+    ("estilo de fala", "estilo_de_fala"),
+    ("tensão interna", "tensao_interna"),
+)
+_BIG_FIVE = (
+    ("abertura", "abertura"),
+    ("conscienciosidade", "conscienciosidade"),
+    ("extroversão", "extroversao"),
+    ("amabilidade", "amabilidade"),
+    ("neuroticismo", "neuroticismo"),
+)
+
 
 def _dot_status(tem_mae: bool) -> tuple[str, str]:
     """PURO: bolinha da lista. Verde = existe linha canonica em npc_imagens;
@@ -89,6 +138,158 @@ def _r2_key_da_url(url: str) -> str:
     """PURO: a key R2 e o caminho depois do dominio publico (mesma convencao do
     pipeline_geracao: tudo na raiz do bucket -> ultimo segmento)."""
     return (url or "").rsplit("/", 1)[-1]
+
+
+def _rotulo_parentesco(grau: Optional[str], sexo_parente: Optional[str] = None) -> str:
+    """PURO: grau cru do banco -> rótulo legível. mae_filho resolve 'filho'/
+    'filha' pelo sexo do parente quando existir; sem sexo fica 'filho(a)'
+    (não inventa). Grau desconhecido volta cru."""
+    g = (grau or "").strip().lower()
+    if g == "mae_filho":
+        sexo = (sexo_parente or "").strip().lower()
+        if sexo == "masculino":
+            return "filho"
+        if sexo == "feminino":
+            return "filha"
+        return "filho(a)"
+    return _GRAU_PARENTESCO.get(g, grau or "?")
+
+
+def _cor_tipo_vinculo(tipo: Optional[str]) -> str:
+    """PURO: cor viva do tipo de vínculo; tipo fora do mapa cai no fallback
+    âmbar (não quebra)."""
+    return _COR_TIPO_VINCULO.get((tipo or "").strip().lower(), _COR_TIPO_FALLBACK)
+
+
+def _cor_status_parente(status: Optional[str]) -> str:
+    """PURO: vivo = verde; morto (ou status desconhecido/NULL) = cinza."""
+    return _COR_VIVO if (status or "").strip().lower() == "vivo" else _COR_MORTO
+
+
+def _intensidade_dominante(vinculo: dict) -> Optional[tuple[str, int]]:
+    """PURO: (rótulo, valor) da maior intensidade não-NULL entre confiança/
+    afeição/respeito/medo. As 4 NULL -> None (vínculo sem barra)."""
+    pares = (
+        ("confiança", vinculo.get("confianca")),
+        ("afeição", vinculo.get("afeicao")),
+        ("respeito", vinculo.get("respeito")),
+        ("medo", vinculo.get("medo")),
+    )
+    validos = [(rotulo, valor) for rotulo, valor in pares if valor is not None]
+    if not validos:
+        return None
+    return max(validos, key=lambda par: par[1])
+
+
+def _subtitulo_familia(parentes: list[dict]) -> str:
+    """PURO: 'N · todos vivos' ou a contagem real de vivos/mortos."""
+    total = len(parentes)
+    vivos = sum(
+        1 for p in parentes
+        if (p.get("status_parente") or "").strip().lower() == "vivo"
+    )
+    if vivos == total:
+        return f"{total} · todos vivos"
+    return f"{total} · {vivos} vivo(s), {total - vivos} morto(s)"
+
+
+def _chips_identidade(npc: dict) -> list[str]:
+    """PURO: chips do card 'Quem é' — só o que tem valor."""
+    chips: list[str] = []
+    if npc.get("raca"):
+        chips.append(str(npc["raca"]))
+    if npc.get("idade_aparente") is not None:
+        chips.append(f"{npc['idade_aparente']} anos")
+    if npc.get("localizacao_atual"):
+        chips.append(str(npc["localizacao_atual"]))
+    for faccao in (npc.get("facoes") or []):
+        if faccao:
+            chips.append(str(faccao))
+    if npc.get("arc_phase"):
+        chips.append(f"arco {npc['arc_phase']}")
+    return chips
+
+
+def _linhas_perfil(npc: dict) -> list[tuple[str, str]]:
+    """PURO: linhas (rótulo, texto real) do 'Ver perfil completo'. Campo vazio
+    não entra. idade_real e localizacao_base moram aqui (decisão 4)."""
+    linhas = [(rotulo, str(npc[col])) for rotulo, col in _CAMPOS_PERFIL if npc.get(col)]
+    big5 = [
+        f"{rotulo} {npc[col]}" for rotulo, col in _BIG_FIVE
+        if npc.get(col) is not None
+    ]
+    if big5:
+        linhas.append(("Big Five", " · ".join(big5)))
+    valores = [str(v) for v in (npc.get("valores") or []) if v]
+    if valores:
+        linhas.append(("valores", ", ".join(valores)))
+    if npc.get("o_que_so_ele_pode_fazer"):
+        linhas.append(("o que só ele(a) pode fazer", str(npc["o_que_so_ele_pode_fazer"])))
+    if npc.get("idade_real") is not None:
+        linhas.append(("idade real", f"{npc['idade_real']} anos"))
+    if npc.get("localizacao_base"):
+        linhas.append(("localização base", str(npc["localizacao_base"])))
+    if npc.get("backstory_completa"):
+        linhas.append(("backstory", str(npc["backstory_completa"])))
+    return linhas
+
+
+def _nome_outro_lado(vinculo: dict) -> str:
+    """PURO: nome do outro lado do vínculo — npc (nome já resolvido no JOIN) >
+    'Protagonista' (personagem_alvo_id) > '(sem alvo)' (alvo duplo-NULL não
+    estoura a página)."""
+    if vinculo.get("nome_outro"):
+        return str(vinculo["nome_outro"])
+    if vinculo.get("personagem_alvo_id") is not None:
+        return "Protagonista"
+    return "(sem alvo)"
+
+
+def _consolidar_vinculos(vinculos: list[dict]) -> list[dict]:
+    """PURO: linhas do card Vínculos. Par ida+volta com o MESMO tipo vira UMA
+    linha sem direção (simétrico); tipos diferentes ficam em linhas separadas
+    com 'dá'/'recebe' — witcher-grey: mostra os dois lados, não suaviza.
+    Intensidade do par simétrico: a da perspectiva do NPC (origem), com
+    fallback pra volta. Nota curta só no vínculo com o Protagonista
+    (historia_com_protagonista — decisão 3)."""
+    linhas: list[dict] = []
+    consumidos: set[int] = set()
+    for i, v in enumerate(vinculos):
+        if i in consumidos:
+            continue
+        nome = _nome_outro_lado(v)
+        par = None
+        for j in range(i + 1, len(vinculos)):
+            w = vinculos[j]
+            if (j not in consumidos
+                    and _nome_outro_lado(w) == nome
+                    and bool(w.get("eh_origem")) != bool(v.get("eh_origem"))
+                    and (w.get("tipo") or "") == (v.get("tipo") or "")):
+                par = j
+                break
+        if par is not None:
+            consumidos.add(par)
+            w = vinculos[par]
+            origem, volta = (v, w) if v.get("eh_origem") else (w, v)
+            linhas.append({
+                "nome": nome,
+                "tipo": v.get("tipo"),
+                "direcao": None,
+                "intensidade": (_intensidade_dominante(origem)
+                                or _intensidade_dominante(volta)),
+                "nota": (origem.get("historia_com_protagonista")
+                         if nome == "Protagonista" else None),
+            })
+        else:
+            linhas.append({
+                "nome": nome,
+                "tipo": v.get("tipo"),
+                "direcao": "dá" if v.get("eh_origem") else "recebe",
+                "intensidade": _intensidade_dominante(v),
+                "nota": (v.get("historia_com_protagonista")
+                         if nome == "Protagonista" else None),
+            })
+    return linhas
 
 
 # =============================================================================
@@ -137,7 +338,15 @@ async def _carregar_detalhe_npc(npc_id: int) -> Optional[dict]:
         npc = await conn.fetchrow(
             "SELECT id, nome, imagem_url, rosto, olhos, cabelo, pele, "
             "       wardrobe_padrao, iluminacao_tematica, "
-            "       descricao_ancora_pt, descricao_ancora_en "
+            "       descricao_ancora_pt, descricao_ancora_en, "
+            # dossiê 'Quem é' (leitura pura; nomes do information_schema)
+            "       raca, idade_aparente, idade_real, localizacao_atual, "
+            "       localizacao_base, facoes, arc_phase, "
+            "       medo_principal, desejo_oculto, linha_que_nao_cruza, "
+            "       maior_arrependimento, estilo_de_fala, tensao_interna, "
+            "       abertura, conscienciosidade, extroversao, amabilidade, "
+            "       neuroticismo, valores, backstory_completa, "
+            "       momento_de_singularidade, o_que_so_ele_pode_fazer "
             "FROM npcs WHERE id = $1",
             npc_id,
         )
@@ -160,6 +369,50 @@ async def _carregar_detalhe_npc(npc_id: int) -> Optional[dict]:
             "canonica": dict(canonica) if canonica else None,
             "galeria": [dict(r) for r in galeria],
         }
+    finally:
+        await conn.close()
+
+
+async def _carregar_familia(npc_id: int) -> list[dict]:
+    """Parentes do NPC (papel, nome, vivo/morto). LEFT JOIN em npcs pelo
+    parente_id SÓ pra resolver o sexo (rótulo 'filho'/'filha' exato —
+    decisão 2). Leitura pura."""
+    conn = await _conectar()
+    try:
+        rows = await conn.fetch(
+            "SELECT f.parente_nome, f.grau_parentesco, f.status_parente, "
+            "       p.sexo AS sexo_parente "
+            "FROM npc_family f "
+            "LEFT JOIN npcs p ON p.id = f.parente_id "
+            "WHERE f.npc_id = $1 "
+            "ORDER BY f.id",
+            npc_id,
+        )
+        return [dict(r) for r in rows]
+    finally:
+        await conn.close()
+
+
+async def _carregar_vinculos(npc_id: int) -> list[dict]:
+    """Relações onde o NPC é origem OU alvo, com o nome do outro lado já
+    resolvido via JOIN em npcs (nada de id cru na tela). personagem_alvo_id
+    vira 'Protagonista' no helper puro. Leitura pura."""
+    conn = await _conectar()
+    try:
+        rows = await conn.fetch(
+            "SELECT r.tipo, r.confianca, r.afeicao, r.respeito, r.medo, "
+            "       r.personagem_alvo_id, r.historia_com_protagonista, "
+            "       (r.npc_origem_id = $1) AS eh_origem, "
+            "       CASE WHEN r.npc_origem_id = $1 THEN alvo.nome "
+            "            ELSE origem.nome END AS nome_outro "
+            "FROM npc_relationships r "
+            "LEFT JOIN npcs alvo   ON alvo.id = r.npc_alvo_id "
+            "LEFT JOIN npcs origem ON origem.id = r.npc_origem_id "
+            "WHERE r.npc_origem_id = $1 OR r.npc_alvo_id = $1 "
+            "ORDER BY r.id",
+            npc_id,
+        )
+        return [dict(r) for r in rows]
     finally:
         await conn.close()
 
@@ -270,6 +523,127 @@ def _casca_central(aba_ativa: str = "NPCs"):
             )
 
 
+def _card_dossie(titulo: str, icone: str, subtitulo: str = ""):
+    """Card do dossiê: moldura bronze, título dourado. Ícones Material (o set
+    ti-* não está carregado no projeto). Uso: with _card_dossie(...): ..."""
+    card = ui.card().classes("w-full bg-zinc-800 gap-2 mb-2").style(
+        f"border:1px solid {_BRONZE};border-radius:8px"
+    )
+    with card:
+        with ui.row().classes("items-center gap-2"):
+            ui.icon(icone, size="1.1rem").style(f"color:{_DOURADO}")
+            ui.label(titulo).classes(
+                "text-sm uppercase tracking-widest font-semibold"
+            ).style(f"color:{_DOURADO}")
+            if subtitulo:
+                ui.label(subtitulo).classes("text-xs text-zinc-500")
+    return card
+
+
+def _chip_dossie(texto: str) -> None:
+    """Chip âmbar do dossiê (identidade)."""
+    ui.label(texto).classes("text-sm rounded-full px-3 py-1").style(
+        f"background:{_CHIP_BG};color:{_CHIP_FG}"
+    )
+
+
+def _render_card_quem_e(npc: dict) -> None:
+    """Card 'Quem é': chips de identidade + momento-âncora destacado + perfil
+    completo (recolhido). Regra de ouro: sem nenhum dado, o card não existe."""
+    chips = _chips_identidade(npc)
+    momento = npc.get("momento_de_singularidade")
+    perfil = _linhas_perfil(npc)
+    if not (chips or momento or perfil):
+        return
+    with _card_dossie("Quem é", "description"):
+        if chips:
+            with ui.row().classes("gap-2"):
+                for texto in chips:
+                    _chip_dossie(texto)
+        if momento:
+            # destaque: surface elevado + estrela dourada, sempre visível
+            with ui.row(wrap=False).classes(
+                "w-full items-start gap-2 rounded p-3 bg-zinc-900"
+            ).style(f"border:1px solid {_BRONZE}"):
+                ui.icon("star", size="1.1rem").style(f"color:{_DOURADO}")
+                with ui.column().classes("gap-1 min-w-0"):
+                    ui.label("Momento-âncora").classes(
+                        "text-xs uppercase tracking-widest"
+                    ).style(f"color:{_DOURADO}")
+                    ui.label(str(momento)).classes("text-zinc-200 text-sm italic")
+        if perfil:
+            with ui.expansion("Ver perfil completo").classes(
+                "w-full text-zinc-300"
+            ).props("dense"):
+                for rotulo, texto in perfil:
+                    ui.label(rotulo).classes(
+                        "text-xs uppercase tracking-wide text-zinc-500 mt-2"
+                    )
+                    ui.label(texto).classes("text-zinc-200 text-sm")
+
+
+def _render_card_familia(familia: list[dict]) -> None:
+    """Card 'Família': um chip por parente com a bolinha vivo/morto. Família
+    vazia = card inexistente."""
+    if not familia:
+        return
+    with _card_dossie("Família", "home", _subtitulo_familia(familia)):
+        with ui.row().classes("gap-2"):
+            for parente in familia:
+                cor = _cor_status_parente(parente.get("status_parente"))
+                rotulo = _rotulo_parentesco(
+                    parente.get("grau_parentesco"), parente.get("sexo_parente")
+                )
+                with ui.row(wrap=False).classes(
+                    "items-center gap-2 rounded-full px-3 py-1"
+                ).style(f"background:{_CHIP_BG}"):
+                    ui.element("div").style(
+                        f"width:8px;height:8px;border-radius:50%;"
+                        f"background:{cor};flex:none;"
+                    ).tooltip(parente.get("status_parente") or "status desconhecido")
+                    ui.label(
+                        f"{rotulo} {parente.get('parente_nome') or '?'}"
+                    ).classes("text-sm").style(f"color:{_CHIP_FG}")
+
+
+def _render_card_vinculos(vinculos: list[dict]) -> None:
+    """Card 'Vínculos': nome do outro lado + pill do tipo (cor viva) + direção
+    quando assimétrico + micro-barra da intensidade dominante na cor do tipo.
+    Sem vínculos, sem card."""
+    linhas = _consolidar_vinculos(vinculos)
+    if not linhas:
+        return
+    with _card_dossie("Vínculos", "person"):
+        for lv in linhas:
+            cor = _cor_tipo_vinculo(lv["tipo"])
+            with ui.column().classes("w-full gap-1 mb-1"):
+                with ui.row(wrap=False).classes("w-full items-center gap-2"):
+                    ui.label(lv["nome"]).classes("text-zinc-100 text-sm")
+                    if lv["tipo"]:
+                        ui.label(str(lv["tipo"])).classes(
+                            "text-xs rounded-full px-2"
+                        ).style(f"background:{cor};color:#1c1917")
+                    if lv["direcao"]:
+                        ui.label(lv["direcao"]).classes("text-zinc-500 text-xs")
+                    if lv["intensidade"]:
+                        rotulo_i, valor_i = lv["intensidade"]
+                        ui.label(f"{rotulo_i} {valor_i}").classes(
+                            "text-zinc-400 text-xs ml-auto flex-none"
+                        )
+                if lv["intensidade"]:
+                    _, valor_i = lv["intensidade"]
+                    largura = max(0, min(100, int(valor_i)))
+                    # micro-barra sóbria: fundo surface, preenchimento na cor
+                    with ui.element("div").classes("w-full rounded").style(
+                        "height:4px;background:#3f3f46"
+                    ):
+                        ui.element("div").classes("rounded").style(
+                            f"height:4px;width:{largura}%;background:{cor}"
+                        )
+                if lv["nota"]:
+                    ui.label(lv["nota"]).classes("text-zinc-500 text-xs italic")
+
+
 async def pagina_admin_npcs() -> None:
     """Lista de NPCs: miniatura + nome + bolinha verde/vermelha. Alfabetica,
     busca por nome. Clique -> detalhe."""
@@ -349,6 +723,8 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
         async def detalhe() -> None:
             try:
                 dados = await _carregar_detalhe_npc(npc_id)
+                familia = await _carregar_familia(npc_id) if dados else []
+                vinculos = await _carregar_vinculos(npc_id) if dados else []
             except Exception as e:
                 traceback.print_exc()
                 ui.label(f"Erro ao carregar NPC {npc_id}: {e}").classes("text-red-400")
@@ -403,10 +779,15 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                         on_click=lambda: _dialog_upload(npc_id, detalhe.refresh),
                     ).props("color=amber-8").classes("w-full mt-2")
 
-                # ── coluna DIREITA: ancora (read-only — D4) + galeria ──
+                # ── coluna DIREITA: dossiê (Quem é → Família → Vínculos) +
+                # aparência + galeria. Regra de ouro: card sem dado NÃO existe. ──
                 with ui.column().classes("flex-1 min-w-0 gap-1"):
+                    _render_card_quem_e(npc)
+                    _render_card_familia(familia)
+                    _render_card_vinculos(vinculos)
+
                     ui.label("Aparência · somente leitura").classes(
-                        "text-xs uppercase tracking-widest text-zinc-500"
+                        "text-xs uppercase tracking-widest text-zinc-500 mt-2"
                     )
                     for campo, rotulo in _ROTULOS_ANCORA.items():
                         valor = npc.get(campo)
