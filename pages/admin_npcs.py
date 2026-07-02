@@ -362,18 +362,20 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                 "text-2xl text-amber-200 font-semibold"
             )
 
-            # Polimento Onda 1: 2 colunas de verdade — ESQUERDA = mae + legenda +
-            # Subir imagem; DIREITA = ancora + galeria. flex-wrap empilha em tela
-            # estreita. SO apresentacao: queries e transacao intactas.
-            with ui.row().classes("w-full gap-6 items-start flex-wrap"):
+            # 2 colunas LADO A LADO no desktop: wrap=False vira style inline
+            # flex-wrap:nowrap (ganha de classe — o flex-wrap anterior deixava
+            # a direita cair pra baixo). min-w-0 na direita: sem ele o texto
+            # longo forca overflow. SO apresentacao: queries e transacao intactas.
+            with ui.row(wrap=False).classes("w-full gap-6 items-start"):
                 # ── coluna ESQUERDA: a mae + legenda + upload ──
-                with ui.column().classes("w-80 flex-none gap-2"):
+                with ui.column().classes("w-96 flex-none gap-2"):
                     ui.label("Imagem-mãe").classes(
                         "text-xs uppercase tracking-widest text-zinc-500"
                     )
                     if canonica:
+                        # moldura verde dessaturada: concorda com o dot 'canonica'
                         ui.image(canonica["url"]).classes(
-                            "w-80 rounded border border-amber-700"
+                            "w-full rounded border border-green-800"
                         )
                         # legenda: nome do arquivo + status (item 5; some sem imagem)
                         ui.label(
@@ -387,7 +389,7 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                             ).classes("text-red-400 text-xs")
                     elif npc["imagem_url"]:
                         ui.image(npc["imagem_url"]).classes(
-                            "w-80 rounded border border-zinc-700 opacity-70"
+                            "w-full rounded border border-zinc-700 opacity-70"
                         )
                         ui.label(
                             "Sem linha canônica em npc_imagens (só o ponteiro "
@@ -399,11 +401,11 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                     ui.button(
                         "Subir imagem",
                         on_click=lambda: _dialog_upload(npc_id, detalhe.refresh),
-                    ).props("color=amber-8").classes("w-full")
+                    ).props("color=amber-8").classes("w-full mt-2")
 
                 # ── coluna DIREITA: ancora (read-only — D4) + galeria ──
-                with ui.column().classes("grow gap-1").style("min-width:320px"):
-                    ui.label("Âncora visual (leitura — editor é Onda 2)").classes(
+                with ui.column().classes("flex-1 min-w-0 gap-1"):
+                    ui.label("Aparência · somente leitura").classes(
                         "text-xs uppercase tracking-widest text-zinc-500"
                     )
                     for campo, rotulo in _ROTULOS_ANCORA.items():
@@ -414,26 +416,18 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                                     "text-zinc-500 text-sm w-40 flex-none"
                                 )
                                 ui.label(str(valor)).classes("text-zinc-200 text-sm")
-                    # item 3: descricoes longas RECOLHIDAS por padrao
-                    if npc.get("descricao_ancora_pt") or npc.get("descricao_ancora_en"):
+                    # descricao longa RECOLHIDA por padrao. So a PT vai pra tela;
+                    # descricao_ancora_en continua no banco (query intacta).
+                    if npc.get("descricao_ancora_pt"):
                         with ui.expansion("Ver descrição completa").classes(
-                            "w-full text-zinc-300"
+                            "w-full text-zinc-300 mt-4"
                         ).props("dense"):
-                            for campo, rotulo in (
-                                ("descricao_ancora_pt", "descrição (PT)"),
-                                ("descricao_ancora_en", "descrição (EN)"),
-                            ):
-                                valor = npc.get(campo)
-                                if valor:
-                                    ui.label(rotulo + ":").classes(
-                                        "text-zinc-500 text-sm mt-2"
-                                    )
-                                    ui.label(str(valor)).classes(
-                                        "text-zinc-300 text-sm italic"
-                                    )
+                            ui.label(str(npc["descricao_ancora_pt"])).classes(
+                                "text-zinc-300 text-sm italic"
+                            )
 
                     ui.label("Galeria (não-canônicas)").classes(
-                        "text-xs uppercase tracking-widest text-zinc-500 mt-4"
+                        "text-xs uppercase tracking-widest text-zinc-500 mt-6"
                     )
                     if not galeria:
                         ui.label(
