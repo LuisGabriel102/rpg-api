@@ -12,6 +12,15 @@ pool = AsyncConnectionPool(
     min_size=settings.db_pool_min,
     max_size=settings.db_pool_max,
     max_idle=settings.db_pool_max_idle,
+    # Cura do idle-kill do Neon (incidente 2026-07-02): o autosuspend derruba
+    # as conexoes ociosas do pool (min_size fica idle pra sempre — max_idle so
+    # recolhe ACIMA do minimo) e o pool as entregava sem checar -> rajada de
+    # "SSL connection has been closed unexpectedly" a cada retomada.
+    # check: valida no checkout; conexao morta e descartada e outra entregue,
+    # transparente pro caller. max_lifetime: recicla por idade (30 min) e
+    # reduz a janela de mortas acumuladas.
+    check=AsyncConnectionPool.check_connection,
+    max_lifetime=1800,
     open=False,
     configure=_configure,
     kwargs={
