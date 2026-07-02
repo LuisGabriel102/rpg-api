@@ -9,7 +9,7 @@ Cobre os helpers testaveis de pages/admin_npcs.py:
   - dossie (Onda 1): parentesco, cores por tipo/status, intensidade dominante,
     chips/linhas do 'Quem e', consolidacao de vinculos (simetrico/assimetrico)
 
-A transacao definir_como_mae NAO tem teste puro (decisao Gabriel): a seguranca
+A transacao definir_como_oficial NAO tem teste puro (decisao Gabriel): a seguranca
 dela vem do indice unico parcial no banco + post-check em codigo + o teste vivo
 com a Elara. Import do modulo nao exige credencial R2 (import lazy no handler).
 """
@@ -335,4 +335,127 @@ def test_descartar_zero_linhas_retorna_false(monkeypatch):
     conn = _com_conexao_falsa(monkeypatch, row=None)
     assert asyncio.run(admin_npcs._descartar_candidata(999999)) is False
     assert conn.fechada
+
+
+# ── modelo fase+cena: helpers puros ─────────────────────────────────────────
+
+from datetime import datetime
+
+from pages.admin_npcs import _rotulo_momento, _separar_padrao
+
+
+def test_rotulo_momento_completo_e_parcial():
+    assert _rotulo_momento("adulta", "combate") == "adulta · combate"
+    assert _rotulo_momento("adulta", None) == "adulta · qualquer"
+    assert _rotulo_momento(None, "formal") == "qualquer · formal"
+
+
+def test_rotulo_momento_sem_marcacao():
+    assert _rotulo_momento(None, None) == "sem momento"
+
+
+def _canonica(id, e_padrao=False, dia=1):
+    return {"id": id, "e_padrao": e_padrao, "criado_em": datetime(2026, 7, dia)}
+
+
+def test_separar_padrao_prefere_e_padrao():
+    # a padrao e a marcada, mesmo havendo mais recente
+    a, b = _canonica(1, e_padrao=True, dia=1), _canonica(2, dia=30)
+    padrao, oficiais = _separar_padrao([b, a])
+    assert padrao["id"] == 1
+    assert [o["id"] for o in oficiais] == [2]
+
+
+def test_separar_padrao_legado_cai_na_mais_recente():
+    # NPC pre-migracao (nenhuma e_padrao): espelha o antigo
+    # ORDER BY criado_em DESC LIMIT 1 — mesma imagem de antes
+    a, b = _canonica(1, dia=1), _canonica(2, dia=30)
+    padrao, oficiais = _separar_padrao([a, b])
+    assert padrao["id"] == 2
+    assert [o["id"] for o in oficiais] == [1]
+
+
+def test_separar_padrao_vazio_nao_quebra():
+    assert _separar_padrao([]) == (None, [])
+
+
+# ── definir_como_oficial: transacao com conexao roteirizada ─────────────────
+# fetchrow -> pre-check; fetchval sai da fila na ordem das chamadas.
+# O que se prova: (1) o rebaixe e POR SLOT (COALESCE fase/cena nos args);
+# (2) primeira oficial vira padrao + ponteiro sincroniza; (3) com padrao
+# viva, ponteiro NAO e tocado.
+
+
+class _ConexaoRoteirizada:
+    def __init__(self, fetchrow_ret, fetchval_fila):
+        self._fetchrow = fetchrow_ret
+        self._fila = list(fetchval_fila)
+        self.execs = []          # [(sql, args)]
+        self.fechada = False
+
+    def transaction(self):
+        class _T:
+            async def __aenter__(self_t):
+                return self_t
+
+            async def __aexit__(self_t, *exc):
+                return False
+        return _T()
+
+    async def fetchrow(self, sql, *args):
+        return self._fetchrow
+
+    async def execute(self, sql, *args):
+        self.execs.append((sql, args))
+
+    async def fetchval(self, sql, *args):
+        return self._fila.pop(0)
+
+    async def close(self):
+        self.fechada = True
+
+
+def _promover(monkeypatch, fetchval_fila):
+    conn = _ConexaoRoteirizada(
+        {"id": 7, "url": "/npc-imagem/7", "fase": "adulta", "cena": "combate"},
+        fetchval_fila,
+    )
+
+    async def _conectar_falso():
+        return conn
+
+    monkeypatch.setattr(admin_npcs, "_conectar", _conectar_falso)
+    resultado = asyncio.run(admin_npcs.definir_como_oficial(46, 7))
+    return conn, resultado
+
+
+def test_oficial_rebaixa_so_o_mesmo_slot(monkeypatch):
+    # fila: tem_padrao=True, n_slot=1 (nao vira padrao -> sem checks extras)
+    conn, _ = _promover(monkeypatch, [True, 1])
+    rebaixe_sql, rebaixe_args = conn.execs[0]
+    assert "status = 'arquivada'" in rebaixe_sql
+    assert "COALESCE(fase, '')" in rebaixe_sql and "COALESCE(cena, '')" in rebaixe_sql
+    # o slot rebaixado e o DA PROMOVIDA (lido no pre-check), nao "todas do NPC"
+    assert rebaixe_args == (46, "adulta", "combate")
+    # rebaixe zera e_padrao: linha arquivada nao segura uq_npc_imagens_um_padrao
+    assert "e_padrao = FALSE" in rebaixe_sql
+
+
+def test_oficial_primeira_vira_padrao_e_sincroniza_ponteiro(monkeypatch):
+    # fila: tem_padrao=False, n_slot=1, n_padrao=1, ptr batendo
+    conn, (url, virou_padrao) = _promover(
+        monkeypatch, [False, 1, 1, "/npc-imagem/7"]
+    )
+    assert virou_padrao is True and url == "/npc-imagem/7"
+    sqls = [s for s, _ in conn.execs]
+    assert any("e_padrao = TRUE" in s for s in sqls)
+    assert any("UPDATE npcs SET imagem_url" in s for s in sqls)
+
+
+def test_oficial_com_padrao_viva_nao_toca_ponteiro(monkeypatch):
+    conn, (url, virou_padrao) = _promover(monkeypatch, [True, 1])
+    assert virou_padrao is False
+    sqls = [s for s, _ in conn.execs]
+    assert not any("UPDATE npcs" in s for s in sqls)
+    assert not any("e_padrao = TRUE" in s for s in sqls)
 

@@ -165,8 +165,49 @@ def _r2_key_da_url(url: str) -> str:
 
 def _legenda_mae(nome_npc: Optional[str], npc_id: int) -> str:
     """PURO: legenda da imagem-mãe — nome do NPC + status (decisão 2 do
-    Bloco 2). Uniforme pra imagem do banco E do R2 (nada de id/arquivo cru)."""
+    Bloco 2). Uniforme pra imagem do banco E do R2 (nada de id/arquivo cru).
+    No modelo fase+cena segue em uso pro LEGADO: canônica ainda sem marcação
+    de momento (os NPCs pré-migração)."""
     return f"{nome_npc or f'NPC #{npc_id}'} · canônica"
+
+
+# Vocabulário fechado (Gabriel) do modelo fase+cena. Vazio = "qualquer"
+# (fase/cena NULL no banco — slot COALESCE('') dos índices).
+_FASES = ("jovem", "adulta", "velha")
+_CENAS = ("normal", "combate", "ferida", "formal", "jovem")
+
+
+def _rotulo_momento(fase: Optional[str], cena: Optional[str]) -> str:
+    """PURO: selo legível do momento de uma imagem. Ambos NULL = imagem sem
+    marcação ('sem momento'); um só NULL vira 'qualquer' daquele eixo."""
+    if not fase and not cena:
+        return "sem momento"
+    return f"{fase or 'qualquer'} · {cena or 'qualquer'}"
+
+
+def _legenda_padrao(
+    nome_npc: Optional[str], npc_id: int,
+    fase: Optional[str], cena: Optional[str],
+) -> str:
+    """PURO: legenda da imagem-PADRÃO (rosto-base que npcs.imagem_url segue)."""
+    return (
+        f"{nome_npc or f'NPC #{npc_id}'} · "
+        f"{_rotulo_momento(fase, cena)} · padrão"
+    )
+
+
+def _separar_padrao(canonicas: list) -> "tuple[Optional[dict], list]":
+    """PURO: divide as oficiais (status='canonica') do NPC em (padrao, resto).
+
+    padrao = a e_padrao=TRUE; NPC legado sem nenhuma marcada cai na mais
+    recente (espelho do antigo ORDER BY criado_em DESC LIMIT 1 — os 44
+    pré-migração continuam mostrando a mesma imagem). resto = as demais
+    oficiais, a seção 'Oficiais por momento'."""
+    padrao = next((c for c in canonicas if c.get("e_padrao")), None)
+    if padrao is None and canonicas:
+        padrao = max(canonicas, key=lambda c: c["criado_em"])
+    oficiais = [c for c in canonicas if padrao is None or c["id"] != padrao["id"]]
+    return padrao, oficiais
 
 
 def _rotulo_parentesco(grau: Optional[str], sexo_parente: Optional[str] = None) -> str:
@@ -417,21 +458,28 @@ async def _carregar_detalhe_npc(npc_id: int) -> Optional[dict]:
         )
         if npc is None:
             return None
-        canonica = await conn.fetchrow(
-            "SELECT id, url, rotulo_narrativo, modelo_ia, criado_em "
+        # modelo fase+cena: TODAS as oficiais vem juntas; _separar_padrao
+        # (puro) escolhe a padrao (e_padrao=TRUE; legado sem marcacao cai na
+        # mais recente) e o resto vira a secao 'Oficiais por momento'.
+        canonicas = await conn.fetch(
+            "SELECT id, url, rotulo_narrativo, modelo_ia, criado_em, "
+            "       fase, cena, e_padrao "
             "FROM npc_imagens WHERE npc_id = $1 AND status = 'canonica' "
-            "ORDER BY criado_em DESC LIMIT 1",
+            "ORDER BY criado_em DESC",
             npc_id,
         )
         galeria = await conn.fetch(
-            "SELECT id, url, rotulo_narrativo, status, modelo_ia, criado_em "
+            "SELECT id, url, rotulo_narrativo, status, modelo_ia, criado_em, "
+            "       fase, cena "
             "FROM npc_imagens WHERE npc_id = $1 AND status <> 'canonica' "
             "ORDER BY criado_em DESC",
             npc_id,
         )
+        padrao, oficiais = _separar_padrao([dict(r) for r in canonicas])
         return {
             "npc": dict(npc),
-            "canonica": dict(canonica) if canonica else None,
+            "padrao": padrao,
+            "oficiais": oficiais,
             "galeria": [dict(r) for r in galeria],
         }
     finally:
@@ -483,25 +531,30 @@ async def _carregar_vinculos(npc_id: int) -> list[dict]:
 
 
 async def _inserir_candidata_upload(
-    npc_id: int, file_bytes: bytes, content_type: str, rotulo: Optional[str]
+    npc_id: int, file_bytes: bytes, content_type: str, rotulo: Optional[str],
+    fase: Optional[str] = None, cena: Optional[str] = None,
 ) -> int:
     """INSERT do upload como CANDIDATA — Bloco 2 da migracao storage: os BYTES
     vao pro banco (imagem_bytes/imagem_mime), nao mais pro R2. url e NOT NULL
     e a rota interna depende do id -> duas fases na MESMA transacao: INSERT
     com placeholder RETURNING id, depois UPDATE url='/npc-imagem/<id>'.
-    Commit atomico. r2_key = NULL (upload no banco nao tem key R2)."""
+    Commit atomico. r2_key = NULL (upload no banco nao tem key R2).
+    Modelo fase+cena: fase/cena entram do dialog (NULL = 'qualquer');
+    e_padrao NAO entra — candidata nunca nasce padrao (default FALSE), e os
+    indices unicos so valem pra canonica/padrao, upload nunca colide."""
     conn = await _conectar()
     try:
         async with conn.transaction():
             row = await conn.fetchrow(
                 "INSERT INTO npc_imagens "
                 "  (npc_id, url, r2_key, rotulo_narrativo, status, modelo_ia, "
-                "   e_principal, custo_usd, criado_em, imagem_bytes, imagem_mime) "
+                "   e_principal, custo_usd, criado_em, imagem_bytes, imagem_mime, "
+                "   fase, cena) "
                 "VALUES ($1, 'pendente', NULL, $2, 'candidata', 'upload', "
-                "        FALSE, 0, NOW(), $3, $4) "
+                "        FALSE, 0, NOW(), $3, $4, $5, $6) "
                 "RETURNING id",
                 npc_id, (rotulo or "Upload manual"), file_bytes,
-                (content_type or "").lower(),
+                (content_type or "").lower(), fase, cena,
             )
             imagem_id: int = row["id"]
             await conn.execute(
@@ -534,63 +587,150 @@ async def _descartar_candidata(imagem_id: int) -> bool:
         await conn.close()
 
 
-async def definir_como_mae(npc_id: int, imagem_id: int) -> str:
-    """A transacao 'Definir como mae' — shape aprovado por Gabriel (Onda 1).
+async def definir_como_oficial(npc_id: int, imagem_id: int) -> "tuple[str, bool]":
+    """A transacao 'Definir como oficial' — modelo fase+cena (shape Gabriel).
 
-    NUMA transacao: pre-check FOR UPDATE -> rebaixa canonica antiga pra
-    'arquivada' -> promove a escolhida -> sincroniza npcs.imagem_url ->
-    post-check (1 canonica exata + ponteiro batendo). Qualquer violacao levanta
-    ValueError com mensagem amigavel e a transacao REVERTE inteira. A trava
-    dura contra 2 maes e o indice unico parcial do banco (independente daqui).
+    VIRADA DE CONCEITO: nao existe mais 'a mae'. Cada (fase, cena) tem no
+    maximo UMA oficial (status='canonica' — indice
+    uq_npc_imagens_oficial_por_momento) e o NPC tem UMA padrao
+    (e_padrao=TRUE — uq_npc_imagens_um_padrao), o rosto-base que
+    npcs.imagem_url SEMPRE aponta (o jogo le o ponteiro por ora).
 
-    Retorna a URL da nova mae (pro refresh da UI)."""
+    NUMA transacao: pre-check FOR UPDATE le fase+cena DA promovida ->
+    (1) rebaixa SO a oficial do MESMO slot pra 'arquivada' (as outras
+    oficiais do NPC ficam; o rebaixe zera e_padrao — o indice de padrao nao
+    filtra por status, linha arquivada nao pode segurar a vaga) ->
+    (2) promove a escolhida -> (3) padrao AUTOMATICA so se o NPC nao tem
+    nenhuma: esta assume e npcs.imagem_url sincroniza; senao ponteiro NAO
+    muda -> post-check por SLOT (1 oficial no slot; se assumiu padrao,
+    1 padrao no NPC + ponteiro batendo). Violacao = ValueError e a transacao
+    REVERTE inteira.
+
+    Retorna (url, virou_padrao) pro notify/refresh da UI."""
     conn = await _conectar()
     try:
         async with conn.transaction():
-            # PRE-CHECK: a escolhida existe, e DESTE npc e ainda nao e a mae
+            # PRE-CHECK: existe, e DESTE npc, ainda nao e oficial; le o slot
             alvo = await conn.fetchrow(
-                "SELECT id, url FROM npc_imagens "
+                "SELECT id, url, fase, cena FROM npc_imagens "
                 "WHERE id = $1 AND npc_id = $2 AND status <> 'canonica' "
                 "FOR UPDATE",
                 imagem_id, npc_id,
             )
             if alvo is None:
                 raise ValueError(
-                    "Imagem nao encontrada pra este NPC (ou ja e a imagem-mae)."
+                    "Imagem nao encontrada pra este NPC (ou ja e oficial)."
                 )
-            # 1) rebaixa a mae atual (0 linhas OK: NPC ainda sem mae)
+            # 1) rebaixa SO a oficial do MESMO (fase, cena) — 0 linhas OK
+            #    (slot ainda vazio). COALESCE identico ao do indice unico.
             await conn.execute(
-                "UPDATE npc_imagens SET status = 'arquivada', e_principal = FALSE "
-                "WHERE npc_id = $1 AND status = 'canonica'",
-                npc_id,
+                "UPDATE npc_imagens "
+                "SET status = 'arquivada', e_principal = FALSE, e_padrao = FALSE "
+                "WHERE npc_id = $1 AND status = 'canonica' "
+                "  AND COALESCE(fase, '') = COALESCE($2, '') "
+                "  AND COALESCE(cena, '') = COALESCE($3, '')",
+                npc_id, alvo["fase"], alvo["cena"],
             )
             # 2) promove a escolhida
             await conn.execute(
-                "UPDATE npc_imagens SET status = 'canonica', e_principal = TRUE "
+                "UPDATE npc_imagens SET status = 'canonica' "
                 "WHERE id = $1 AND npc_id = $2",
                 imagem_id, npc_id,
             )
-            # 3) sincroniza o ponteiro rapido que o jogo le (gravura.url_imagem_mae)
+            # 3) primeira padrao e automatica; com padrao viva, nada muda
+            tem_padrao = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM npc_imagens "
+                "WHERE npc_id = $1 AND status = 'canonica' AND e_padrao)",
+                npc_id,
+            )
+            virou_padrao = not tem_padrao
+            if virou_padrao:
+                await conn.execute(
+                    "UPDATE npc_imagens SET e_padrao = TRUE, e_principal = TRUE "
+                    "WHERE id = $1",
+                    imagem_id,
+                )
+                await conn.execute(
+                    "UPDATE npcs SET imagem_url = $1 WHERE id = $2",
+                    alvo["url"], npc_id,
+                )
+            # POST-CHECK por SLOT: exatamente UMA oficial neste (fase, cena)
+            n_slot = await conn.fetchval(
+                "SELECT COUNT(*) FROM npc_imagens "
+                "WHERE npc_id = $1 AND status = 'canonica' "
+                "  AND COALESCE(fase, '') = COALESCE($2, '') "
+                "  AND COALESCE(cena, '') = COALESCE($3, '')",
+                npc_id, alvo["fase"], alvo["cena"],
+            )
+            if n_slot != 1:
+                raise ValueError(
+                    f"Post-check falhou: {n_slot} oficiais no slot (esperado 1). "
+                    "Nada foi gravado."
+                )
+            if virou_padrao:
+                n_padrao = await conn.fetchval(
+                    "SELECT COUNT(*) FROM npc_imagens "
+                    "WHERE npc_id = $1 AND e_padrao",
+                    npc_id,
+                )
+                ptr = await conn.fetchval(
+                    "SELECT imagem_url FROM npcs WHERE id = $1", npc_id
+                )
+                if n_padrao != 1 or ptr != alvo["url"]:
+                    raise ValueError(
+                        "Post-check falhou: padrao/ponteiro nao batem. "
+                        "Nada foi gravado."
+                    )
+        return alvo["url"], virou_padrao
+    finally:
+        await conn.close()
+
+
+async def tornar_padrao(npc_id: int, imagem_id: int) -> str:
+    """A transacao 'Tornar padrao' (acao propria, separada do definir-oficial):
+    move o rosto-base do NPC pra uma OFICIAL escolhida.
+
+    NUMA transacao: pre-check FOR UPDATE (so oficial pode virar padrao) ->
+    desliga o e_padrao atual do NPC -> liga na escolhida -> npcs.imagem_url
+    segue ela (o jogo passa a mostra-la) -> post-check (1 padrao + ponteiro
+    batendo). A trava dura contra 2 padroes e o uq_npc_imagens_um_padrao.
+
+    Retorna a url da nova padrao."""
+    conn = await _conectar()
+    try:
+        async with conn.transaction():
+            alvo = await conn.fetchrow(
+                "SELECT id, url FROM npc_imagens "
+                "WHERE id = $1 AND npc_id = $2 AND status = 'canonica' "
+                "FOR UPDATE",
+                imagem_id, npc_id,
+            )
+            if alvo is None:
+                raise ValueError("So uma imagem OFICIAL pode virar padrao.")
+            await conn.execute(
+                "UPDATE npc_imagens SET e_padrao = FALSE, e_principal = FALSE "
+                "WHERE npc_id = $1 AND e_padrao",
+                npc_id,
+            )
+            await conn.execute(
+                "UPDATE npc_imagens SET e_padrao = TRUE, e_principal = TRUE "
+                "WHERE id = $1",
+                imagem_id,
+            )
             await conn.execute(
                 "UPDATE npcs SET imagem_url = $1 WHERE id = $2",
                 alvo["url"], npc_id,
             )
-            # POST-CHECK: exatamente UMA canonica e o ponteiro batendo
-            n_can = await conn.fetchval(
-                "SELECT COUNT(*) FROM npc_imagens "
-                "WHERE npc_id = $1 AND status = 'canonica'",
+            n_padrao = await conn.fetchval(
+                "SELECT COUNT(*) FROM npc_imagens WHERE npc_id = $1 AND e_padrao",
                 npc_id,
             )
-            if n_can != 1:
-                raise ValueError(
-                    f"Post-check falhou: {n_can} canonicas (esperado 1). Nada foi gravado."
-                )
             ptr = await conn.fetchval(
                 "SELECT imagem_url FROM npcs WHERE id = $1", npc_id
             )
-            if ptr != alvo["url"]:
+            if n_padrao != 1 or ptr != alvo["url"]:
                 raise ValueError(
-                    "Post-check falhou: npcs.imagem_url nao bate com a nova mae. Nada foi gravado."
+                    "Post-check falhou: padrao/ponteiro nao batem. Nada foi gravado."
                 )
         return alvo["url"]
     finally:
@@ -859,7 +999,8 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                 ui.label(f"NPC id={npc_id} não encontrado.").classes("text-zinc-400")
                 return
 
-            npc, canonica, galeria = dados["npc"], dados["canonica"], dados["galeria"]
+            npc, galeria = dados["npc"], dados["galeria"]
+            padrao, oficiais = dados["padrao"], dados["oficiais"]
             ui.label(npc["nome"] or f"NPC #{npc_id}").classes(
                 "text-2xl text-amber-200 font-semibold"
             )
@@ -871,22 +1012,31 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
             with ui.row(wrap=False).classes("w-full gap-6 items-start"):
                 # ── coluna ESQUERDA: a mae + legenda + upload ──
                 with ui.column().classes("w-96 flex-none gap-2"):
-                    ui.label("Imagem-mãe").classes(
+                    ui.label("Imagem-padrão").classes(
                         "text-xs uppercase tracking-widest text-zinc-500"
                     )
-                    if canonica:
+                    if padrao:
                         # moldura verde dessaturada: concorda com o dot 'canonica'
-                        ui.image(canonica["url"]).classes(
+                        ui.image(padrao["url"]).classes(
                             "w-full rounded border border-green-800"
                         )
-                        # legenda: nome do NPC + status (some sem imagem)
-                        ui.label(
-                            _legenda_mae(npc.get("nome"), npc_id)
-                        ).classes("text-zinc-500 text-xs")
-                        # dessincronia = sintoma de integridade: mostra, nao esconde
-                        if npc["imagem_url"] != canonica["url"]:
+                        # legenda: com marcação = fase/cena + "padrão";
+                        # legado (canônica sem momento) mantém a antiga
+                        if padrao.get("e_padrao"):
                             ui.label(
-                                "npcs.imagem_url NÃO bate com a canônica — "
+                                _legenda_padrao(npc.get("nome"), npc_id,
+                                                padrao.get("fase"),
+                                                padrao.get("cena"))
+                            ).classes("text-zinc-500 text-xs")
+                        else:
+                            ui.label(
+                                _legenda_mae(npc.get("nome"), npc_id)
+                            ).classes("text-zinc-500 text-xs")
+                        # dessincronia = sintoma de integridade: o ponteiro do
+                        # jogo compara com a PADRÃO (virada de conceito)
+                        if npc["imagem_url"] != padrao["url"]:
+                            ui.label(
+                                "npcs.imagem_url NÃO bate com a padrão — "
                                 "o jogo pode estar mostrando outra imagem."
                             ).classes("text-red-400 text-xs")
                     elif npc["imagem_url"]:
@@ -913,6 +1063,36 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                     _render_card_vinculos(vinculos)
                     _render_card_aparencia(npc)
 
+                    # ── zona 2: OFICIAIS POR MOMENTO (canônicas não-padrão;
+                    # é onde a "velha/combate" mora). Regra de ouro: sem
+                    # dado, a seção não existe. ──
+                    if oficiais:
+                        ui.label("Oficiais por momento").classes(
+                            "text-xs uppercase tracking-widest text-zinc-500 mt-2"
+                        )
+                        with ui.grid(columns=2).classes("w-full gap-3"):
+                            for img in oficiais:
+                                with ui.card().tight().classes(
+                                    "bg-zinc-800 border border-green-900"
+                                ):
+                                    ui.image(img["url"]).classes(
+                                        "w-full h-40 object-cover"
+                                    )
+                                    with ui.column().classes("p-2 gap-1"):
+                                        ui.label(
+                                            _rotulo_momento(img.get("fase"),
+                                                            img.get("cena"))
+                                        ).classes("text-green-400 text-xs")
+                                        ui.button(
+                                            "Tornar padrão",
+                                            on_click=lambda _, iid=img["id"]: _confirmar_padrao(
+                                                npc_id, iid, detalhe.refresh
+                                            ),
+                                        ).props("dense color=amber-8 outline").classes(
+                                            "w-full"
+                                        )
+
+                    # ── zona 3: GALERIA (candidatas) ──
                     ui.label("Galeria (não-canônicas)").classes(
                         "text-xs uppercase tracking-widest text-zinc-500 mt-2"
                     )
@@ -928,14 +1108,17 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                                 ui.image(img["url"]).classes("w-full h-40 object-cover")
                                 with ui.column().classes("p-2 gap-1"):
                                     ui.label(
+                                        _rotulo_momento(img.get("fase"), img.get("cena"))
+                                    ).classes("text-zinc-500 text-xs")
+                                    ui.label(
                                         f"{img['status']} — {img['rotulo_narrativo'] or img['modelo_ia'] or ''}"
                                     ).classes("text-zinc-400 text-xs truncate")
                                     with ui.row().classes(
                                         "w-full items-center gap-1"
                                     ).style("flex-wrap:nowrap"):
                                         ui.button(
-                                            "Definir como mãe",
-                                            on_click=lambda _, iid=img["id"]: _confirmar_mae(
+                                            "Definir como oficial",
+                                            on_click=lambda _, iid=img["id"]: _confirmar_oficial(
                                                 npc_id, iid, detalhe.refresh
                                             ),
                                         ).props("dense color=amber-8 outline").classes("grow")
@@ -961,14 +1144,33 @@ def _dialog_upload(npc_id: int, refresh) -> None:
             "text-amber-200 text-lg font-semibold"
         )
         ui.label(
-            f"JPG, PNG ou WEBP, até {_MAX_UPLOAD_MB} MB. Nada vira mãe sem o "
-            "'Definir como mãe'."
+            f"JPG, PNG ou WEBP, até {_MAX_UPLOAD_MB} MB. Nada vira oficial sem "
+            "o 'Definir como oficial'."
         ).classes("text-zinc-400 text-sm")
         rotulo_input = (
             ui.input(label="Rótulo (opcional)", placeholder="ex: retrato definitivo")
             .props("outlined dense color=amber-8 dark")
             .classes("w-full")
         )
+        # modelo fase+cena: o momento entra JA no upload (vazio = "qualquer"
+        # = NULL no banco, o slot COALESCE('') dos indices)
+        with ui.row().classes("w-full gap-2").style("flex-wrap:nowrap"):
+            fase_select = (
+                ui.select(
+                    {"": "— qualquer —", **{f: f for f in _FASES}},
+                    value="", label="Fase",
+                )
+                .props("outlined dense color=amber-8 dark")
+                .classes("grow")
+            )
+            cena_select = (
+                ui.select(
+                    {"": "— qualquer —", **{c: c for c in _CENAS}},
+                    value="", label="Cena",
+                )
+                .props("outlined dense color=amber-8 dark")
+                .classes("grow")
+            )
         status_label = ui.label("").classes("text-sm")
 
         async def _on_upload(e):
@@ -992,6 +1194,8 @@ def _dialog_upload(npc_id: int, refresh) -> None:
                 imagem_id = await _inserir_candidata_upload(
                     npc_id, file_bytes, content_type,
                     (rotulo_input.value or "").strip() or None,
+                    fase_select.value or None,
+                    cena_select.value or None,
                 )
                 ui.notify(
                     f"Candidata #{imagem_id} adicionada.",
@@ -1056,23 +1260,25 @@ def _confirmar_descarte(imagem_id: int, refresh) -> None:
     dialog.open()
 
 
-def _confirmar_mae(npc_id: int, imagem_id: int, refresh) -> None:
-    """Confirmacao explicita antes da transacao (trocar a mae afeta o jogo no
-    turno seguinte)."""
+def _confirmar_oficial(npc_id: int, imagem_id: int, refresh) -> None:
+    """Confirmacao explicita antes da transacao (a oficial do mesmo momento
+    arquiva; se o NPC nao tem padrao, esta assume e o jogo passa a mostra-la)."""
     with ui.dialog() as dialog, ui.card().classes(
         "bg-zinc-800 text-zinc-100 gap-2"
     ):
-        ui.label("Definir esta imagem como a mãe?").classes("text-amber-200")
+        ui.label("Definir como a oficial deste momento?").classes("text-amber-200")
         ui.label(
-            "A mãe atual vira 'arquivada' e o jogo passa a mostrar esta no "
-            "próximo turno."
+            "A oficial atual do MESMO (fase, cena) vira 'arquivada'. Se o NPC "
+            "ainda não tem padrão, esta assume o rosto-base e o jogo passa a "
+            "mostrá-la."
         ).classes("text-zinc-400 text-sm")
 
         async def _executar():
             try:
-                url = await definir_como_mae(npc_id, imagem_id)
+                url, virou_padrao = await definir_como_oficial(npc_id, imagem_id)
                 ui.notify(
-                    f"Nova imagem-mãe definida ({_r2_key_da_url(url)}).",
+                    "Oficial definida — e virou a padrão do NPC."
+                    if virou_padrao else "Oficial definida.",
                     type="positive", position="top",
                 )
                 dialog.close()
@@ -1088,5 +1294,38 @@ def _confirmar_mae(npc_id: int, imagem_id: int, refresh) -> None:
 
         with ui.row().classes("w-full justify-end gap-2"):
             ui.button("Cancelar", on_click=dialog.close).props("flat color=zinc-5")
-            ui.button("Definir como mãe", on_click=_executar).props("color=amber-8")
+            ui.button("Definir como oficial", on_click=_executar).props("color=amber-8")
+    dialog.open()
+
+
+def _confirmar_padrao(npc_id: int, imagem_id: int, refresh) -> None:
+    """Confirmacao antes de mover o rosto-base: npcs.imagem_url segue a nova
+    padrao e o jogo mostra ela no proximo turno."""
+    with ui.dialog() as dialog, ui.card().classes(
+        "bg-zinc-800 text-zinc-100 gap-2"
+    ):
+        ui.label("Tornar esta imagem a padrão do NPC?").classes("text-amber-200")
+        ui.label(
+            "O rosto-base muda: npcs.imagem_url passa a apontar pra ela e o "
+            "jogo mostra esta no próximo turno."
+        ).classes("text-zinc-400 text-sm")
+
+        async def _executar():
+            try:
+                await tornar_padrao(npc_id, imagem_id)
+                ui.notify("Padrão atualizada.", type="positive", position="top")
+                dialog.close()
+                refresh()
+            except ValueError as ex:
+                ui.notify(str(ex), type="negative", position="top", timeout=8000)
+            except Exception as ex:
+                traceback.print_exc()
+                ui.notify(
+                    f"Erro na transação (nada foi gravado): {ex}",
+                    type="negative", position="top", timeout=8000,
+                )
+
+        with ui.row().classes("w-full justify-end gap-2"):
+            ui.button("Cancelar", on_click=dialog.close).props("flat color=zinc-5")
+            ui.button("Tornar padrão", on_click=_executar).props("color=amber-8")
     dialog.open()
