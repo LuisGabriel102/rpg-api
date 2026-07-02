@@ -10,9 +10,10 @@ Rotas (registradas em oficina_app.py, mesmo padrao do Atelie):
                                     galeria de candidatas + Subir imagem +
                                     Definir como mae
 
-Decisoes travadas (Gabriel, Onda 1):
+Decisoes travadas (Gabriel, Onda 1; upload atualizado no Bloco 2 da migracao):
 - Upload de qualquer imagem e caminho de PRIMEIRA CLASSE (decisao 5 da SPEC):
-  arquivo -> R2 (alderyn-npcs) -> linha status='candidata' em npc_imagens ->
+  arquivo -> BYTES em npc_imagens.imagem_bytes (Bloco 2; antes era R2) ->
+  linha status='candidata' com url='/npc-imagem/<id>' (rota do Bloco 1) ->
   so vira mae pelo botao "Definir como mae".
 - "Definir como mae" ESCREVE direto no banco, blindado em codigo (shape aprovado):
   pre-check FOR UPDATE + rebaixa a canonica antiga pra 'arquivada' + promove +
@@ -28,8 +29,8 @@ Decisoes travadas (Gabriel, Onda 1):
   FLUX.1 dev -> fal-ai/flux-lora*, NUNCA FLUX.2). O jogo segue leitura pura.
 
 Padrao de banco: asyncpg direto, espelho de pages/atelie_queries.py.
-IMPORT LAZY de r2_storage (dentro do handler de upload): importar este modulo
-nao exige credencial R2 (a suite coleta sem .env completo).
+r2_storage NAO e mais chamado neste modulo (Bloco 2); o R2 legado segue
+legivel pelas urls antigas ate o Bloco 3 migrar as imagens existentes.
 """
 
 from __future__ import annotations
@@ -160,6 +161,12 @@ def _r2_key_da_url(url: str) -> str:
     """PURO: a key R2 e o caminho depois do dominio publico (mesma convencao do
     pipeline_geracao: tudo na raiz do bucket -> ultimo segmento)."""
     return (url or "").rsplit("/", 1)[-1]
+
+
+def _legenda_mae(nome_npc: Optional[str], npc_id: int) -> str:
+    """PURO: legenda da imagem-mãe — nome do NPC + status (decisão 2 do
+    Bloco 2). Uniforme pra imagem do banco E do R2 (nada de id/arquivo cru)."""
+    return f"{nome_npc or f'NPC #{npc_id}'} · canônica"
 
 
 def _rotulo_parentesco(grau: Optional[str], sexo_parente: Optional[str] = None) -> str:
@@ -476,21 +483,32 @@ async def _carregar_vinculos(npc_id: int) -> list[dict]:
 
 
 async def _inserir_candidata_upload(
-    npc_id: int, url: str, rotulo: Optional[str]
+    npc_id: int, file_bytes: bytes, content_type: str, rotulo: Optional[str]
 ) -> int:
-    """INSERT do upload como CANDIDATA (decisao 5: primeira classe; nada vira mae
-    aqui). modelo_ia='upload' (coluna sem CHECK, confirmado no information_schema)."""
+    """INSERT do upload como CANDIDATA — Bloco 2 da migracao storage: os BYTES
+    vao pro banco (imagem_bytes/imagem_mime), nao mais pro R2. url e NOT NULL
+    e a rota interna depende do id -> duas fases na MESMA transacao: INSERT
+    com placeholder RETURNING id, depois UPDATE url='/npc-imagem/<id>'.
+    Commit atomico. r2_key = NULL (upload no banco nao tem key R2)."""
     conn = await _conectar()
     try:
-        row = await conn.fetchrow(
-            "INSERT INTO npc_imagens "
-            "  (npc_id, url, r2_key, rotulo_narrativo, status, modelo_ia, "
-            "   e_principal, custo_usd, criado_em) "
-            "VALUES ($1, $2, $3, $4, 'candidata', 'upload', FALSE, 0, NOW()) "
-            "RETURNING id",
-            npc_id, url, _r2_key_da_url(url), (rotulo or "Upload manual"),
-        )
-        return row["id"]
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                "INSERT INTO npc_imagens "
+                "  (npc_id, url, r2_key, rotulo_narrativo, status, modelo_ia, "
+                "   e_principal, custo_usd, criado_em, imagem_bytes, imagem_mime) "
+                "VALUES ($1, 'pendente', NULL, $2, 'candidata', 'upload', "
+                "        FALSE, 0, NOW(), $3, $4) "
+                "RETURNING id",
+                npc_id, (rotulo or "Upload manual"), file_bytes,
+                (content_type or "").lower(),
+            )
+            imagem_id: int = row["id"]
+            await conn.execute(
+                "UPDATE npc_imagens SET url = '/npc-imagem/' || id WHERE id = $1",
+                imagem_id,
+            )
+        return imagem_id
     finally:
         await conn.close()
 
@@ -840,9 +858,9 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                         ui.image(canonica["url"]).classes(
                             "w-full rounded border border-green-800"
                         )
-                        # legenda: nome do arquivo + status (item 5; some sem imagem)
+                        # legenda: nome do NPC + status (some sem imagem)
                         ui.label(
-                            f"{_r2_key_da_url(canonica['url'])} · canônica"
+                            _legenda_mae(npc.get("nome"), npc_id)
                         ).classes("text-zinc-500 text-xs")
                         # dessincronia = sintoma de integridade: mostra, nao esconde
                         if npc["imagem_url"] != canonica["url"]:
@@ -902,8 +920,8 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
 
 
 def _dialog_upload(npc_id: int, refresh) -> None:
-    """Dialog 'Subir imagem': valida -> R2 (alderyn-npcs) -> INSERT candidata ->
-    refresh. Espelha o padrao de upload do Atelie. r2_storage importado LAZY."""
+    """Dialog 'Subir imagem': valida -> INSERT candidata com os BYTES no banco
+    (Bloco 2 da migracao storage; o R2 nao e mais chamado) -> refresh."""
     with ui.dialog() as dialog, ui.card().classes(
         "bg-zinc-800 text-zinc-100 w-96 gap-2"
     ):
@@ -937,10 +955,11 @@ def _dialog_upload(npc_id: int, refresh) -> None:
             status_label.text = f"Enviando {len(file_bytes) / 1024:.0f} KB..."
             status_label.classes(replace="text-sm text-amber-300")
             try:
-                from r2_storage import upload_imagem_npc  # LAZY: credencial so aqui
-                url = await upload_imagem_npc(npc_id, file_bytes, content_type)
+                # Bloco 2: bytes direto pro banco; o R2 nao e mais chamado aqui
+                # (r2_storage segue no codigo ate o Bloco 5 — so nao e usado).
                 imagem_id = await _inserir_candidata_upload(
-                    npc_id, url, (rotulo_input.value or "").strip() or None
+                    npc_id, file_bytes, content_type,
+                    (rotulo_input.value or "").strip() or None,
                 )
                 ui.notify(
                     f"Candidata #{imagem_id} adicionada.",

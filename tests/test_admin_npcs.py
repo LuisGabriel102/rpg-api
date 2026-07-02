@@ -21,6 +21,7 @@ from pages.admin_npcs import (
     _cor_tipo_vinculo,
     _dot_status,
     _intensidade_dominante,
+    _legenda_mae,
     _linhas_perfil,
     _nome_outro_lado,
     _normalizar_chip,
@@ -90,6 +91,17 @@ def test_r2_key_e_o_ultimo_segmento():
 def test_r2_key_url_vazia_nao_quebra():
     assert _r2_key_da_url("") == ""
     assert _r2_key_da_url(None) == ""
+
+
+# ── _legenda_mae (Bloco 2: nome do NPC, nao id/arquivo cru) ────────────────
+
+def test_legenda_mae_usa_nome_do_npc():
+    assert _legenda_mae("Elara", 41) == "Elara · canônica"
+
+
+def test_legenda_mae_sem_nome_cai_no_id():
+    assert _legenda_mae(None, 77) == "NPC #77 · canônica"
+    assert _legenda_mae("", 77) == "NPC #77 · canônica"
 
 
 # ── dossiê: _rotulo_parentesco ──────────────────────────────────────────────
