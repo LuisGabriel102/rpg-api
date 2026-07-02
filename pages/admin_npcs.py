@@ -513,6 +513,27 @@ async def _inserir_candidata_upload(
         await conn.close()
 
 
+async def _descartar_candidata(imagem_id: int) -> bool:
+    """DELETE so-banco de uma NAO-canonica (Fusao Atelie->Central, Fatia 1).
+
+    GUARD no SQL (status <> 'canonica'): descartar candidata NUNCA apaga a
+    mae — cinto e suspensorio, mesmo a galeria ja excluindo a canonica por
+    query. NAO toca npcs.imagem_url, NAO chama R2. True = deletou 1 linha;
+    False = 0 linhas (era canonica ou id inexistente) — o caller avisa, nunca
+    sucesso silencioso."""
+    conn = await _conectar()
+    try:
+        row = await conn.fetchrow(
+            "DELETE FROM npc_imagens "
+            "WHERE id = $1 AND status <> 'canonica' "
+            "RETURNING id",
+            imagem_id,
+        )
+        return row is not None
+    finally:
+        await conn.close()
+
+
 async def definir_como_mae(npc_id: int, imagem_id: int) -> str:
     """A transacao 'Definir como mae' — shape aprovado por Gabriel (Onda 1).
 
@@ -909,12 +930,23 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                                     ui.label(
                                         f"{img['status']} — {img['rotulo_narrativo'] or img['modelo_ia'] or ''}"
                                     ).classes("text-zinc-400 text-xs truncate")
-                                    ui.button(
-                                        "Definir como mãe",
-                                        on_click=lambda _, iid=img["id"]: _confirmar_mae(
-                                            npc_id, iid, detalhe.refresh
-                                        ),
-                                    ).props("dense color=amber-8 outline").classes("w-full")
+                                    with ui.row().classes(
+                                        "w-full items-center gap-1"
+                                    ).style("flex-wrap:nowrap"):
+                                        ui.button(
+                                            "Definir como mãe",
+                                            on_click=lambda _, iid=img["id"]: _confirmar_mae(
+                                                npc_id, iid, detalhe.refresh
+                                            ),
+                                        ).props("dense color=amber-8 outline").classes("grow")
+                                        ui.button(
+                                            icon="delete",
+                                            on_click=lambda _, iid=img["id"]: _confirmar_descarte(
+                                                iid, detalhe.refresh
+                                            ),
+                                        ).props("flat dense round color=blue-grey-6").tooltip(
+                                            "Descartar candidata"
+                                        )
 
         await detalhe()
 
@@ -982,6 +1014,45 @@ def _dialog_upload(npc_id: int, refresh) -> None:
         ).classes("w-full")
         with ui.row().classes("w-full justify-end"):
             ui.button("Fechar", on_click=dialog.close).props("flat color=zinc-5")
+    dialog.open()
+
+
+def _confirmar_descarte(imagem_id: int, refresh) -> None:
+    """Confirmacao antes do descarte (Fatia 1). Delete SO-banco; o guard de
+    status no SQL barra canonica — False vira notify negativo, nunca sucesso
+    silencioso."""
+    with ui.dialog() as dialog, ui.card().classes(
+        "bg-zinc-800 text-zinc-100 gap-2"
+    ):
+        ui.label("Descartar esta candidata?").classes("text-zinc-200")
+        ui.label("Não pode ser desfeito.").classes("text-zinc-400 text-sm")
+
+        async def _executar():
+            try:
+                ok = await _descartar_candidata(imagem_id)
+                dialog.close()
+                if ok:
+                    ui.notify(
+                        "Candidata descartada.", type="positive", position="top"
+                    )
+                    refresh()
+                else:
+                    ui.notify(
+                        "Não foi possível descartar (é a canônica ou já não existe).",
+                        type="negative", position="top", timeout=8000,
+                    )
+            except Exception as ex:
+                traceback.print_exc()
+                ui.notify(
+                    f"Erro ao descartar (nada foi apagado): {ex}",
+                    type="negative", position="top", timeout=8000,
+                )
+
+        with ui.row().classes("w-full justify-end gap-2"):
+            ui.button("Cancelar", on_click=dialog.close).props("flat color=zinc-5")
+            ui.button("Descartar", on_click=_executar).props(
+                "unelevated color=blue-grey-8"
+            )
     dialog.open()
 
 

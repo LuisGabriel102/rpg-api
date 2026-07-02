@@ -280,3 +280,59 @@ def test_consolidar_protagonista_leva_nota():
 
 def test_consolidar_vazio_nao_quebra():
     assert _consolidar_vinculos([]) == []
+
+
+# ── _descartar_candidata (Fusao Atelie->Central, Fatia 1) ───────────────────
+# Sem banco: _conectar e trocado por uma conexao falsa. O que se prova aqui:
+# (1) o SQL leva o guard "status <> 'canonica'" — descarte nunca apaga a mae;
+# (2) RETURNING vazio -> False (canonica/inexistente), linha -> True;
+# (3) a conexao fecha nos dois caminhos.
+
+import asyncio
+
+import pages.admin_npcs as admin_npcs
+
+
+class _ConexaoFalsa:
+    def __init__(self, row):
+        self._row = row
+        self.sql = None
+        self.fechada = False
+
+    async def fetchrow(self, sql, *args):
+        self.sql = sql
+        return self._row
+
+    async def close(self):
+        self.fechada = True
+
+
+def _com_conexao_falsa(monkeypatch, row):
+    conn = _ConexaoFalsa(row)
+
+    async def _conectar_falso():
+        return conn
+
+    monkeypatch.setattr(admin_npcs, "_conectar", _conectar_falso)
+    return conn
+
+
+def test_descartar_deleta_nao_canonica(monkeypatch):
+    conn = _com_conexao_falsa(monkeypatch, row={"id": 7})
+    assert asyncio.run(admin_npcs._descartar_candidata(7)) is True
+    assert conn.fechada
+
+
+def test_descartar_guard_no_sql_barra_canonica(monkeypatch):
+    conn = _com_conexao_falsa(monkeypatch, row={"id": 7})
+    asyncio.run(admin_npcs._descartar_candidata(7))
+    assert "status <> 'canonica'" in conn.sql
+    assert "DELETE FROM npc_imagens" in conn.sql
+
+
+def test_descartar_zero_linhas_retorna_false(monkeypatch):
+    # canonica (guard barrou) ou id inexistente: RETURNING vazio -> False
+    conn = _com_conexao_falsa(monkeypatch, row=None)
+    assert asyncio.run(admin_npcs._descartar_candidata(999999)) is False
+    assert conn.fechada
+
