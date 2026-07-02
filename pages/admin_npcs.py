@@ -52,8 +52,19 @@ _TIPOS_ACEITOS = {"image/jpeg", "image/png", "image/webp"}
 _MAX_UPLOAD_MB = 10
 
 # bolinha de status da lista: (cor, rotulo acessivel)
-_DOT_VERDE = ("#22c55e", "tem imagem-mae")
+_DOT_VERDE = ("#22c55e", "tem imagem-mãe")
 _DOT_VERMELHO = ("#ef4444", "sem retrato")
+
+# rotulos PT (com acento) dos campos curtos da ancora — os DADOS ja vem do banco
+# com acento; isto so conserta os labels hardcoded (polimento Onda 1, item 4).
+_ROTULOS_ANCORA = {
+    "rosto": "rosto",
+    "olhos": "olhos",
+    "cabelo": "cabelo",
+    "pele": "pele",
+    "wardrobe_padrao": "vestuário padrão",
+    "iluminacao_tematica": "iluminação temática",
+}
 
 
 def _dot_status(tem_mae: bool) -> tuple[str, str]:
@@ -66,7 +77,7 @@ def _validar_upload(content_type: Optional[str], tamanho_bytes: int) -> Optional
     """PURO: valida um upload ANTES de gastar banda com o R2.
     Retorna a mensagem de erro (str) ou None quando o arquivo passa."""
     if not content_type or content_type.lower() not in _TIPOS_ACEITOS:
-        return f"Tipo nao aceito ({content_type or 'desconhecido'}). Use JPG, PNG ou WEBP."
+        return f"Tipo não aceito ({content_type or 'desconhecido'}). Use JPG, PNG ou WEBP."
     if tamanho_bytes <= 0:
         return "Arquivo vazio."
     if tamanho_bytes > _MAX_UPLOAD_MB * 1024 * 1024:
@@ -343,7 +354,7 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                 ui.label(f"Erro ao carregar NPC {npc_id}: {e}").classes("text-red-400")
                 return
             if dados is None:
-                ui.label(f"NPC id={npc_id} nao encontrado.").classes("text-zinc-400")
+                ui.label(f"NPC id={npc_id} não encontrado.").classes("text-zinc-400")
                 return
 
             npc, canonica, galeria = dados["npc"], dados["canonica"], dados["galeria"]
@@ -351,20 +362,27 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                 "text-2xl text-amber-200 font-semibold"
             )
 
-            with ui.row().classes("w-full gap-6 items-start"):
-                # ── coluna esquerda: a mae ──
+            # Polimento Onda 1: 2 colunas de verdade — ESQUERDA = mae + legenda +
+            # Subir imagem; DIREITA = ancora + galeria. flex-wrap empilha em tela
+            # estreita. SO apresentacao: queries e transacao intactas.
+            with ui.row().classes("w-full gap-6 items-start flex-wrap"):
+                # ── coluna ESQUERDA: a mae + legenda + upload ──
                 with ui.column().classes("w-80 flex-none gap-2"):
-                    ui.label("Imagem-mae").classes(
+                    ui.label("Imagem-mãe").classes(
                         "text-xs uppercase tracking-widest text-zinc-500"
                     )
                     if canonica:
                         ui.image(canonica["url"]).classes(
                             "w-80 rounded border border-amber-700"
                         )
+                        # legenda: nome do arquivo + status (item 5; some sem imagem)
+                        ui.label(
+                            f"{_r2_key_da_url(canonica['url'])} · canônica"
+                        ).classes("text-zinc-500 text-xs")
                         # dessincronia = sintoma de integridade: mostra, nao esconde
                         if npc["imagem_url"] != canonica["url"]:
                             ui.label(
-                                "npcs.imagem_url NAO bate com a canonica — "
+                                "npcs.imagem_url NÃO bate com a canônica — "
                                 "o jogo pode estar mostrando outra imagem."
                             ).classes("text-red-400 text-xs")
                     elif npc["imagem_url"]:
@@ -372,66 +390,71 @@ async def pagina_admin_npc_detalhe(npc_id: int) -> None:
                             "w-80 rounded border border-zinc-700 opacity-70"
                         )
                         ui.label(
-                            "Sem linha canonica em npc_imagens (so o ponteiro "
-                            "npcs.imagem_url). Suba/defina uma mae."
+                            "Sem linha canônica em npc_imagens (só o ponteiro "
+                            "npcs.imagem_url). Suba/defina uma mãe."
                         ).classes("text-amber-400 text-xs")
                     else:
                         ui.label("Sem retrato.").classes("text-zinc-500")
+                    # item 2: o botao mora aqui, logo abaixo da imagem-mae
+                    ui.button(
+                        "Subir imagem",
+                        on_click=lambda: _dialog_upload(npc_id, detalhe.refresh),
+                    ).props("color=amber-8").classes("w-full")
 
-                # ── coluna direita: ancora (read-only nesta onda — D4) ──
-                with ui.column().classes("grow gap-1"):
-                    ui.label("Ancora visual (leitura — editor e Onda 2)").classes(
+                # ── coluna DIREITA: ancora (read-only — D4) + galeria ──
+                with ui.column().classes("grow gap-1").style("min-width:320px"):
+                    ui.label("Âncora visual (leitura — editor é Onda 2)").classes(
                         "text-xs uppercase tracking-widest text-zinc-500"
                     )
-                    for campo in ("rosto", "olhos", "cabelo", "pele",
-                                  "wardrobe_padrao", "iluminacao_tematica"):
+                    for campo, rotulo in _ROTULOS_ANCORA.items():
                         valor = npc.get(campo)
                         if valor:
                             with ui.row().classes("gap-2 items-baseline"):
-                                ui.label(campo.replace("_", " ") + ":").classes(
+                                ui.label(rotulo + ":").classes(
                                     "text-zinc-500 text-sm w-40 flex-none"
                                 )
                                 ui.label(str(valor)).classes("text-zinc-200 text-sm")
-                    for campo in ("descricao_ancora_pt", "descricao_ancora_en"):
-                        valor = npc.get(campo)
-                        if valor:
-                            ui.label(campo + ":").classes(
-                                "text-zinc-500 text-sm mt-2"
-                            )
-                            ui.label(str(valor)).classes(
-                                "text-zinc-300 text-sm italic"
-                            )
+                    # item 3: descricoes longas RECOLHIDAS por padrao
+                    if npc.get("descricao_ancora_pt") or npc.get("descricao_ancora_en"):
+                        with ui.expansion("Ver descrição completa").classes(
+                            "w-full text-zinc-300"
+                        ).props("dense"):
+                            for campo, rotulo in (
+                                ("descricao_ancora_pt", "descrição (PT)"),
+                                ("descricao_ancora_en", "descrição (EN)"),
+                            ):
+                                valor = npc.get(campo)
+                                if valor:
+                                    ui.label(rotulo + ":").classes(
+                                        "text-zinc-500 text-sm mt-2"
+                                    )
+                                    ui.label(str(valor)).classes(
+                                        "text-zinc-300 text-sm italic"
+                                    )
 
-            # ── acoes ──
-            ui.button(
-                "Subir imagem",
-                on_click=lambda: _dialog_upload(npc_id, detalhe.refresh),
-            ).props("color=amber-8")
-
-            # ── galeria ──
-            ui.label("Galeria (nao-canonicas)").classes(
-                "text-xs uppercase tracking-widest text-zinc-500 mt-4"
-            )
-            if not galeria:
-                ui.label(
-                    "Nenhuma candidata. Suba uma imagem pra comecar."
-                ).classes("text-zinc-500")
-            with ui.grid(columns=4).classes("w-full gap-3"):
-                for img in galeria:
-                    with ui.card().tight().classes(
-                        "bg-zinc-800 border border-zinc-700"
-                    ):
-                        ui.image(img["url"]).classes("w-full h-40 object-cover")
-                        with ui.column().classes("p-2 gap-1"):
-                            ui.label(
-                                f"{img['status']} — {img['rotulo_narrativo'] or img['modelo_ia'] or ''}"
-                            ).classes("text-zinc-400 text-xs truncate")
-                            ui.button(
-                                "Definir como mae",
-                                on_click=lambda _, iid=img["id"]: _confirmar_mae(
-                                    npc_id, iid, detalhe.refresh
-                                ),
-                            ).props("dense color=amber-8 outline").classes("w-full")
+                    ui.label("Galeria (não-canônicas)").classes(
+                        "text-xs uppercase tracking-widest text-zinc-500 mt-4"
+                    )
+                    if not galeria:
+                        ui.label(
+                            "Nenhuma candidata. Suba uma imagem pra começar."
+                        ).classes("text-zinc-500")
+                    with ui.grid(columns=2).classes("w-full gap-3"):
+                        for img in galeria:
+                            with ui.card().tight().classes(
+                                "bg-zinc-800 border border-zinc-700"
+                            ):
+                                ui.image(img["url"]).classes("w-full h-40 object-cover")
+                                with ui.column().classes("p-2 gap-1"):
+                                    ui.label(
+                                        f"{img['status']} — {img['rotulo_narrativo'] or img['modelo_ia'] or ''}"
+                                    ).classes("text-zinc-400 text-xs truncate")
+                                    ui.button(
+                                        "Definir como mãe",
+                                        on_click=lambda _, iid=img["id"]: _confirmar_mae(
+                                            npc_id, iid, detalhe.refresh
+                                        ),
+                                    ).props("dense color=amber-8 outline").classes("w-full")
 
         await detalhe()
 
@@ -446,11 +469,11 @@ def _dialog_upload(npc_id: int, refresh) -> None:
             "text-amber-200 text-lg font-semibold"
         )
         ui.label(
-            f"JPG, PNG ou WEBP, ate {_MAX_UPLOAD_MB} MB. Nada vira mae sem o "
-            "'Definir como mae'."
+            f"JPG, PNG ou WEBP, até {_MAX_UPLOAD_MB} MB. Nada vira mãe sem o "
+            "'Definir como mãe'."
         ).classes("text-zinc-400 text-sm")
         rotulo_input = (
-            ui.input(label="Rotulo (opcional)", placeholder="ex: retrato definitivo")
+            ui.input(label="Rótulo (opcional)", placeholder="ex: retrato definitivo")
             .props("outlined dense color=amber-8 dark")
             .classes("w-full")
         )
@@ -507,17 +530,17 @@ def _confirmar_mae(npc_id: int, imagem_id: int, refresh) -> None:
     with ui.dialog() as dialog, ui.card().classes(
         "bg-zinc-800 text-zinc-100 gap-2"
     ):
-        ui.label("Definir esta imagem como a mae?").classes("text-amber-200")
+        ui.label("Definir esta imagem como a mãe?").classes("text-amber-200")
         ui.label(
-            "A mae atual vira 'arquivada' e o jogo passa a mostrar esta no "
-            "proximo turno."
+            "A mãe atual vira 'arquivada' e o jogo passa a mostrar esta no "
+            "próximo turno."
         ).classes("text-zinc-400 text-sm")
 
         async def _executar():
             try:
                 url = await definir_como_mae(npc_id, imagem_id)
                 ui.notify(
-                    f"Nova imagem-mae definida ({_r2_key_da_url(url)}).",
+                    f"Nova imagem-mãe definida ({_r2_key_da_url(url)}).",
                     type="positive", position="top",
                 )
                 dialog.close()
@@ -527,11 +550,11 @@ def _confirmar_mae(npc_id: int, imagem_id: int, refresh) -> None:
             except Exception as ex:
                 traceback.print_exc()
                 ui.notify(
-                    f"Erro na transacao (nada foi gravado): {ex}",
+                    f"Erro na transação (nada foi gravado): {ex}",
                     type="negative", position="top", timeout=8000,
                 )
 
         with ui.row().classes("w-full justify-end gap-2"):
             ui.button("Cancelar", on_click=dialog.close).props("flat color=zinc-5")
-            ui.button("Definir como mae", on_click=_executar).props("color=amber-8")
+            ui.button("Definir como mãe", on_click=_executar).props("color=amber-8")
     dialog.open()

@@ -57,7 +57,7 @@ def test_upload_acima_do_teto_rejeita():
 def test_dot_verde_quando_tem_mae():
     cor, rotulo = _dot_status(True)
     assert cor == "#22c55e"
-    assert "imagem-mae" in rotulo
+    assert "imagem-mãe" in rotulo
 
 
 def test_dot_vermelho_quando_sem_retrato():
