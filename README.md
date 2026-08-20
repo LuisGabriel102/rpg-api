@@ -43,7 +43,7 @@ nexus/
 ├── pages/             # páginas do ateliê + bestiário
 ├── geradores_imagem/  # flux / gemini / gpt (ateliê)
 ├── ui_helpers.py, r2_storage.py, pipeline_geracao.py, ...  # núcleo da Oficina
-├── scripts/           # 61 scripts one-off (pesquisa/patch/fix) — NÃO entram no runtime
+├── scripts/           # utilitários de manutenção, fora do runtime
 ├── docs/              # handoffs, calibrações e docs de projeto (assets em docs/assets/)
 ├── requirements.txt   # união das dependências dos dois
 ├── railway.toml       # deploy (1 réplica, WebSocket, uvicorn server:app)
@@ -52,9 +52,7 @@ nexus/
 
 ---
 
-## Rodar local (faça ISTO antes de deployar)
-
-O boot real só dá pra validar localmente — eu garanti a sintaxe, não o runtime.
+## Rodar local
 
 ```bash
 # 1. ambiente virtual
@@ -89,18 +87,7 @@ Depois, no navegador:
 - `http://localhost:8000/healthz` → `{"status":"ok"}` da Oficina
 - `http://localhost:8000/health/db` → testa OS DOIS bancos (psycopg3 + asyncpg). Os dois `ok` = fusão de banco 100%.
 
-No log de startup, procure a linha **`pool_opened`** — ela confirma que o lifespan do backend rodou dentro do monolito (o risco nº 1). Se ela aparecer, as rotas responderem e o `/oficina` renderizar, o monolito está de pé. **Aí** sobe pro Railway.
-
----
-
-## O que pode dar errado no boot (pontos de atenção)
-
-Esta é a integração mais sensível do stack (NiceGUI `ui.run_with` em cima de um FastAPI com lifespan/middleware/routers). Se quebrar, é provável que seja num destes pontos:
-
-1. **Ordem de middleware** — o `BasicAuthMiddleware` é adicionado em `server.py` depois dos middlewares do backend. Se o Starlette reclamar de "middleware after app started", o app foi tocado antes da hora (não deve acontecer rodando via `uvicorn server:app`).
-2. **`DATABASE_URL`** — tem que estar no formato do backend (`postgresql://...?sslmode=require`). A Oficina deriva o `+asyncpg` sozinha. Se você puser `postgresql+asyncpg://` aqui, o backend (psycopg3) quebra.
-3. **Import** — se algum módulo da Oficina puxar um script que eu movi pra `scripts/`, vai dar `ModuleNotFoundError`. Nesse caso, traga o módulo de volta pra raiz. (Mapeei as dependências, mas só o boot real confirma.)
-4. **WebSocket** — local funciona direto. No Railway, mantenha **1 réplica** e **sem scale-to-zero** (já está no `railway.toml`).
+Notas de operação (verificação de boot e pontos sensíveis da integração): [`docs/OPERACAO.md`](docs/OPERACAO.md).
 
 ---
 
@@ -113,7 +100,7 @@ Esta é a integração mais sensível do stack (NiceGUI `ui.run_with` em cima de
 
 ---
 
-## Conflitos da fusão (como foram resolvidos)
+## Decisões de arquitetura
 
 | Conflito | Resolução |
 |---|---|
