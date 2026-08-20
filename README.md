@@ -1,32 +1,51 @@
-# Nexus — Monolito (backend + Oficina)
+# Nexus — RPG narrado por IA (backend + Oficina)
 
-Um único processo `uvicorn` servindo as duas coisas:
+Nexus é um RPG de mesa jogado contra um narrador de IA: o jogador age, um Claude Opus narra o mundo (com regras de voz e canon travadas em prompt), e o sistema mantém combate, fichas, inventário e a memória de longo prazo do mundo. Tudo roda num único serviço: a API do jogo e o painel de administração ("Oficina do Mestre") no mesmo processo.
 
-- **Backend** (API do jogo, `psycopg3`) em **`/api/v1/*`** — intacto, dentro de `app/`.
-- **Oficina do Mestre** (painel NiceGUI, `SQLModel/asyncpg`) em **`/oficina*`** — em `oficina_app.py` + módulos na raiz.
+## A camada de IA (o coração do projeto)
 
-O entrypoint é **`server.py`**. Ele importa o app do backend, pluga o auth + as páginas + os endpoints da Oficina, e chama `ui.run_with` uma vez.
+- **Narrador multi-modelo.** Claude Opus narra todos os turnos. O system prompt é um prefixo **cacheável e byte-idêntico entre chamadas** (prompt caching) — a parte autoral do prompt não muda, só o turno; isso controla latência e custo.
+- **Modelos pequenos como guardrail.** Um Claude Haiku **valida cada narração** (responde uma única palavra: ok ou qual regra de voz quebrou); outro Haiku **extrai os fatos duráveis** do turno em JSON estrito, sem narrar nem opinar.
+- **Memória de mundo por embeddings.** Fatos canônicos viram vetores de **768 dimensões** gravados no Postgres. Modelo e normalização vivem num módulo único (`narrador/memoria/embedding.py`) — indexação e consulta importam do mesmo lugar, então o vetor gravado e o vetor consultado nunca divergem.
+- **Pipeline de imagem multi-provedor.** Geração de arte via **3 provedores** (Flux, Gemini, GPT) em `geradores_imagem/`, com pipeline de aprovação no painel.
 
----
+## Arquitetura — e por que monolito
+
+Um único processo `uvicorn` (`server.py`) serve as duas metades:
+
+- **Backend** (API do jogo): FastAPI com **11 routers** e **86 endpoints** em `/api/v1/*`, acesso a banco via `psycopg3`.
+- **Oficina do Mestre** (painel admin): NiceGUI com **29 páginas** em `/oficina*`, ORM `SQLModel/asyncpg`, **28 tabelas**.
+
+Por que monolito: o NiceGUI mantém estado de UI **em memória, por conexão WebSocket** — múltiplos workers ou réplicas quebram a sessão do painel. Um processo, uma réplica, sem scale-to-zero (está no `railway.toml`). O custo dessa escolha (um deploy para tudo) é menor que o custo de sincronizar estado de UI entre réplicas.
+
+### psycopg3 × asyncpg — por que os dois
+
+O backend usa `psycopg3` (sync, SQL explícito); a Oficina usa `SQLModel/asyncpg` (async, ORM). Os dois coexistem de propósito: cada camada mantém o driver com que nasceu, e a fusão não reescreveu nenhuma das duas. A `DATABASE_URL` é **uma só**, no formato libpq (`postgresql://...?sslmode=require`); `db.py` deriva em runtime a variante `+asyncpg` (troca o prefixo, remove `sslmode`, desliga caches de prepared statement por causa do pgbouncer em transaction mode do Neon).
+
+## Produção
+
+Deploy no **Railway** sobre **Neon Postgres**, configurado desde **2026-06-30** (data do primeiro commit do `railway.toml`). 1 réplica, healthcheck em `/health`, restart automático. Estado do serviço neste instante: não medi por aqui — o healthcheck acima é o caminho.
 
 ## Estrutura
 
 ```
 nexus/
 ├── server.py          # entrypoint: cola backend + Oficina + ui.run_with
-├── app/               # BACKEND intacto (psycopg3, 11 routers /api/v1)
-├── oficina_app.py     # main.py da Oficina refatorado (sem app proprio, sem ui.run_with)
+├── app/               # BACKEND (psycopg3): 11 routers, 86 endpoints em /api/v1
+├── oficina_app.py     # main da Oficina (sem app próprio, sem ui.run_with)
 ├── auth.py            # Basic Auth da Oficina (whitelist liberando o backend)
 ├── db.py              # SQLModel/asyncpg da Oficina (normaliza a DATABASE_URL)
 ├── models.py          # models SQLModel da Oficina
+├── narrador/          # camada de IA: voz, memória, embeddings
 ├── config/            # config + logging da Oficina
-├── pages/             # paginas do atelie + bestiario
-├── geradores_imagem/  # flux / gemini / gpt (atelie)
-├── ui_helpers.py, r2_storage.py, pipeline_geracao.py, ...  # nucleo da Oficina
-├── scripts/           # ~49 scripts one-off (pesquisa/patch/fix) — NAO entram no runtime
-├── requirements.txt   # uniao das dependencias dos dois
-├── railway.toml       # deploy (1 replica, WebSocket, uvicorn server:app)
-└── .env.example       # variaveis unificadas
+├── pages/             # páginas do ateliê + bestiário
+├── geradores_imagem/  # flux / gemini / gpt (ateliê)
+├── ui_helpers.py, r2_storage.py, pipeline_geracao.py, ...  # núcleo da Oficina
+├── scripts/           # 61 scripts one-off (pesquisa/patch/fix) — NÃO entram no runtime
+├── docs/              # handoffs, calibrações e docs de projeto (assets em docs/assets/)
+├── requirements.txt   # união das dependências dos dois
+├── railway.toml       # deploy (1 réplica, WebSocket, uvicorn server:app)
+└── .env.example       # variáveis unificadas
 ```
 
 ---
