@@ -22,9 +22,11 @@ Por que monolito: o NiceGUI mantém estado de UI **em memória, por conexão Web
 
 O backend usa `psycopg3` (sync, SQL explícito); a Oficina usa `SQLModel/asyncpg` (async, ORM). Os dois coexistem de propósito: cada camada mantém o driver com que nasceu, e a fusão não reescreveu nenhuma das duas. A `DATABASE_URL` é **uma só**, no formato libpq (`postgresql://...?sslmode=require`); `db.py` deriva em runtime a variante `+asyncpg` (troca o prefixo, remove `sslmode`, desliga caches de prepared statement por causa do pgbouncer em transaction mode do Neon).
 
-## Produção
+## Deploy
 
-Deploy no **Railway** sobre **Neon Postgres**, configurado desde **2026-06-30** (data do primeiro commit do `railway.toml`). 1 réplica, healthcheck em `/health`, restart automático. Estado do serviço neste instante: não medi por aqui — o healthcheck acima é o caminho.
+Empacotado para **Railway** sobre **Neon Postgres**: 1 réplica, sem scale-to-zero, healthcheck em `/health` (tudo no `railway.toml`). Uma réplica só, de propósito: o NiceGUI mantém estado de UI **em memória, por conexão WebSocket** — réplicas múltiplas quebrariam a sessão do painel.
+
+A instância publicada esteve no ar entre 30/06 e 02/07/2026; hoje está desligada por custo — é projeto pessoal.
 
 ## Estrutura
 
