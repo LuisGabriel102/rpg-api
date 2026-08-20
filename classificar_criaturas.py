@@ -34,7 +34,7 @@ from sqlalchemy import text
 
 from db import get_session, engine
 
-CSV_PATH = "classificacao_sugerida.csv"
+CSV_PATH = "data/classificacao_sugerida.csv"
 
 # Listas internas do dados_json onde mora o texto (nome + descricao).
 LISTAS_JSON = ("acoes", "acoes_lendarias", "acoes_bonus", "reacoes", "tracos")

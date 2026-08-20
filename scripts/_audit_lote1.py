@@ -43,6 +43,6 @@ for i, s in enumerate(SLUGS):
     real = render(s, 40); zoom = render(s, ZOOM * 40)
     sheet.alpha_composite(real, (ox, oy + (ZOOM*40 - 40)//2))
     sheet.alpha_composite(zoom, (ox + 40 + pad, oy))
-out = "_contact_lote1.png"
+out = "docs/assets/_contact_lote1.png"
 sheet.convert("RGB").save(out)
 print(f"\ncontact sheet: {out}  ({sheet.size[0]}x{sheet.size[1]})")

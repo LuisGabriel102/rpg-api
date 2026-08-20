@@ -1,7 +1,7 @@
 -- ============================================================================
 -- apply_classificacao_alta.sql
 -- Apply da FASE 1 (classificacao) — SOMENTE linhas confianca = 'alta'.
--- Gerado de classificacao_sugerida.csv. NAO inclui behavior_archetype nem
+-- Gerado de data/classificacao_sugerida.csv. NAO inclui behavior_archetype nem
 -- perigo (vocabulario em reconciliacao — fora deste apply).
 --
 -- Frente 1 (nao-NPC alta): 494 linhas  -> origem, andar_primario, morale_immune, status
