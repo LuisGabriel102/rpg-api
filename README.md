@@ -14,7 +14,7 @@ Nexus é um RPG de mesa jogado contra um narrador de IA: o jogador age, um Claud
 Um único processo `uvicorn` (`server.py`) serve as duas metades:
 
 - **Backend** (API do jogo): FastAPI com **11 routers** e **86 endpoints** em `/api/v1/*`, acesso a banco via `psycopg3`.
-- **Oficina do Mestre** (painel admin): NiceGUI com **29 páginas** em `/oficina*`, ORM `SQLModel/asyncpg`, **28 tabelas**.
+- **Oficina do Mestre** (painel admin): NiceGUI com **29 páginas** em `/oficina*`, ORM `SQLModel/asyncpg`, **14 tabelas**.
 
 Por que monolito: o NiceGUI mantém estado de UI **em memória, por conexão WebSocket** — múltiplos workers ou réplicas quebram a sessão do painel. Um processo, uma réplica, sem scale-to-zero (está no `railway.toml`). O custo dessa escolha (um deploy para tudo) é menor que o custo de sincronizar estado de UI entre réplicas.
 

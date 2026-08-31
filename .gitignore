@@ -22,3 +22,7 @@ node_modules/
 .claude/
 .DS_Store
 Thumbs.db
+
+# sujeira de servidor local e patches one-off
+scratch_server.*
+/fix_patch*.py
