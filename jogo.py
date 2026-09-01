@@ -340,6 +340,39 @@ def _cronista_mock(historico: list[dict]) -> str:
 
 
 _aclient = None
+_LANGFUSE_ON = False
+
+
+def _liga_langfuse() -> bool:
+    """Rastro do Cronista no Langfuse — prompt, resposta, tokens, custo e
+    latencia de cada chamada ao Opus, no lugar do log solto.
+
+    SEM CHAVE, SEM RASTRO E SEM ERRO: se LANGFUSE_PUBLIC_KEY/SECRET_KEY nao
+    estiverem no ambiente, esta funcao devolve False e o turno segue igual —
+    mesmo padrao da memoria (o jogo nunca quebra por causa do observador).
+
+    A integracao e a OFICIAL da v4: o SDK nao tem mais wrapper drop-in de
+    Anthropic (nao existe `langfuse.anthropic`); o caminho documentado e o
+    AnthropicInstrumentor do OpenTelemetry, que embrulha Messages.create,
+    Messages.stream e AsyncMessages.stream — este ultimo e o que o Cronista
+    usa. Roda UMA vez: instrumentar duas vezes duplicaria os spans."""
+    global _LANGFUSE_ON
+    if _LANGFUSE_ON:
+        return True
+    import os   # local de proposito: jogo.py nao importa `os` no topo
+    if not (os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY")):
+        return False
+    try:
+        from langfuse import get_client
+        from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
+        get_client()                      # le LANGFUSE_* do ambiente
+        AnthropicInstrumentor().instrument()
+        _LANGFUSE_ON = True
+        print("[langfuse] rastro do Cronista ligado")
+        return True
+    except Exception as exc:  # noqa: BLE001 - observabilidade nunca derruba o turno
+        print(f"[langfuse] desligado ({type(exc).__name__}: {exc})")
+        return False
 
 
 def _get_aclient() -> AsyncAnthropic:
@@ -348,6 +381,7 @@ def _get_aclient() -> AsyncAnthropic:
     nada, entao roda sem credencial."""
     global _aclient
     if _aclient is None:
+        _liga_langfuse()   # antes do cliente nascer: o instrumentor embrulha a classe
         _aclient = AsyncAnthropic()
     return _aclient
 
