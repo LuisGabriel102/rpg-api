@@ -1,20 +1,21 @@
-# Nexus — RPG narrado por IA (backend + Oficina)
+# Alderyn — RPG narrado por IA (backend + Oficina)
 
-Nexus é um RPG de mesa jogado contra um narrador de IA: o jogador age, um Claude Opus narra o mundo (com regras de voz e canon travadas em prompt), e o sistema mantém combate, fichas, inventário e a memória de longo prazo do mundo. Tudo roda num único serviço: a API do jogo e o painel de administração ("Oficina do Mestre") no mesmo processo.
+Alderyn é um RPG de mesa jogado contra um narrador de IA: o jogador age, um Claude Opus narra o mundo (com regras de voz e canon travadas em prompt), e o sistema mantém combate, fichas, inventário e a memória de longo prazo do mundo. Tudo roda num único serviço: a API do jogo e o painel de administração ("Oficina do Mestre") no mesmo processo.
 
 ## A camada de IA (o coração do projeto)
 
 - **Narrador multi-modelo.** Claude Opus narra todos os turnos. O system prompt é um prefixo **cacheável e byte-idêntico entre chamadas** (prompt caching) — a parte autoral do prompt não muda, só o turno; isso controla latência e custo.
 - **Modelos pequenos como guardrail.** Um Claude Haiku **valida cada narração** (responde uma única palavra: ok ou qual regra de voz quebrou); outro Haiku **extrai os fatos duráveis** do turno em JSON estrito, sem narrar nem opinar.
-- **Memória de mundo por embeddings.** Fatos canônicos viram vetores de **768 dimensões** gravados no Postgres. Modelo e normalização vivem num módulo único (`narrador/memoria/embedding.py`) — indexação e consulta importam do mesmo lugar, então o vetor gravado e o vetor consultado nunca divergem.
+- **Memória de mundo por embeddings.** Fatos canônicos viram vetores de **768 dimensões** gravados no Postgres com **pgvector** e índice **HNSW** (12 colunas vetoriais, 3 índices). Modelo e normalização vivem num módulo único (`narrador/memoria/embedding.py`) — indexação e consulta importam do mesmo lugar, então o vetor gravado e o vetor consultado nunca divergem.
 - **Pipeline de imagem multi-provedor.** Geração de arte via **3 provedores** (Flux, Gemini, GPT) em `geradores_imagem/`, com pipeline de aprovação no painel.
 
 ## Arquitetura — e por que monolito
 
 Um único processo `uvicorn` (`server.py`) serve as duas metades:
 
-- **Backend** (API do jogo): FastAPI com **11 routers** e **86 endpoints** em `/api/v1/*`, acesso a banco via `psycopg3`.
-- **Oficina do Mestre** (painel admin): NiceGUI com **29 páginas** em `/oficina*`, ORM `SQLModel/asyncpg`, **14 tabelas**.
+- **Backend** (API do jogo): FastAPI com **12 routers** e **93 endpoints** em `/api/v1/*`, acesso a banco via `psycopg3`.
+- **Oficina do Mestre** (painel admin): NiceGUI com **36 páginas** em `/oficina*`, ORM `SQLModel/asyncpg`, **14 tabelas** mapeadas.
+- **Banco** (Neon Postgres): **205 tabelas, 650 funções e 25 views**. A regra de jogo vive em funções no banco, não na aplicação — por isso o ORM da Oficina mapeia só as 14 tabelas que ela edita. Regra versionada junto com o schema, num lugar só.
 
 Por que monolito: o NiceGUI mantém estado de UI **em memória, por conexão WebSocket** — múltiplos workers ou réplicas quebram a sessão do painel. Um processo, uma réplica, sem scale-to-zero (está no `railway.toml`). O custo dessa escolha (um deploy para tudo) é menor que o custo de sincronizar estado de UI entre réplicas.
 
@@ -31,9 +32,9 @@ A instância publicada esteve no ar entre 30/06 e 02/07/2026; hoje está desliga
 ## Estrutura
 
 ```
-nexus/
+rpg-api/
 ├── server.py          # entrypoint: cola backend + Oficina + ui.run_with
-├── app/               # BACKEND (psycopg3): 11 routers, 86 endpoints em /api/v1
+├── app/               # BACKEND (psycopg3): 12 routers, 93 endpoints em /api/v1
 ├── oficina_app.py     # main da Oficina (sem app próprio, sem ui.run_with)
 ├── auth.py            # Basic Auth da Oficina (whitelist liberando o backend)
 ├── db.py              # SQLModel/asyncpg da Oficina (normaliza a DATABASE_URL)
