@@ -27,3 +27,13 @@ Thumbs.db
 # sujeira de servidor local e patches one-off
 scratch_server.*
 /fix_patch*.py
+
+# Terraform (infra/aws) — o tfstate carrega a secret access key em TEXTO CLARO.
+# Este repo e PUBLICO: tfstate commitado = credencial publicada. Ver outputs.tf.
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.tfstate.lock.info
+*.tfvars
+*.tfplan
+crash.log
