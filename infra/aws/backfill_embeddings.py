@@ -3,6 +3,11 @@
 Backfill de embeddings do Alderyn — knowledge_fragments (vector(1536)).
 =======================================================================
 
+>>> AVISO PARA QUEM FOR RELIGAR O query_vec NO jogo.py <<<
+>>> Este script INDEXA com input_type="search_document". A BUSCA tem que usar
+>>> input_type="search_query" — sao espacos vetoriais diferentes, de proposito.
+>>> Usar o MESMO valor nos dois lados quebra o retrieval SEM DAR ERRO NENHUM.
+
 O QUE ESTE SCRIPT FAZ
   Pega cada linha que tem texto mas ainda NAO tem embedding, gera o vetor no
   Amazon Bedrock (cohere.embed-v4:0, 1536 dimensoes nativas) e grava na coluna
@@ -71,7 +76,41 @@ MODELO_ID = "cohere.embed-v4:0"
 
 # A coluna e vector(1536). Este numero nao e preferencia: e o contrato do
 # schema. Se um dia mudar, muda no banco primeiro e aqui depois.
+# Conferido na doc oficial: output_dimension aceita 256|512|1024|1536, e 1536 e
+# o default. Mandamos explicito de qualquer forma — ver o corpo da chamada.
 DIMENSAO_ESPERADA = 1536
+
+# ===========================================================================
+# input_type — O PAR DE VALORES QUE NAO PODE SER TROCADO
+#
+# Estas duas constantes existem porque o valor NAO E ARBITRARIO e NAO E O MESMO
+# nos dois lados do sistema. O Cohere Embed adiciona tokens especiais conforme o
+# input_type e, com isso, projeta o vetor num espaco DIFERENTE para documento e
+# para pergunta. O modelo e assimetrico de proposito: e assim que "qual e a
+# natureza do Fiador?" fica perto do paragrafo que responde isso, em vez de ficar
+# perto de outras perguntas.
+#
+#   INDEXACAO -> search_document -> usado AQUI, ao gravar os 501 vetores
+#   BUSCA     -> search_query    -> usado no jogo.py, ao vetorizar a pergunta
+#
+# TROCAR OU IGUALAR OS DOIS NAO GERA ERRO NENHUM. A API aceita, o Postgres
+# aceita, o indice funciona, e o retrieval simplesmente fica ruim — de um jeito
+# que ninguem percebe olhando log, porque nao ha log. E por isso que o valor
+# mora numa constante nomeada e comentada, e nao solto no meio do json.dumps.
+#
+# Conferido na doc oficial da AWS (nao de memoria): input_type e OBRIGATORIO no
+# cohere.embed-v4:0 e aceita exatamente search_document, search_query,
+# classification e clustering. Nao existe default — omitir e erro de validacao.
+INPUT_TYPE_INDEXACAO = "search_document"
+INPUT_TYPE_BUSCA = "search_query"  # nao usado aqui; documentado para o jogo.py
+# ===========================================================================
+
+# POR QUE "RIGHT" e nao "END": na doc do Embed **v4** os valores aceitos sao
+# NONE | LEFT | RIGHT. "END" e da familia v3 (NONE|START|END) e seria recusado
+# com ValidationException — que o retry deste script, corretamente, NAO repete.
+# RIGHT descarta tokens do fim, que e o comportamento pretendido: preservar o
+# comeco do texto, onde mora o titulo.
+TRUNCATE = "RIGHT"
 
 # POR QUE 10, e por que o MESMO numero serve para o lote da API e para o commit:
 # a Cohere aceita ate 96 textos por chamada, entao 10 e folgado do lado da API.
@@ -312,11 +351,21 @@ def extrair_vetores(resposta_bruta: dict, esperados: int) -> list[list[float]]:
     """
     Tira os vetores do JSON de resposta, aceitando os DOIS formatos possiveis.
 
-    POR QUE defensivo: a familia Cohere no Bedrock responde de duas formas. Com
-    `embedding_types` declarado, `embeddings` vem como OBJETO indexado pelo tipo
-    ({"float": [[...]]}); sem ele, vem como LISTA de listas. Pedimos o objeto,
-    mas assumir cegamente o formato e a diferenca entre um erro claro aqui e um
-    IndexError incompreensivel trinta linhas adiante.
+    POR QUE defensivo — e aqui o motivo e melhor que "boa pratica":
+    A DOC OFICIAL DA AWS SE CONTRADIZ neste ponto. A prosa da pagina do Embed v4
+    diz que pedir UM unico embedding_type devolve `embeddings` como LISTA de
+    listas ("response_type": "embeddings_floats"), e que so varios tipos
+    devolvem OBJETO indexado pelo tipo ("embeddings_by_type"). Mas o exemplo de
+    codigo oficial da MESMA pagina — com embedding_types = ["float"], um tipo so
+    — itera o resultado como se fosse dicionario:
+
+        for i, embedding_type in enumerate(embeddings):
+            print(embeddings[embedding_type])
+
+    Ou seja: nao da para saber pela doc qual das duas formas vem no nosso caso.
+    Como nao ha credencial AWS para testar contra a API real, aceitar as duas e
+    a unica postura honesta — e o `else` levanta erro explicado se vier uma
+    terceira. Isto e o que a cobaia de 5 linhas vai resolver na pratica.
     """
     bruto = resposta_bruta.get("embeddings")
 
@@ -354,21 +403,23 @@ def embeddar_lote(cliente, textos: list[str]) -> list[list[float]]:
 
     corpo = json.dumps({
         "texts": textos,
-        # POR QUE search_document e nao search_query: a Cohere gera vetores
-        # ASSIMETRICOS por proposito. O que esta sendo indexado e documento; a
-        # pergunta do jogador, na hora da busca, e search_query. Usar o mesmo
-        # input_type nos dois lados degrada o ranking sem gerar erro nenhum.
-        "input_type": "search_document",
+        # Este script INDEXA documentos, entao e sempre INPUT_TYPE_INDEXACAO.
+        # A explicacao de por que existem dois valores, e do que quebra se eles
+        # forem igualados, esta na definicao das constantes no topo do arquivo.
+        "input_type": INPUT_TYPE_INDEXACAO,
         # POR QUE explicito em vez de confiar no default: 1536 e o contrato da
-        # coluna. Se um dia o default do modelo mudar, quero que o vetor continue
-        # 1536 — nao que o script comece a gravar outro tamanho em silencio.
-        "output_dimension": DIMENSAO_ESPERADA,
+        # coluna. O default do modelo hoje tambem e 1536, mas depender de default
+        # significa que uma mudanca no modelo passaria a gravar outro tamanho em
+        # silencio — e a validacao de dimensao la embaixo abortaria as 501 linhas
+        # sem que ninguem entendesse por que.
         "embedding_types": ["float"],
-        # POR QUE truncar no fim em vez de deixar estourar: o maior `conteudo`
-        # medido tem 1839 caracteres, muito abaixo do limite do modelo, entao na
-        # pratica isso nunca dispara. Esta aqui para o dia em que uma linha nova
-        # vier gigante: perder o rabo de um texto e melhor que perder a linha.
-        "truncate": "END",
+        "output_dimension": DIMENSAO_ESPERADA,
+        # POR QUE truncar em vez de deixar estourar: o maior `conteudo` medido
+        # tem 1839 caracteres — muito abaixo do limite de ~128k tokens do modelo
+        # — entao na pratica isso nunca dispara. Esta aqui para o dia em que uma
+        # linha nova vier gigante: perder o rabo de um texto e melhor que perder
+        # a linha inteira, que e o que "NONE" faria (devolve erro).
+        "truncate": TRUNCATE,
     })
 
     ultimo_erro: Exception | None = None
