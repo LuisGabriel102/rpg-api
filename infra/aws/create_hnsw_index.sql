@@ -1,0 +1,97 @@
+-- ---------------------------------------------------------------------------
+-- Índice HNSW para a busca semântica em knowledge_fragments.
+--
+-- ⚠️ RODE ISTO **DEPOIS** DO BACKFILL, NUNCA ANTES.
+--
+-- POR QUE a ordem importa de verdade:
+-- HNSW é um grafo de navegação construído a partir dos vetores que existem no
+-- momento da criação. Criado numa coluna 100% NULL, ele nasce vazio e cada
+-- INSERT/UPDATE seguinte paga o custo de inserção no grafo, uma linha por vez —
+-- 501 inserções incrementais em vez de uma construção em lote. Construir depois
+-- é mais rápido e gera um grafo melhor conectado.
+--
+-- A ordem correta é:
+--   1. python infra/aws/backfill_embeddings.py                     (ensaio)
+--   2. python infra/aws/backfill_embeddings.py --execute            (cobaia de 5)
+--   3. python infra/aws/backfill_embeddings.py --execute --limit 501
+--   4. este arquivo
+--
+--
+-- POR QUE vector_cosine_ops, E NÃO L2 (vector_l2_ops):
+-- por CONSISTÊNCIA com o que o banco já faz. Os 3 índices vetoriais que já
+-- existem — medidos em 03/09/2026 — são todos cosseno:
+--
+--   idx_wf_embedding_hnsw                 world_facts (embedding)
+--   idx_eventos_canonicos_embedding_hnsw  eventos_canonicos (descricao_embedding)
+--   idx_personagem_decisoes_embedding_hnsw personagem_decisoes (contexto_embedding)
+--
+-- E não é só estética: o operador do índice tem que casar com o operador da
+-- consulta. Um índice L2 (<->) é simplesmente IGNORADO por uma query que usa
+-- distância de cosseno (<=>) — o planner cai em seq scan e ninguém recebe erro
+-- nenhum. Você só nota pela latência. Misturar métrica entre tabelas seria
+-- plantar exatamente essa pegadinha para o próximo que escrever uma busca.
+--
+-- Cosseno também é a métrica certa para embedding de texto: ela compara direção
+-- e ignora magnitude, e magnitude em embedding de texto correlaciona com
+-- tamanho do documento, não com significado.
+--
+--
+-- POR QUE SÓ NESTA TABELA, e não nas outras 8 de vector(1536):
+-- volume. Contagem real medida no banco:
+--
+--   knowledge_fragments   501 linhas   <- só ela justifica índice
+--   locations              51
+--   regions                29
+--   geographic_features    25
+--   ref_faccoes            12
+--   lore_panteao            8
+--   lore_eventos            5
+--   continents              4
+--   lore_eras               3
+--                         ----
+--   as outras 8 somam     137 linhas
+--
+-- Com 3 a 51 linhas, HNSW é PIOR que não ter índice. Uma sequential scan lê a
+-- tabela inteira em uma única leitura de página e compara 51 vetores em
+-- microssegundos; o índice adiciona salto de ponteiro pelo grafo, memória, e
+-- custo de manutenção em cada escrita — para depois o planner concluir, com
+-- razão, que a seq scan é mais barata e ignorar o índice que você criou.
+-- Índice não usado não é neutro: ele custa disco e desacelera escrita.
+--
+-- Índice vetorial começa a pagar na casa dos milhares de linhas. Se alguma
+-- dessas 8 crescer nessa ordem, aí sim vale — medindo antes, não por simetria.
+--
+--
+-- POR QUE sem CONCURRENTLY e sem ajustar m / ef_construction:
+-- CONCURRENTLY existe para não bloquear escrita durante uma construção longa.
+-- Em 501 linhas isso termina praticamente instantâneo, e CONCURRENTLY tem o
+-- custo de não poder rodar dentro de transação. Os parâmetros m e
+-- ef_construction ficam no default pelo mesmo motivo do cosseno: é o que os 3
+-- índices existentes usam. Afinar isso sem ter medido recall é chute com
+-- aparência de rigor.
+-- ---------------------------------------------------------------------------
+
+-- IF NOT EXISTS para o arquivo ser seguro de rodar duas vezes — sem ele, a
+-- segunda execução aborta com erro e polui o log de uma migração que, na
+-- verdade, já estava correta.
+CREATE INDEX IF NOT EXISTS idx_knowledge_fragments_embedding_hnsw
+    ON public.knowledge_fragments
+    USING hnsw (embedding vector_cosine_ops);
+
+
+-- Conferência depois de criar. A primeira query mostra o índice registrado; a
+-- segunda é a que importa de verdade, porque índice existir não significa
+-- índice ser usado — se o EXPLAIN disser "Seq Scan", o índice está lá e
+-- inerte, e a causa costuma ser operador trocado (<-> em vez de <=>).
+--
+-- SELECT indexname, indexdef
+-- FROM pg_indexes
+-- WHERE schemaname = 'public' AND tablename = 'knowledge_fragments';
+--
+-- EXPLAIN ANALYZE
+-- SELECT id, titulo
+-- FROM knowledge_fragments
+-- WHERE embedding IS NOT NULL
+-- ORDER BY embedding <=> (SELECT embedding FROM knowledge_fragments
+--                         WHERE embedding IS NOT NULL LIMIT 1)
+-- LIMIT 10;
