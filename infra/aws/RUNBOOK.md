@@ -4,13 +4,17 @@ Este documento existe porque o raciocínio que produziu esta stack viveu em conv
 
 O estado no momento em que isto foi escrito é o seguinte. A tabela `knowledge_fragments` tem 501 linhas e nenhuma delas tem embedding — a coluna existe, é `vector(1536)`, e está inteiramente nula. O texto que vira vetor é a concatenação de `titulo`, duas quebras de linha, e `conteudo`, o que dá cerca de 308 mil caracteres, estimados em aproximadamente 77 mil tokens. O modelo escolhido é `cohere.embed-v4:0` com `output_dimension` 1536. As três tabelas de `vector(768)` estão fora deste trabalho porque pertencem a outro espaço semântico, populado por um modelo local. As outras oito tabelas de 1536 somam 137 linhas e estão declaradas no script com `colunas_texto=None` de propósito: nenhuma delas tem `titulo` nem `conteudo`, e decidir qual texto alimenta o vetor de cada uma é uma decisão em aberto, não um item pendente de digitação.
 
-Uma observação prática antes de começar. O `terraform` foi instalado via winget e **não está no PATH** desta máquina — checado, e é o tipo de detalhe que faz perder cinco minutos no começo. O binário fica sob o diretório de pacotes do winget; para localizá-lo sem procurar à mão:
+Duas observações práticas antes de começar.
+
+A primeira é sobre o `terraform`, instalado via winget. O diretório dele **está** no PATH de usuário, gravado no registro, o que significa que sobrevive a reboot. O que confunde é outra coisa: um terminal que já estava aberto quando o PATH mudou continua com a cópia antiga do ambiente e insiste que o comando não existe. Se `terraform version` não responder, **abra um terminal novo** antes de suspeitar da instalação. Para conferir sem depender do ambiente herdado:
 
 ```bash
 find "$LOCALAPPDATA/Microsoft/WinGet/Packages" -name terraform.exe 2>/dev/null | head -1
 ```
 
-Ou adicione ao PATH de uma vez, ou guarde o caminho numa variável e use `"$TF"` no lugar de `terraform` nos comandos abaixo. Os blocos usam sintaxe de shell POSIX, do Git Bash. No PowerShell, troque `export NOME=valor` por `$env:NOME = "valor"`.
+A versão verificada nesta máquina é a **1.15.8**, e isso importa: o `use_lockfile` do backend S3, usado mais adiante, é recente. Em Terraform antigo o argumento simplesmente não existe e o `init` reclama.
+
+A segunda observação é de sintaxe. Os blocos abaixo usam shell POSIX, do Git Bash. No PowerShell, troque `export NOME=valor` por `$env:NOME = "valor"`.
 
 ## 1. O passo manual que o Terraform não faz
 
@@ -20,16 +24,57 @@ Habilitar o acesso a um foundation model do Bedrock é uma ação de console, fe
 
 Sem esse passo, toda chamada volta `AccessDeniedException` **mesmo com a política IAM perfeitamente correta**. A mensagem não distingue os dois casos, e é aí que se perde tempo: a tendência natural é reler a política, que está certa, em vez de olhar o console. Faça isso primeiro e essa hipótese sai do caminho.
 
-## 2. Terraform: init, plan, apply
+## 2. O bootstrap: criar o bucket que guarda o state
 
-Com o acesso ao modelo habilitado e uma credencial AWS de administrador disponível no ambiente, entre no diretório da stack e rode os três comandos na ordem. O `plan` não é cerimônia: ele é a última chance de ver o que vai ser criado antes de existir.
+Esta seção não existia na primeira versão deste runbook, e a ordem mudou por causa dela. O state do Terraform não mora mais em disco: mora num bucket S3. E esse bucket precisa existir **antes** de a stack principal conseguir rodar `init`, porque é para lá que ela aponta.
+
+É o problema do ovo e da galinha, e por isso o bucket vive num diretório próprio, `infra/aws/bootstrap/`, com state local. Se a mesma stack criasse o bucket e guardasse o state dentro dele, o primeiro `init` apontaria para um bucket inexistente e um eventual `destroy` tentaria apagar o bucket que contém o state que está sendo lido naquele momento.
+
+Com credencial administrativa no ambiente, rode:
 
 ```bash
-cd infra/aws
+cd infra/aws/bootstrap
 terraform init
 terraform plan
 terraform apply
 ```
+
+Isso cria um bucket S3 chamado `alderyn-tfstate-<account_id>`, com versionamento habilitado, criptografia em repouso SSE-S3, os quatro flags de bloqueio de acesso público ligados, e `prevent_destroy` marcado. O sufixo com o account id não é enfeite: o namespace de nome de bucket no S3 é **global**, compartilhado entre todas as contas AWS do mundo, e um nome curto como `alderyn-tfstate` tem chance real de já estar tomado por um desconhecido — caso em que a criação falha com `BucketAlreadyExists` e não há o que fazer além de trocar o nome.
+
+O `prevent_destroy` faz o `terraform destroy` **falhar de propósito** aqui dentro. Isso é o comportamento desejado: apagar este bucket não apaga um bucket, apaga a memória de toda a infraestrutura. Para removê-lo um dia de verdade, é preciso primeiro apagar o bloco `lifecycle` num commit próprio — e esse atrito é justamente o ponto.
+
+Sobre o state local deste diretório: ele é aceitável, e não é uma pendência. Descreve quatro recursos que não mudam depois de criados e que não guardam segredo nenhum. Se esse `terraform.tfstate` for perdido, nada de irrecuperável acontece — o bucket continua existindo na AWS e volta ao controle do Terraform com um `terraform import`, mais ou menos assim:
+
+```bash
+terraform import aws_s3_bucket.tfstate alderyn-tfstate-<account_id>
+```
+
+Guarde o nome do bucket, porque a próxima seção precisa dele:
+
+```bash
+terraform output -raw bucket_name
+```
+
+## 3. Terraform: a stack principal
+
+Agora sim, com o acesso ao modelo habilitado e o bucket de state existindo. A diferença em relação à versão anterior deste runbook está no `init`: a stack usa **configuração parcial de backend**, e o nome do bucket entra pela linha de comando.
+
+O motivo de não estar escrito dentro do `main.tf` é que o nome termina no account id, que não era conhecido quando o arquivo foi escrito e que não deve ficar registrado num repositório público. Em vez de alguém copiar doze dígitos à mão, o comando lê direto do output do bootstrap:
+
+```bash
+cd infra/aws
+terraform init -backend-config="bucket=$(terraform -chdir=bootstrap output -raw bucket_name)"
+terraform plan
+terraform apply
+```
+
+Se preferir não depender do subshell, o mesmo resultado com o nome explícito:
+
+```bash
+terraform init -backend-config="bucket=alderyn-tfstate-<account_id>"
+```
+
+Um aviso para quem for apenas conferir a configuração sem ter conta AWS: com um bloco `backend` declarado, o `terraform init` tenta conectar ao bucket e falha por falta de credencial. Isso é o comportamento correto dele, não um defeito. Para validar a sintaxe offline, use `terraform init -backend=false` seguido de `terraform validate` — foi assim que esta stack foi verificada.
 
 O `apply` cria quatro coisas e nada além disso: um usuário IAM chamado `alderyn-embedder` sob o caminho `/service/`, uma política inline que permite exclusivamente `bedrock:InvokeModel` no ARN de um único modelo, um par de chaves de acesso para esse usuário, e um orçamento mensal de cinco dólares com alerta em 80% do real e 100% do previsto.
 
@@ -41,7 +86,7 @@ export AWS_SECRET_ACCESS_KEY=$(terraform output -raw secret_access_key)
 export AWS_DEFAULT_REGION=$(terraform output -raw aws_region)
 ```
 
-O `-raw` é necessário no `secret_access_key` porque ele está marcado como `sensitive`. Vale repetir o que o `outputs.tf` já diz: `sensitive` esconde o valor da saída de `plan` e `apply`, e não criptografa absolutamente nada — a chave está em texto claro dentro do `terraform.tfstate`, que por isso está bloqueado no `.gitignore`.
+O `-raw` é necessário no `secret_access_key` porque ele está marcado como `sensitive`. Vale repetir o que o `outputs.tf` já diz: `sensitive` esconde o valor da saída de `plan` e `apply`, e não criptografa absolutamente nada — a chave está em texto claro dentro do state. É exatamente por isso que a Etapa 4 existe e que a seção 2 vem antes desta: em vez de um arquivo no disco protegido por uma linha de `.gitignore`, o state agora fica num bucket privado, criptografado e versionado. O `.gitignore` continua valendo como segunda camada, para o caso de alguém rodar com backend local por engano.
 
 Confirme que a credencial chegou antes de gastar qualquer coisa:
 
@@ -51,7 +96,7 @@ aws sts get-caller-identity
 
 Se o `aws` CLI não estiver instalado, o próprio script de backfill faz essa verificação e falha com mensagem explícita antes de chamar a API.
 
-## 3. A cobaia de cinco linhas
+## 4. A cobaia de cinco linhas
 
 Nunca rode as 501 direto. O script foi desenhado para tornar isso difícil de fazer por acidente: o modo padrão é ensaio, e mesmo com `--execute` o limite default é cinco.
 
@@ -69,7 +114,7 @@ python infra/aws/backfill_embeddings.py --execute
 
 Cinco linhas exercitam o caminho inteiro — credencial, acesso ao modelo, política do IAM, formato da resposta, validação de dimensão, o cast `::vector` e o commit. Por centavos. É deliberadamente barato descobrir aqui que algo está errado, em vez de na linha 400 de 501.
 
-## 4. Conferir os cinco vetores antes de continuar
+## 5. Conferir os cinco vetores antes de continuar
 
 Não confie no "gravadas: 5" impresso na tela. Vá ao banco e olhe. A verificação precisa checar duas coisas distintas: que o vetor não é nulo, e que ele tem exatamente 1536 dimensões. A segunda é a que importa, porque um vetor de tamanho errado é aceito pela coluna apenas se casar com o tipo, e a checagem confirma que o que foi gravado é o que se esperava.
 
@@ -102,7 +147,7 @@ WHERE embedding IS NOT NULL;
 
 O valor de `dimensao_errada` tem que ser zero. Se não for, pare: o script foi escrito para abortar a linha nesse caso em vez de truncar ou preencher com zero, então uma linha com dimensão errada gravada indicaria que algo saiu do desenho e merece investigação antes de multiplicar o problema por cem.
 
-## 5. A carga completa
+## 6. A carga completa
 
 Só depois que as cinco estiverem conferidas. As 501 exigem o número digitado explicitamente — não existe atalho para "todas".
 
@@ -120,7 +165,7 @@ SELECT count(*) FILTER (WHERE embedding IS NULL) AS ainda_sem_vetor,
 FROM knowledge_fragments;
 ```
 
-## 6. O índice HNSW, e só agora
+## 7. O índice HNSW, e só agora
 
 Com as 501 gravadas e conferidas, crie o índice.
 
@@ -134,7 +179,7 @@ O arquivo usa `vector_cosine_ops`, em consistência com os três índices vetori
 
 O índice é criado apenas em `knowledge_fragments`. As outras oito tabelas de 1536 têm entre 3 e 51 linhas, e nesse volume o HNSW perde para o sequential scan — o planner corretamente o ignora, e o índice fica cobrando disco e desacelerando escrita sem entregar nada.
 
-## 7. Religar o `query_vec` no jogo — escopo separado
+## 8. Religar o `query_vec` no jogo — escopo separado
 
 Isto **não faz parte deste runbook** e não deve ser feito na mesma sessão. Está registrado aqui apenas para que a dependência não se perca.
 
@@ -162,7 +207,19 @@ A documentação oficial se contradiz sobre a forma do campo `embeddings` na res
 
 Não é possível decidir pela documentação qual das duas formas chega no nosso caso, e sem credencial AWS não houve como testar contra a API real. Por isso o `extrair_vetores` do script aceita as duas formas deliberadamente. Isso não é excesso de zelo: é a documentação não permitindo escolher.
 
-A cobaia de cinco linhas do item 3 é o que resolve isso na prática, e é mais um motivo para ela existir. Se chegar uma terceira forma, não prevista por nenhuma das duas leituras, o script levanta um `ValueError` explicado dizendo o que veio — em vez de gravar lixo no banco em silêncio, que é o desfecho ruim de verdade.
+A cobaia de cinco linhas do item 4 é o que resolve isso na prática, e é mais um motivo para ela existir. Se chegar uma terceira forma, não prevista por nenhuma das duas leituras, o script levanta um `ValueError` explicado dizendo o que veio — em vez de gravar lixo no banco em silêncio, que é o desfecho ruim de verdade.
+
+## Correção registrada — sem DynamoDB para a trava de state
+
+Se você procurar "terraform s3 backend locking" hoje, a maioria dos tutoriais — e as conversas anteriores deste projeto, duas vezes — vai mandar criar uma tabela DynamoDB com uma partition key `LockID` e apontar `dynamodb_table` no bloco `backend`. **Não faça isso aqui, e o motivo está na documentação oficial, não em preferência.**
+
+A página do backend S3 da HashiCorp afirma textualmente que "DynamoDB-based locking is deprecated and will be removed in a future minor version". O argumento `dynamodb_table` aparece na doc sob um título que já diz o que é: "Enabling DynamoDB State Locking (Deprecated)".
+
+O caminho atual é o `use_lockfile = true` que está no `main.tf`. Ele faz a trava por escrita condicional no próprio S3, gravando um objeto `.tflock` ao lado do state — sem tabela, sem recurso extra para criar, pagar e lembrar de destruir. Uma stack que ensinasse o padrão em remoção nasceria desatualizada.
+
+Fica registrado para o dia em que alguém encontrar um tutorial mais velho e estranhar a ausência da tabela: a ausência é deliberada.
+
+Sobre as permissões que o backend exige, já que o assunto é este. A doc lista `s3:ListBucket` no bucket, mais `s3:GetObject` e `s3:PutObject` no objeto de state; e, quando `use_lockfile` está ligado, `s3:GetObject`, `s3:PutObject` e `s3:DeleteObject` também no arquivo `.tflock`. **Nada disso vai para o usuário `alderyn-embedder`.** Ele é a identidade de runtime do script de backfill, que só chama o Bedrock e nunca roda Terraform; quem roda Terraform é uma pessoa com credencial administrativa. Dar acesso ao bucket de state a essa chave seria pior do que inútil — o state contém a própria secret key dela e o registro de toda a infra, então uma chave vazada passaria de "gasta embedding" para "lê tudo".
 
 ## Correção registrada — não rode `terraform destroy` nesta stack
 
@@ -172,8 +229,18 @@ O raciocínio original vale para infraestrutura que cobra por tempo ligado. Não
 
 E há um custo real em destruir. Se o `query_vec` do jogo passar a chamar o Bedrock em tempo de execução para vetorizar a pergunta do jogador, essa chamada precisa de uma credencial viva. `terraform destroy` apaga o usuário IAM e revoga a chave, o que desligaria a busca semântica do jogo — em produção, sem aviso, e com um sintoma que parece bug de aplicação. Trocar a chave também obriga a reexportar as variáveis de ambiente em todo lugar que as consome.
 
-O `destroy` volta a fazer sentido na Etapa 3, quando houver ECS. Aí sim existe recurso que cobra por hora ligada, e derrubar o que não está em uso passa a economizar dinheiro de verdade. Até lá, o que protege o bolso é o orçamento do item 2 e o escopo da política, que impede a chave de invocar qualquer modelo além deste.
+O `destroy` volta a fazer sentido na Etapa 3, quando houver ECS. Aí sim existe recurso que cobra por hora ligada, e derrubar o que não está em uso passa a economizar dinheiro de verdade. Até lá, o que protege o bolso é o orçamento do item 3 e o escopo da política, que impede a chave de invocar qualquer modelo além deste.
+
+Vale separar duas coisas que se parecem. Este parágrafo é uma **recomendação** sobre a stack principal: nada no código impede um `destroy` ali, e a razão para não fazê-lo é de julgamento. Já o bucket do bootstrap tem uma **trava real**: o `prevent_destroy` faz o Terraform recusar o plano, e não há como derrubá-lo por acidente. A diferença é deliberada — destruir a stack principal é reversível com um `apply` e o custo é uma chave nova para distribuir; destruir o bucket de state perde a memória de tudo, e disso não se volta com um comando.
 
 ## Ordem resumida
 
-Habilite o model access no console. Rode `init`, `plan` e `apply`, e exporte as três variáveis. Rode o ensaio sem flag nenhuma. Rode `--execute` para a cobaia de cinco. Confira as cinco no banco com as queries do item 4. Rode `--execute --limit 501`. Confira que não sobrou nula nenhuma. Só então crie o índice HNSW. Religar o `query_vec` fica para outro dia e outra sessão.
+Habilite o model access no console. Rode o bootstrap em `infra/aws/bootstrap/` e guarde o nome do bucket. Volte para `infra/aws/`, rode `init` com o `-backend-config` do bucket, depois `plan` e `apply`, e exporte as três variáveis. Rode o ensaio sem flag nenhuma. Rode `--execute` para a cobaia de cinco. Confira as cinco no banco com as queries do item 5. Rode `--execute --limit 501`. Confira que não sobrou nula nenhuma. Só então crie o índice HNSW. Religar o `query_vec` fica para outro dia e outra sessão.
+
+## O que neste runbook ainda não foi executado
+
+Honestidade sobre o alcance do que está escrito acima, porque um runbook em que não se confia é pior que nenhum.
+
+Tudo que depende de conta AWS foi **escrito e validado, nunca executado**. Isso inclui os dois `apply`, o `init` com `-backend-config` real, a criação do bucket, o `use_lockfile` travando de fato, o `--execute` do backfill em qualquer tamanho, e o `create_hnsw_index.sql`. A configuração do Terraform foi verificada com `terraform init -backend=false` seguido de `terraform validate` nas duas stacks, e ambas passaram com `terraform fmt` limpo — o que prova sintaxe e coerência de referências, e não prova que a AWS aceita o que está sendo pedido.
+
+O que foi executado de verdade: o ensaio do backfill contra o banco real, com e sem `boto3` instalado, lendo as 501 linhas; e as consultas de leitura que produziram os números citados na abertura. As queries de conferência do item 5 usam `vector_dims`, cuja disponibilidade foi confirmada neste banco (pgvector 0.8.0) em vez de assumida — mas elas nunca rodaram sobre um vetor de verdade, porque ainda não existe nenhum.

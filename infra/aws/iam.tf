@@ -83,9 +83,11 @@ resource "aws_iam_user_policy" "bedrock_embed" {
 # fica invisível para o código, não aparece em plan nenhum e sobrevive a tudo.
 #
 # O PREÇO, DITO NA CARA: a secret vai para o terraform.tfstate em texto claro.
-# É daí que saem as duas travas desta etapa — *.tfstate* no .gitignore (o repo é
-# PÚBLICO) e a migração do state para S3 criptografado na Etapa 4. O detalhe do
-# que `sensitive` faz e do que ele NÃO faz está no outputs.tf.
+# É daí que saem as duas travas que a protegem — *.tfstate* no .gitignore (o
+# repo é PÚBLICO) e, desde a Etapa 4, o state morando num bucket S3
+# criptografado, privado nos quatro flags e versionado, em vez de num arquivo no
+# disco. O detalhe do que `sensitive` faz e do que ele NÃO faz está no
+# outputs.tf; o backend está no main.tf e o bucket, em bootstrap/.
 resource "aws_iam_access_key" "embedder" {
   user = aws_iam_user.embedder.name
 }

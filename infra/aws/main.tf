@@ -25,14 +25,50 @@ terraform {
     }
   }
 
-  # POR QUE O STATE É LOCAL NESTA ETAPA (e isso é deliberado, não esquecimento):
-  # backend S3 exige um bucket que ainda não existe, e criar o bucket com o
-  # mesmo Terraform que guardaria o state dentro dele é o problema do ovo e da
-  # galinha. O state migra para S3 — criptografado, com lock — na Etapa 4,
-  # quando já houver bucket para apontar.
+  # ETAPA 4 — o state saiu do disco e foi para o S3.
   #
-  # Enquanto for local, o terraform.tfstate fica no disco e NÃO entra no git.
-  # O motivo está no outputs.tf: ele carrega a secret access key em texto claro.
+  # POR QUE ISTO IMPORTA MAIS AQUI DO QUE EM QUALQUER OUTRA STACK:
+  # este tfstate carrega a secret access key do usuário embedder em texto claro
+  # (ver outputs.tf). No disco, ele dependia de um .gitignore para não vazar num
+  # repositório PÚBLICO — uma proteção que é uma linha de texto e um descuido de
+  # distância. No S3 ele fica criptografado, num bucket com acesso público
+  # bloqueado nos quatro flags e com versionamento ligado.
+  #
+  # CONFIGURAÇÃO PARCIAL — o `bucket` NÃO está declarado aqui de propósito.
+  # O nome dele termina no account id, que não é conhecido no momento em que
+  # este arquivo é escrito e que não deve ficar registrado num repo público.
+  # Ele entra no `init`, lido direto do output do bootstrap:
+  #
+  #   terraform init -backend-config="bucket=$(terraform -chdir=bootstrap output -raw bucket_name)"
+  #
+  # PARA VALIDAR ESTE ARQUIVO SEM CONTA AWS: `terraform init -backend=false`.
+  # Um `init` normal tenta conectar ao bucket e falha por falta de credencial —
+  # o que é o comportamento correto dele, não um defeito da configuração.
+  backend "s3" {
+    # Caminho do objeto dentro do bucket. O prefixo por componente deixa espaço
+    # para as próximas etapas (o ECS da Etapa 3) morarem no mesmo bucket sem
+    # disputar a mesma chave.
+    key    = "bedrock-embeddings/terraform.tfstate"
+    region = "us-east-1"
+
+    # Criptografa o objeto na escrita. Redundante com a criptografia padrão que
+    # o bootstrap configurou no bucket, e mantido assim de propósito: se alguém
+    # um dia apontar este backend para outro bucket, sem SSE por padrão, o state
+    # continua sendo gravado criptografado.
+    encrypt = true
+
+    # A TRAVA DE CONCORRÊNCIA — e o motivo de NÃO haver `dynamodb_table` aqui.
+    #
+    # Conferido na doc oficial da HashiCorp: "DynamoDB-based locking is
+    # deprecated and will be removed in a future minor version". O caminho atual
+    # é `use_lockfile`, que faz a trava por escrita condicional no próprio S3,
+    # gravando um objeto .tflock ao lado do state.
+    #
+    # Uma tabela DynamoDB aqui funcionaria hoje e quebraria numa minor futura —
+    # além de ser mais um recurso para criar, pagar e lembrar de destruir. Quem
+    # encontrar tutorial mais antigo vai ver `dynamodb_table`: está velho.
+    use_lockfile = true
+  }
 }
 
 provider "aws" {

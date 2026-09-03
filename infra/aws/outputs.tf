@@ -57,7 +57,9 @@ output "secret_access_key" {
   # É exatamente daí que vêm as duas regras desta etapa:
   #   1. *.tfstate* bloqueado no .gitignore — este repositório é PÚBLICO, e um
   #      tfstate commitado equivale a publicar a credencial;
-  #   2. o state migra para S3 com criptografia e acesso restrito na Etapa 4.
+  #   2. desde a Etapa 4 o state nem passa pelo disco: mora num bucket S3
+  #      criptografado, com acesso público bloqueado e versionamento ligado.
+  #      Ver o bloco `backend "s3"` no main.tf e o bucket em bootstrap/.
   #
   # Para ler o valor de propósito, uma vez, ao popular o .env:
   #   terraform output -raw secret_access_key
